@@ -1,0 +1,26 @@
+{
+  "project_name": "morton",
+  "files": {
+    "morton.i": {
+      "relative_path": "morton.i",
+      "original_file": "morton.c",
+      "includes": [
+        "morton.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "Morton": "struct Morton\n{\n    unsigned lo;\n    unsigned hi;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "morton": "unsigned long long morton(unsigned hi, unsigned lo)\n{\n    unsigned long long xu = lo;\n    unsigned long long yu = hi;\n    xu = (xu | xu << 020) & 0x0000FFFF0000FFFF;\n    xu = (xu | xu << 010) & 0x00FF00FF00FF00FF;\n    xu = (xu | xu << 004) & 0x0F0F0F0F0F0F0F0F;\n    xu = (xu | xu << 002) & 0x3333333333333333;\n    xu = (xu | xu << 001) & 0x5555555555555555;\n    yu = (yu | yu << 020) & 0x0000FFFF0000FFFF;\n    yu = (yu | yu << 010) & 0x00FF00FF00FF00FF;\n    yu = (yu | yu << 004) & 0x0F0F0F0F0F0F0F0F;\n    yu = (yu | yu << 002) & 0x3333333333333333;\n    yu = (yu | yu << 001) & 0x5555555555555555;\n    return xu | yu << 1;\n}",
+          "unmortoner": "static inline unsigned unmortoner(unsigned long long x)\n{\n    x &= 0x5555555555555555;\n    x = (x | x >> 001) & 0x3333333333333333;\n    x = (x | x >> 002) & 0x0F0F0F0F0F0F0F0F;\n    x = (x | x >> 004) & 0x00FF00FF00FF00FF;\n    x = (x | x >> 010) & 0x0000FFFF0000FFFF;\n    x = (x | x >> 020) & 0x00000000FFFFFFFF;\n    return x;\n}",
+          "unmorton": "struct Morton unmorton(unsigned long long z)\n{\n    struct Morton m;\n    m.hi = unmortoner(z);\n    m.lo = unmortoner(z >> 1);\n    return m;\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

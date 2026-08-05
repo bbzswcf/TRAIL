@@ -1,0 +1,140 @@
+{
+  "project_name": "blt",
+  "files": {
+    "src/bm.i": {
+      "relative_path": "src/bm.i",
+      "original_file": "src/bm.c",
+      "includes": [],
+      "declarations": {
+        "globals": {
+          "bm_tp": "static struct timespec bm_tp[2];"
+        },
+        "structs": {},
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "bm_init": "void bm_init()\n{\n    clock_gettime(1, bm_tp);\n}",
+          "bm_report": "void bm_report(char *msg)\n{\n    clock_gettime(1, bm_tp + 1);\n    printf(\"%s: %ld.%09lds\\n\", msg, bm_tp[1].tv_sec - bm_tp[0].tv_sec - (bm_tp[1].tv_nsec < bm_tp[0].tv_nsec),\n           bm_tp[1].tv_nsec - bm_tp[0].tv_nsec + (bm_tp[1].tv_nsec < bm_tp[0].tv_nsec) * 1000000000L);\n    clock_gettime(1, bm_tp);\n}",
+          "bm_read_keys": "void bm_read_keys(void (*cb)(char **key, int m))\n{\n    char **key;\n    int max = 8, m = 0;\n    key = malloc(sizeof(*key) * max);\n    for (;;)\n    {\n        char *s = 0;\n        size_t n;\n        ssize_t len = getline(&s, &n, stdin);\n        if (feof(stdin))\n            break;\n        if (len == -1)\n            perror(\"getline\"), exit(1);\n        if (s[len - 1] == '\\n')\n            s[len - 1] = 0;\n        key[m++] = s;\n        if (m == max)\n            max *= 2, key = realloc(key, sizeof(*key) * max);\n    }\n    for (int i = m - 1; i > 1; i--)\n    {\n        int j = random() % i;\n        char *tmp = key[i];\n        key[i] = key[j];\n        key[j] = tmp;\n    }\n    cb(key, m);\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/blt.i": {
+      "relative_path": "src/blt.i",
+      "original_file": "src/blt.c",
+      "includes": [
+        "blt.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "BLT": "struct BLT\n{\n    struct blt_node_s root[1];\n    int empty;\n}",
+          "BLT_IT": "typedef struct BLT_IT BLT_IT;",
+          "blt_node_s": "struct blt_node_s\n{\n    unsigned int byte : 32;\n    unsigned int mask : 8;\n    unsigned int padding : 23;\n    unsigned int is_internal : 1;\n    struct blt_node_s *kid;\n}",
+          "blt_node_ptr": "typedef struct blt_node_s *blt_node_ptr;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "blt_forall": "static inline void blt_forall(BLT *blt, void (*fun)(BLT_IT *))\n{\n    int f(BLT_IT * it)\n    {\n        return fun(it), 1;\n    }\n    blt_allprefixed(blt, \"\", f);\n}",
+          "to_mask": "static inline uint8_t to_mask(uint8_t x)\n{\n    x |= x >> 1;\n    x |= x >> 2;\n    x |= x >> 4;\n    return x & ~(x >> 1);\n    if (0)\n    {\n        while (x & (x - 1))\n            x &= x - 1;\n        return 255 - x;\n    }\n}",
+          "follow": "static inline blt_node_ptr follow(blt_node_ptr p, char *key)\n{\n    return key[p->byte] & p->mask ? p->kid + 1 : p->kid;\n}",
+          "blt_new": "BLT *blt_new()\n{\n    BLT *blt = malloc(sizeof(*blt));\n    blt->empty = 1;\n    return blt;\n}",
+          "blt_clear": "void blt_clear(BLT *blt)\n{\n    void free_node(blt_node_ptr p)\n    {\n        if (!p->is_internal)\n        {\n            free(((BLT_IT *)p)->key);\n            return;\n        }\n        blt_node_ptr q = p->kid;\n        free_node(q);\n        free_node(q + 1);\n        free(q);\n    }\n    if (!blt->empty)\n        free_node(blt->root);\n    free(blt);\n}",
+          "blt_overhead": "size_t blt_overhead(BLT *blt)\n{\n    size_t n = sizeof(BLT);\n    if (blt->empty)\n        return n;\n    void add(blt_node_ptr p)\n    {\n        if (p->is_internal)\n        {\n            n += 2 * sizeof(struct blt_node_s);\n            add(p->kid);\n            add(p->kid + 1);\n        }\n    }\n    add(blt->root);\n    return n;\n}",
+          "blt_dump": "void blt_dump(BLT *blt, blt_node_ptr p)\n{\n    if (blt->empty)\n        return;\n    if (p->is_internal)\n    {\n        blt_dump(blt, p->kid);\n        blt_dump(blt, p->kid + 1);\n        return;\n    }\n    printf(\"  %s\\n\", (char *)((BLT_IT *)p)->key);\n}",
+          "blt_firstlast": "static BLT_IT *blt_firstlast(blt_node_ptr p, int dir)\n{\n    if (!p)\n        return 0;\n    while (p->is_internal)\n        p = ((blt_node_ptr)p->kid) + dir;\n    return (BLT_IT *)p;\n}",
+          "blt_first": "BLT_IT *blt_first(BLT *blt)\n{\n    return blt->empty ? 0 : blt_firstlast(blt->root, 0);\n}",
+          "blt_last": "BLT_IT *blt_last(BLT *blt)\n{\n    return blt->empty ? 0 : blt_firstlast(blt->root, 1);\n}",
+          "blt_next": "BLT_IT *blt_next(BLT *blt, BLT_IT *it)\n{\n    blt_node_ptr p = blt->root, other = 0;\n    while (p->is_internal)\n    {\n        if (!(it->key[p->byte] & p->mask))\n        {\n            other = p->kid + 1;\n            p = p->kid;\n        }\n        else\n        {\n            p = p->kid + 1;\n        }\n    }\n    ((void)sizeof((!strcmp(((BLT_IT *)p)->key, it->key)) ? 1 : 0), __extension__({\n         if (!strcmp(((BLT_IT *)p)->key, it->key))\n             ;\n         else\n             __assert_fail(\"!strcmp(((BLT_IT *)p)->key, it->key)\",\n                           \"/home/bbzs/code/reporeflectrust/data/project/CBench/blt/src/blt.c\", 148,\n                           __extension__ __PRETTY_FUNCTION__);\n     }));\n    return blt_firstlast(other, 0);\n}",
+          "blt_prev": "BLT_IT *blt_prev(BLT *blt, BLT_IT *it)\n{\n    blt_node_ptr p = blt->root, other = 0;\n    while (p->is_internal)\n    {\n        if (it->key[p->byte] & p->mask)\n        {\n            other = p->kid;\n            p = p->kid + 1;\n        }\n        else\n        {\n            p = p->kid;\n        }\n    }\n    ((void)sizeof((!strcmp(((BLT_IT *)p)->key, it->key)) ? 1 : 0), __extension__({\n         if (!strcmp(((BLT_IT *)p)->key, it->key))\n             ;\n         else\n             __assert_fail(\"!strcmp(((BLT_IT *)p)->key, it->key)\",\n                           \"/home/bbzs/code/reporeflectrust/data/project/CBench/blt/src/blt.c\", 162,\n                           __extension__ __PRETTY_FUNCTION__);\n     }));\n    return blt_firstlast(other, 1);\n}",
+          "confident_get": "static inline BLT_IT *confident_get(BLT *blt, char *key)\n{\n    if (blt->empty)\n        return 0;\n    blt_node_ptr p = blt->root;\n    int keylen = strlen(key);\n    while (p->is_internal)\n    {\n        p = p->byte < keylen && (key[p->byte] & p->mask) ? p->kid + 1 : p->kid;\n    }\n    return (void *)p;\n}",
+          "blt_ceilfloor": "BLT_IT *blt_ceilfloor(BLT *blt, char *key, int way)\n{\n    BLT_IT *p = confident_get(blt, key);\n    if (!p)\n        return 0;\n    for (char *c = key, *pc = p->key;; c++, pc++)\n    {\n        uint8_t x = *c ^ *pc;\n        if (x)\n        {\n            int byte = c - key;\n            x = to_mask(x);\n            blt_node_ptr p = blt->root, other = 0;\n            while (p->is_internal)\n            {\n                if ((byte << 8) + p->mask < (p->byte << 8) + x)\n                    break;\n                int dir = !!(p->mask & key[p->byte]);\n                blt_node_ptr q = p->kid;\n                if (dir == way)\n                    other = q + 1 - way;\n                p = q + dir;\n            }\n            int ndir = !!(x & key[byte]);\n            if (ndir == way)\n                other = p;\n            return blt_firstlast(other, way);\n        }\n        if (!*c)\n            return (BLT_IT *)p;\n    }\n}",
+          "blt_ceil": "BLT_IT *blt_ceil(BLT *blt, char *key)\n{\n    return blt_ceilfloor(blt, key, 0);\n}",
+          "blt_floor": "BLT_IT *blt_floor(BLT *blt, char *key)\n{\n    return blt_ceilfloor(blt, key, 1);\n}",
+          "blt_setp": "BLT_IT *blt_setp(BLT *blt, char *key, int *is_new)\n{\n    BLT_IT *p = confident_get(blt, key);\n    if (!p)\n    {\n        blt->empty = 0;\n        BLT_IT *leaf = (BLT_IT *)blt->root;\n        leaf->key = strdup(key);\n        leaf->data = 0;\n        if (is_new)\n            *is_new = 1;\n        return leaf;\n    }\n    for (char *c = key, *pc = p->key;; c++, pc++)\n    {\n        uint8_t x = *c ^ *pc;\n        if (x)\n        {\n            blt_node_ptr n = malloc(2 * sizeof(*n));\n            x = to_mask(x);\n            BLT_IT *leaf = (BLT_IT *)n;\n            blt_node_ptr other = n;\n            if (*c & x)\n                leaf++;\n            else\n                other++;\n            leaf->key = strdup(key);\n            leaf->data = 0;\n            int byte = c - key;\n            blt_node_ptr p = (blt_node_ptr)blt->root;\n            while (p->is_internal)\n            {\n                if ((byte << 8) + p->mask < (p->byte << 8) + x)\n                    break;\n                p = follow(p, key);\n            }\n            *other = *p;\n            p->byte = byte;\n            p->mask = x;\n            p->kid = n;\n            p->is_internal = 1;\n            if (is_new)\n                *is_new = 1;\n            return leaf;\n        }\n        if (!*c)\n        {\n            if (is_new)\n                *is_new = 0;\n            return p;\n        }\n    }\n}",
+          "blt_set": "BLT_IT *blt_set(BLT *blt, char *key)\n{\n    return blt_setp(blt, key, 0);\n}",
+          "blt_put": "BLT_IT *blt_put(BLT *blt, char *key, void *data)\n{\n    BLT_IT *it = blt_set(blt, key);\n    it->data = data;\n    return it;\n}",
+          "blt_put_if_absent": "int blt_put_if_absent(BLT *blt, char *key, void *data)\n{\n    int is_new;\n    BLT_IT *it = blt_setp(blt, key, &is_new);\n    if (is_new)\n        it->data = data;\n    return !is_new;\n}",
+          "blt_delete": "int blt_delete(BLT *blt, char *key)\n{\n    if (blt->empty)\n        return 0;\n    int keylen = strlen(key);\n    blt_node_ptr p = blt->root, p0 = 0;\n    while (p->is_internal)\n    {\n        if (p->byte > keylen)\n            return 0;\n        p0 = p;\n        p = follow(p, key);\n    }\n    BLT_IT *leaf = (BLT_IT *)p;\n    if (strcmp(key, leaf->key))\n        return 0;\n    free(leaf->key);\n    if (!p0)\n    {\n        blt->empty = 1;\n        return 1;\n    }\n    blt_node_ptr q = p0->kid;\n    *p0 = *(p == q ? q + 1 : q);\n    free(q);\n    return 1;\n}",
+          "blt_allprefixed": "int blt_allprefixed(BLT *blt, char *key, int (*fun)(BLT_IT *))\n{\n    if (blt->empty)\n        return 1;\n    blt_node_ptr p = blt->root, top = p;\n    int keylen = strlen(key);\n    while (p->is_internal)\n    {\n        if (p->byte >= keylen)\n        {\n            p = p->kid;\n        }\n        else\n        {\n            p = follow(p, key);\n            top = p;\n        }\n    }\n    if (strncmp(key, ((BLT_IT *)p)->key, keylen))\n        return 1;\n    int traverse(blt_node_ptr p)\n    {\n        if (p->is_internal)\n        {\n            int status = traverse(p->kid);\n            if (status != 1)\n                return status;\n            status = traverse(p->kid + 1);\n            if (status != 1)\n                return status;\n            return 1;\n        }\n        return fun((BLT_IT *)p);\n    }\n    return traverse(top);\n}",
+          "blt_get": "BLT_IT *blt_get(BLT *blt, char *key)\n{\n    if (blt->empty)\n        return 0;\n    blt_node_ptr p = blt->root;\n    int keylen = strlen(key);\n    while (p->is_internal)\n    {\n        if (p->byte > keylen)\n            return 0;\n        p = follow(p, key);\n    }\n    BLT_IT *r = (BLT_IT *)p;\n    return strcmp(key, r->key) ? 0 : r;\n}",
+          "blt_empty": "int blt_empty(BLT *blt)\n{\n    return blt->empty;\n}",
+          "blt_size": "int blt_size(BLT *blt)\n{\n    int r = 0;\n    void f(BLT_IT * it)\n    {\n        r++;\n    }\n    blt_forall(blt, f);\n    return r;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/cbt.i": {
+      "relative_path": "src/cbt.i",
+      "original_file": "src/cbt.c",
+      "includes": [
+        "cbt.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "cbt_s": "struct cbt_s\n{\n    int count;\n    cbt_node_ptr root;\n    struct cbt_leaf_s *first, *last;\n    void *(*dup)(cbt_t, const void *);\n    int (*getlen)(cbt_t, const void *);\n    int (*cmp)(cbt_t, const void *, const void *);\n    int (*getcrit)(cbt_t, const void *, const void *);\n    int len;\n}",
+          "cbt_t": "typedef struct cbt_s *cbt_t;",
+          "cbt_leaf_s": "struct cbt_leaf_s\n{\n    short crit;\n    void *data;\n    char *key;\n    struct cbt_leaf_s *prev, *next;\n}",
+          "cbt_it": "typedef struct cbt_leaf_s *cbt_it;",
+          "cbt_node_s": "struct cbt_node_s\n{\n    short crit;\n    struct cbt_node_s *left, *right;\n}",
+          "cbt_node_t": "typedef struct cbt_node_s cbt_node_t[1];",
+          "cbt_node_ptr": "typedef struct cbt_node_s *cbt_node_ptr;",
+          "cbt_leaf_t": "typedef struct cbt_leaf_s cbt_leaf_t[1];",
+          "cbt_leaf_ptr": "typedef struct cbt_leaf_s *cbt_leaf_ptr;"
+        },
+        "unions": {},
+        "enums": {
+          "EXT": "enum\n{\n    EXT = -1\n}"
+        },
+        "functions": {
+          "cbt_is_off": "static inline int cbt_is_off(cbt_it it)\n{\n    return !it;\n}",
+          "cbt_clear_with": "static inline void cbt_clear_with(cbt_t cbt, void (*fn)(void *data, const void *key))\n{\n    cbt_remove_all_with(cbt, fn);\n}",
+          "cbt_node_free": "void cbt_node_free(cbt_node_ptr t)\n{\n    if (!t)\n        return;\n    if (EXT == t->crit)\n    {\n        free(((cbt_leaf_ptr)t)->key);\n    }\n    else\n    {\n        cbt_node_free(t->left), cbt_node_free(t->right);\n    }\n    free(t);\n}",
+          "cbt_init": "static void cbt_init(cbt_t cbt)\n{\n    cbt->count = 0;\n    cbt->root = 0;\n    cbt->first = cbt->last = 0;\n}",
+          "getcrit": "static int getcrit(cbt_t unused, const void *key0, const void *key1)\n{\n    const char *c0 = key0, *c1 = key1;\n    int bit;\n    while (*c0 == *c1)\n    {\n        if (!*c0)\n            return 0;\n        c0++, c1++;\n    }\n    char c = *c0 ^ *c1;\n    for (bit = 7; !(c >> bit); bit--)\n        ;\n    int crit = ((c0 - (const char *)key0) << 3) + 7 - bit + 1;\n    if ((*c0 >> bit) & 1)\n        return crit;\n    return -crit;\n}",
+          "cmp": "static int cmp(cbt_t unused, const void *key0, const void *key1)\n{\n    return strcmp(key0, key1);\n}",
+          "getlen": "static int getlen(cbt_t unused, const void *key)\n{\n    return strlen(key) + 1;\n}",
+          "dup": "static void *dup(cbt_t unused, const void *key)\n{\n    return strdup(key);\n}",
+          "cbt_new": "cbt_t cbt_new(void)\n{\n    cbt_t res = malloc(sizeof(*res));\n    cbt_init(res);\n    res->len = 0;\n    res->cmp = cmp;\n    res->dup = dup;\n    res->getlen = getlen;\n    res->getcrit = getcrit;\n    return res;\n}",
+          "getcrit_u": "static int getcrit_u(cbt_t cbt, const void *key0, const void *key1)\n{\n    const char *cp0 = key0, *limit = key0 + cbt->len, *cp1 = key1;\n    for (;;)\n    {\n        if (cp0 == limit)\n            return 0;\n        if (*cp0 != *cp1)\n            break;\n        cp0++, cp1++;\n    }\n    int bit;\n    char c = *cp0 ^ *cp1;\n    for (bit = 7; !(c >> bit); bit--)\n        ;\n    int crit = ((cp0 - (const char *)key0) << 3) + 7 - bit + 1;\n    if ((*cp0 >> bit) & 1)\n        return crit;\n    return -crit;\n}",
+          "cmp_u": "static int cmp_u(cbt_t cbt, const void *key0, const void *key1)\n{\n    return memcmp(key0, key1, cbt->len);\n}",
+          "dup_u": "static void *dup_u(cbt_t cbt, const void *key)\n{\n    void *res = malloc(cbt->len);\n    memcpy(res, key, cbt->len);\n    return res;\n}",
+          "getlen_u": "static int getlen_u(cbt_t cbt, const void *unused)\n{\n    return cbt->len;\n}",
+          "cbt_new_u": "cbt_t cbt_new_u(int len)\n{\n    cbt_t res = malloc(sizeof(*res));\n    cbt_init(res);\n    res->len = len;\n    res->cmp = cmp_u;\n    res->getlen = getlen_u;\n    res->dup = dup_u;\n    res->getcrit = getcrit_u;\n    return res;\n}",
+          "getlen_enc": "static int getlen_enc(cbt_t unused, const void *key)\n{\n    const uint8_t *u = (const uint8_t *)key;\n    return *u + (u[1] << 8);\n}",
+          "cmp_enc": "static int cmp_enc(cbt_t cbt, const void *key0, const void *key1)\n{\n    int len = getlen_enc(0, key0);\n    return getlen_enc(0, key1) != len ? 1 : memcmp(key0, key1, len + 2);\n}",
+          "dup_enc": "static void *dup_enc(cbt_t cbt, const void *key)\n{\n    int len = getlen_enc(0, key) + 2;\n    void *res = malloc(len);\n    memcpy(res, key, len);\n    return res;\n}",
+          "getcrit_enc": "static int getcrit_enc(cbt_t cbt, const void *key0, const void *key1)\n{\n    int n = getlen_enc(0, key0), n1 = getlen_enc(0, key1);\n    if (n > n1)\n        n = n1;\n    const char *cp0 = key0, *limit = key0 + n + 2, *cp1 = key1;\n    for (;;)\n    {\n        if (cp0 == limit)\n            return 0;\n        if (*cp0 != *cp1)\n            break;\n        cp0++, cp1++;\n    }\n    int bit;\n    char c = *cp0 ^ *cp1;\n    for (bit = 7; !(c >> bit); bit--)\n        ;\n    int crit = ((cp0 - (const char *)key0) << 3) + 7 - bit + 1;\n    return (*cp0 >> bit) & 1 ? crit : -crit;\n}",
+          "cbt_new_enc": "cbt_t cbt_new_enc()\n{\n    cbt_t res = malloc(sizeof(*res));\n    cbt_init(res);\n    res->len = 0;\n    res->cmp = cmp_enc;\n    res->getlen = getlen_enc;\n    res->dup = dup_enc;\n    res->getcrit = getcrit_enc;\n    return res;\n}",
+          "cbt_clear": "static void cbt_clear(cbt_t cbt)\n{\n    cbt_node_free(cbt->root);\n}",
+          "cbt_delete": "void cbt_delete(cbt_t cbt)\n{\n    cbt_clear(cbt);\n    free(cbt);\n}",
+          "cbt_size": "int cbt_size(cbt_t cbt)\n{\n    return cbt->count;\n}",
+          "cbt_first": "cbt_it cbt_first(cbt_t cbt)\n{\n    return cbt->first;\n}",
+          "cbt_last": "cbt_it cbt_last(cbt_t cbt)\n{\n    return cbt->last;\n}",
+          "cbt_next": "cbt_it cbt_next(cbt_it it)\n{\n    return it->next;\n}",
+          "cbt_put": "void cbt_put(cbt_it it, void *data)\n{\n    it->data = data;\n}",
+          "cbt_get": "void *cbt_get(cbt_it it)\n{\n    return it->data;\n}",
+          "cbt_key": "char *cbt_key(cbt_it it)\n{\n    return it->key;\n}",
+          "testbit": "static int testbit(const void *key, int bit)\n{\n    return (1 << (7 - (bit & 7))) & ((const char *)key)[bit >> 3];\n}",
+          "cbt_at": "cbt_it cbt_at(cbt_t cbt, const void *key)\n{\n    if (!cbt->root)\n        return 0;\n    int len = (cbt->getlen(cbt, key) << 3) - 1;\n    cbt_node_ptr p = cbt->root;\n    for (;;)\n    {\n        if (EXT == p->crit)\n            break;\n        if (len < p->crit)\n        {\n            do\n                p = p->left;\n            while (EXT != p->crit);\n            break;\n        }\n        p = testbit(key, p->crit) ? p->right : p->left;\n    }\n    if (!cbt->cmp(cbt, ((cbt_leaf_ptr)p)->key, key))\n        return (cbt_leaf_ptr)p;\n    return 0;\n}",
+          "cbt_has": "int cbt_has(cbt_t cbt, const void *key)\n{\n    return cbt_at(cbt, key) != 0;\n}",
+          "cbt_get_at": "void *cbt_get_at(cbt_t cbt, const void *key)\n{\n    cbt_leaf_ptr p = cbt_at(cbt, key);\n    if (!p)\n        return 0;\n    return p->data;\n}",
+          "cbt_insert_with": "int cbt_insert_with(cbt_it *it, cbt_t cbt, void *(*fn)(void *), const void *key)\n{\n    if (!cbt->root)\n    {\n        cbt_leaf_ptr leaf = malloc(sizeof(cbt_leaf_t));\n        leaf->crit = EXT, leaf->data = fn(0), leaf->key = cbt->dup(cbt, key);\n        cbt->root = (cbt_node_ptr)leaf;\n        cbt->first = cbt->last = leaf;\n        leaf->next = leaf->prev = 0;\n        cbt->count++;\n        return *it = leaf, 1;\n    }\n    cbt_node_ptr t = cbt->root;\n    int keylen = (cbt->getlen(cbt, key) << 3) - 1;\n    while (EXT != t->crit)\n    {\n        t = keylen < t->crit || testbit(key, t->crit) ? t->right : t->left;\n    }\n    cbt_leaf_ptr leaf = (cbt_leaf_ptr)t;\n    int res = cbt->getcrit(cbt, key, leaf->key);\n    if (!res)\n    {\n        leaf->data = fn(leaf->data);\n        return *it = leaf, 0;\n    }\n    cbt->count++;\n    cbt_leaf_ptr pleaf = malloc(sizeof(cbt_leaf_t));\n    cbt_node_ptr pnode = malloc(sizeof(cbt_node_t));\n    pleaf->crit = EXT, pleaf->data = fn(0), pleaf->key = cbt->dup(cbt, key);\n    pnode->crit = abs(res) - 1;\n    cbt_node_ptr t0 = 0, t1 = cbt->root;\n    while (EXT != t1->crit && pnode->crit > t1->crit)\n    {\n        t0 = t1, t1 = testbit(key, t1->crit) ? t1->right : t1->left;\n    }\n    if (res > 0)\n    {\n        pnode->left = t1;\n        pnode->right = (cbt_node_ptr)pleaf;\n        for (t = pnode->left; t->crit != EXT; t = t->right)\n            ;\n        cbt_leaf_ptr leaf = (cbt_leaf_ptr)t;\n        pleaf->next = leaf->next;\n        pleaf->prev = leaf;\n        if (leaf->next)\n            leaf->next->prev = pleaf;\n        else\n            cbt->last = pleaf;\n        leaf->next = pleaf;\n    }\n    else\n    {\n        pnode->left = (cbt_node_ptr)pleaf;\n        pnode->right = t1;\n        for (t = pnode->right; t->crit != EXT; t = t->left)\n            ;\n        cbt_leaf_ptr leaf = (cbt_leaf_ptr)t;\n        pleaf->prev = leaf->prev;\n        pleaf->next = leaf;\n        if (leaf->prev)\n            leaf->prev->next = pleaf;\n        else\n            cbt->first = pleaf;\n        leaf->prev = pleaf;\n    }\n    if (!t0)\n    {\n        cbt->root = pnode;\n    }\n    else if (t0->left == t1)\n    {\n        t0->left = pnode;\n    }\n    else\n    {\n        t0->right = pnode;\n    }\n    return *it = pleaf, 1;\n}",
+          "cbt_put_with": "cbt_it cbt_put_with(cbt_t cbt, void *(*fn)(void *), const void *key)\n{\n    cbt_it it;\n    cbt_insert_with(&it, cbt, fn, key);\n    return it;\n}",
+          "cbt_put_at": "cbt_it cbt_put_at(cbt_t cbt, void *data, const void *key)\n{\n    void *returndata(void *p)\n    {\n        return data;\n    }\n    return cbt_put_with(cbt, returndata, key);\n}",
+          "cbt_remove": "void *cbt_remove(cbt_t cbt, const void *key)\n{\n    ((void)(0));\n    ((void)(0));\n    cbt_node_ptr t0 = 0, t00 = 0, t = cbt->root;\n    while (EXT != t->crit)\n    {\n        ((void)(0));\n        t00 = t0, t0 = t, t = testbit(key, t->crit) ? t->right : t->left;\n    }\n    cbt->count--;\n    cbt_leaf_ptr p = (cbt_leaf_ptr)t;\n    if (!t0)\n    {\n        cbt->root = 0;\n    }\n    else\n    {\n        cbt_node_ptr sibling = t0->left == t ? t0->right : t0->left;\n        if (!t00)\n        {\n            cbt->root = sibling;\n        }\n        else\n        {\n            if (t00->left == t0)\n            {\n                t00->left = sibling;\n            }\n            else\n            {\n                t00->right = sibling;\n            }\n        }\n        free(t0);\n    }\n    if (p->next)\n        p->next->prev = p->prev;\n    else\n        cbt->last = p->prev;\n    if (p->prev)\n        p->prev->next = p->next;\n    else\n        cbt->first = p->next;\n    free(p->key);\n    void *data = p->data;\n    free(p);\n    return data;\n}",
+          "clear_recurse": "static void clear_recurse(cbt_node_ptr t, void (*fn)(void *, const void *))\n{\n    if (EXT == t->crit)\n    {\n        cbt_leaf_ptr p = (cbt_leaf_ptr)t;\n        if (fn)\n            fn(p->data, p->key);\n        free(p->key);\n        free(p);\n        return;\n    }\n    clear_recurse(t->left, fn);\n    clear_recurse(t->right, fn);\n    free(t);\n}",
+          "cbt_remove_all_with": "void cbt_remove_all_with(cbt_t cbt, void (*fn)(void *data, const void *key))\n{\n    if (cbt->root)\n    {\n        clear_recurse(cbt->root, fn);\n        cbt->root = 0;\n        cbt->count = 0;\n        cbt->first = cbt->last = 0;\n    }\n}",
+          "cbt_remove_all": "void cbt_remove_all(cbt_t cbt)\n{\n    if (cbt->root)\n        cbt_remove_all_with(cbt, 0);\n}",
+          "cbt_forall": "void cbt_forall(cbt_t cbt, void (*fn)(cbt_it))\n{\n    cbt_leaf_ptr p;\n    for (p = cbt->first; p; p = p->next)\n        fn(p);\n}",
+          "cbt_forall_at": "void cbt_forall_at(cbt_t cbt, void (*fn)(void *data, const void *key))\n{\n    cbt_leaf_ptr p;\n    for (p = cbt->first; p; p = p->next)\n        fn(p->data, p->key);\n}",
+          "cbt_overhead": "size_t cbt_overhead(cbt_t cbt)\n{\n    size_t n = sizeof(struct cbt_s);\n    if (!cbt->root)\n        return n;\n    void add(cbt_node_ptr p)\n    {\n        if (p->crit == EXT)\n        {\n            n += sizeof(struct cbt_leaf_s);\n        }\n        else\n        {\n            n += sizeof(struct cbt_node_s);\n            add(p->left);\n            add(p->right);\n        }\n    }\n    add(cbt->root);\n    return n;\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

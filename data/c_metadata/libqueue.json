@@ -1,0 +1,29 @@
+{
+  "project_name": "libqueue",
+  "files": {
+    "src/queue.i": {
+      "relative_path": "src/queue.i",
+      "original_file": "src/queue.c",
+      "includes": [],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "queue_node_t": "typedef struct queue_node_t\n{\n    void *value;\n    struct queue_node_t *next;\n} queue_node_t;",
+          "queue_t": "typedef struct\n{\n    u_int32_t size;\n    queue_node_t *head;\n    queue_node_t *tail;\n} queue_t;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "queue_new": "void queue_new(queue_t *queue)\n{\n    queue->head = ((void *)0);\n    queue->tail = ((void *)0);\n    queue->size = 0;\n}",
+          "queue_empty": "_Bool queue_empty(queue_t *queue)\n{\n    return queue->size == 0;\n}",
+          "queue_push": "void queue_push(queue_t *queue, void *value)\n{\n    queue_node_t *new_node = malloc(sizeof(queue_node_t));\n    new_node->value = value;\n    new_node->next = ((void *)0);\n    if (queue_empty(queue))\n    {\n        queue->tail = new_node;\n        queue->head = new_node;\n    }\n    else\n    {\n        queue->tail->next = new_node;\n        queue->tail = new_node;\n    }\n    queue->size++;\n}",
+          "queue_pop": "void *queue_pop(queue_t *queue)\n{\n    if (!queue || queue_empty(queue))\n    {\n        return ((void *)0);\n    }\n    queue_node_t *elem = queue->head;\n    queue->head = queue->head->next;\n    void *value = elem->value;\n    if (queue->size == 1)\n    {\n        queue->tail = ((void *)0);\n    }\n    queue->size--;\n    free(elem);\n    return value;\n}",
+          "queue_front": "void *queue_front(queue_t *queue)\n{\n    if (!queue)\n    {\n        return ((void *)0);\n    }\n    if (queue_empty(queue))\n    {\n        return ((void *)0);\n    }\n    return queue->head->value;\n}",
+          "queue_back": "void *queue_back(queue_t *queue)\n{\n    if (!queue)\n    {\n        return ((void *)0);\n    }\n    if (queue_empty(queue))\n    {\n        return ((void *)0);\n    }\n    return queue->tail->value;\n}",
+          "queue_free": "void queue_free(queue_t *queue)\n{\n    queue_node_t *temp = queue->head;\n    queue_node_t *temp2;\n    while (temp)\n    {\n        temp2 = temp;\n        temp = temp->next;\n        free(temp2);\n    }\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

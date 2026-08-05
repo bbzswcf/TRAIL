@@ -1,0 +1,37 @@
+{
+  "project_name": "ulidgen",
+  "files": {
+    "src/ulid.i": {
+      "relative_path": "src/ulid.i",
+      "original_file": "src/ulid.c",
+      "includes": [],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "ulidgen_r": "void ulidgen_r(char ulid[27])\n{\n    static const char *b32alphabet = \"0123456789ABCDEFGHJKMNPQRSTVWXYZ\";\n    char *buf = ulid + 10;\n    int same = 1;\n    ulid[26] = 0;\n    struct timespec tv;\n    clock_gettime(0, &tv);\n    uint64_t t = tv.tv_sec * 1000 + tv.tv_nsec / 1000000;\n    for (int i = 9; i >= 0; i--, t /= 32)\n        if (ulid[i] != b32alphabet[t % 32])\n            ulid[i] = b32alphabet[t % 32], same = 0;\n    if (same)\n    {\n        int i = 15;\n        while (i >= 0 && buf[i] == 'Z')\n            buf[i--] = '0';\n        if (i < 0)\n        {\n            nanosleep(&(struct timespec){0, 1234567}, 0);\n            ulidgen_r(ulid);\n            return;\n        }\n        char *s = strchr(b32alphabet, buf[i]);\n        if (s)\n        {\n            buf[i] = *(s + 1);\n            return;\n        }\n    }\n    unsigned char rnd[16];\n    if (getentropy(rnd, sizeof rnd) < 0)\n        abort();\n    for (int i = 0; i < 16; i++)\n        buf[i] = b32alphabet[rnd[i] % 32];\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/ulidgen.i": {
+      "relative_path": "src/ulidgen.i",
+      "original_file": "src/ulidgen.c",
+      "includes": [
+        "ulid.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "main": "int main(int argc, char *argv[])\n{\n    char ulid[27] = {0};\n    int c;\n    long n = 1;\n    int tflag = 0;\n    while ((c = getopt(argc, argv, \"n:t\")) != -1)\n        switch (c)\n        {\n        case 'n':\n            n = atol(optarg);\n            break;\n        case 't':\n            tflag = 1;\n            break;\n        }\n    if (tflag)\n    {\n        char *line = 0;\n        size_t linelen = 0;\n        setvbuf(stdout, 0, 1, 0);\n        while (getdelim(&line, &linelen, '\\n', stdin) != -1)\n        {\n            ulidgen_r(ulid);\n            printf(\"%s %s\", ulid, line);\n        }\n    }\n    else\n    {\n        for (long i = 0; i < n; i++)\n        {\n            ulidgen_r(ulid);\n            puts(ulid);\n        }\n    }\n    fflush(0);\n    exit(!!ferror(stdout));\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

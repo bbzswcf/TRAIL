@@ -1,0 +1,291 @@
+{
+  "project_name": "VaultSync",
+  "files": {
+    "src/main.i": {
+      "relative_path": "src/main.i",
+      "original_file": "src/main.c",
+      "includes": [
+        "../include/cli/cli_main.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "main": "int main(int argc, char const *argv[])\n{\n    run_cli(argc, argv);\n    return 0;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/cli/cli_vm.i": {
+      "relative_path": "src/cli/cli_vm.i",
+      "original_file": "src/cli/cli_vm.c",
+      "includes": [
+        "../../include/cli/cli_vm.h",
+        "../../include/logging/logger.h",
+        "../../include/vm/author.h",
+        "../../include/vm/repository.h",
+        "../../include/vm/common.h",
+        "../../include/vm/commit.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "author": "struct author\n{\n    char username[50];\n    char mail[100];\n}",
+          "file_node": "struct file_node\n{\n    char path[1024];\n    struct file_node *next;\n}",
+          "repository": "struct repository\n{\n    char name[80];\n    struct author *author;\n    char dir[1024];\n    struct commit *last_commit;\n}",
+          "key_value": "struct key_value\n{\n    char path[1024];\n    char raw_path[1024];\n    char hash[2 * 32 + 1];\n    struct key_value *next;\n}",
+          "hash_map": "struct hash_map\n{\n    struct key_value *table[10];\n}",
+          "commit": "struct commit\n{\n    char hash[2 * 32 + 1];\n    struct author *author;\n    char parent_hash[2 * 32 + 1];\n}"
+        },
+        "unions": {},
+        "enums": {
+          "LOGGING_TAG": "enum LOGGING_TAG\n{\n    INFO_TAG = 1,\n    ERROR_TAG = 2,\n    WARNING_TAG = 3\n}"
+        },
+        "functions": {
+          "init_repository": "void init_repository()\n{\n    struct author *author = ((void *)0);\n    if ((author = load_author()) == ((void *)0))\n    {\n        logger(ERROR_TAG, \"Can not getting the author, check the default config at ~/.vsync_rc\");\n        return;\n    }\n    struct repository *repo = ((void *)0);\n    if (init_repo(repo, author) == 1)\n    {\n        logger(INFO_TAG, \"Initialization done\");\n    }\n}",
+          "track_changes": "void track_changes(int n, char const *paths[])\n{\n    int i = 2;\n    struct file_node *files = ((void *)0);\n    while (i < n)\n    {\n        files = addFile(files, paths[i++]);\n    }\n    struct repository *repo = ((void *)0);\n    if ((repo = load_repository()) == ((void *)0))\n    {\n        logger(ERROR_TAG, \"Can not getting the repo info\");\n        return;\n    }\n    if (add_changes(repo, files) == 1)\n    {\n        logger(INFO_TAG, \"Files has been tracked successfully\");\n    }\n}",
+          "commit_changes": "void commit_changes()\n{\n    struct commit *new_commit = (struct commit *)malloc(sizeof(struct commit));\n    struct repository *repo = ((void *)0);\n    struct author *author;\n    if ((author = load_author()) == ((void *)0))\n    {\n        logger(ERROR_TAG, \"Can not getting the author, check the default config at ~/.vsync_rc\");\n        return;\n    }\n    if ((repo = load_repository()) == ((void *)0))\n    {\n        logger(ERROR_TAG, \"Can not getting the repo info\");\n        return;\n    }\n    if (make_commit(repo, author, new_commit) == 1)\n    {\n        logger(INFO_TAG, \"The commit has been done successfully\");\n    }\n}",
+          "rollback_changes": "void rollback_changes(const char *hash)\n{\n    struct repository *repo = ((void *)0);\n    if ((repo = load_repository()) == ((void *)0))\n    {\n        logger(ERROR_TAG, \"Can not getting the repo info\");\n        return;\n    }\n    if (rollback(repo, hash) == 1)\n    {\n        logger(INFO_TAG, \"The rollback has been successfully done\");\n    }\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/cli/cli_main.i": {
+      "relative_path": "src/cli/cli_main.i",
+      "original_file": "src/cli/cli_main.c",
+      "includes": [
+        "../../include/cli/cli_main.h",
+        "../../include/cli/cli_vm.h",
+        "../../include/logging/logger.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {
+          "LOGGING_TAG": "enum LOGGING_TAG\n{\n    INFO_TAG = 1,\n    ERROR_TAG = 2,\n    WARNING_TAG = 3\n}"
+        },
+        "functions": {
+          "run_cli": "void run_cli(int argc, char const *argv[])\n{\n    if (argc < 2)\n    {\n        invalid_args();\n        return;\n    }\n    else if (argc < 3)\n    {\n        int init_action = !strcmp(argv[1], \"init\");\n        int commit_action = !strcmp(argv[1], \"commit\");\n        int help_action = !strcmp(argv[1], \"--help\") || !strcmp(argv[1], \"-h\");\n        if (init_action)\n            init_repository();\n        else if (commit_action)\n            commit_changes();\n        else if (help_action)\n            getting_help();\n        else\n            invalid_args();\n        return;\n    }\n    else if ((argc < 4) && strcmp(argv[1], \"rollback\") == 0)\n    {\n        rollback_changes(argv[2]);\n        return;\n    }\n    if (strcmp(argv[1], \"add\") == 0)\n    {\n        track_changes(argc, argv);\n        return;\n    }\n    invalid_args();\n}",
+          "getting_help": "void getting_help()\n{\n    printf(\"Usage: vaultsync [OPTIONS] COMMAND\\n\\n\");\n    printf(\"Options:\\n\");\n    printf(\"  -h, --help     Show help message and exit\\n\\n\");\n    printf(\"Commands:\\n\");\n    printf(\"  init           Initialize a repository\\n\");\n    printf(\"  commit         Make a commit\\n\");\n    printf(\"  add [files]    Add files to be tracked in the next commit\\n\\n\");\n    printf(\"For more information, see 'man vaultsync'\\n\");\n}",
+          "invalid_args": "void invalid_args()\n{\n    logger(INFO_TAG, \"Invalid arguments, check --help\");\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/logging/logger.i": {
+      "relative_path": "src/logging/logger.i",
+      "original_file": "src/logging/logger.c",
+      "includes": [
+        "../../include/logging/logger.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {
+          "LOGGING_TAG": "enum LOGGING_TAG\n{\n    INFO_TAG = 1,\n    ERROR_TAG = 2,\n    WARNING_TAG = 3\n}"
+        },
+        "functions": {
+          "logger": "void logger(enum LOGGING_TAG tag, const char *message)\n{\n    time_t now;\n    time(&now);\n    char *time_now = ctime(&now);\n    time_now[strlen(time_now) - 1] = 0;\n    switch (tag)\n    {\n    case INFO_TAG:\n        printf(\"%s \"\n               \"\\e[1m\"\n               \"[%s]\"\n               \"\\e[m\"\n               \": %s\\n\",\n               time_now, \"INFO\", message);\n        break;\n    case ERROR_TAG:\n        fprintf(stderr,\n                \"%s \"\n                \"\\x1B[31m\"\n                \"\\e[1m\"\n                \"[%s]\"\n                \"\\e[m\"\n                \"\\x1B[0m\"\n                \": %s (%s)\\n\",\n                time_now, \"ERROR\", message, strerror((*__errno_location())));\n        break;\n    case WARNING_TAG:\n        printf(\"%s \"\n               \"\\e[1m\"\n               \"[%s]\"\n               \"\\e[m\"\n               \": %s\\n\",\n               time_now, \"WARNING\", message);\n        break;\n    default:\n    }\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/crypto/hashing.i": {
+      "relative_path": "src/crypto/hashing.i",
+      "original_file": "src/crypto/hashing.c",
+      "includes": [
+        "../../include/crypto/hashing.h",
+        "../../include/vm/commit.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "author": "struct author\n{\n    char username[50];\n    char mail[100];\n}",
+          "file_node": "struct file_node\n{\n    char path[1024];\n    struct file_node *next;\n}",
+          "key_value": "struct key_value\n{\n    char path[1024];\n    char raw_path[1024];\n    char hash[2 * 32 + 1];\n    struct key_value *next;\n}",
+          "hash_map": "struct hash_map\n{\n    struct key_value *table[10];\n}",
+          "repository": "struct repository\n{\n    char name[80];\n    struct author *author;\n    char dir[1024];\n    struct commit *last_commit;\n}",
+          "commit": "struct commit\n{\n    char hash[2 * 32 + 1];\n    struct author *author;\n    char parent_hash[2 * 32 + 1];\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "generate_random_data": "void generate_random_data(char *word, int length)\n{\n    const char charset[] = \"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\";\n    const size_t charset_size = sizeof(charset) - 1;\n    for (int i = 0; i < length; i++)\n    {\n        if (RAND_bytes((unsigned char *)&word[i], 1) != 1)\n        {\n            fprintf(stderr, \"Error generating random byte.\\n\");\n            exit(1);\n        }\n        word[i] = charset[word[i] % charset_size];\n    }\n    word[length] = '\\0';\n}",
+          "generate_hash": "void generate_hash(const char *data, int length, unsigned char *hash)\n{\n    SHA256_CTX sha256;\n    SHA256_Init(&sha256);\n    SHA256_Update(&sha256, data, length);\n    SHA256_Final(hash, &sha256);\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/vm/repository.i": {
+      "relative_path": "src/vm/repository.i",
+      "original_file": "src/vm/repository.c",
+      "includes": [
+        "../../include/vm/repository.h",
+        "../../include/vm/common.h",
+        "../../include/vm/commit.h",
+        "../../include/logging/logger.h",
+        "../../include/vm/author.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "author": "struct author\n{\n    char username[50];\n    char mail[100];\n}",
+          "file_node": "struct file_node\n{\n    char path[1024];\n    struct file_node *next;\n}",
+          "repository": "struct repository\n{\n    char name[80];\n    struct author *author;\n    char dir[1024];\n    struct commit *last_commit;\n}",
+          "key_value": "struct key_value\n{\n    char path[1024];\n    char raw_path[1024];\n    char hash[2 * 32 + 1];\n    struct key_value *next;\n}",
+          "hash_map": "struct hash_map\n{\n    struct key_value *table[10];\n}",
+          "commit": "struct commit\n{\n    char hash[2 * 32 + 1];\n    struct author *author;\n    char parent_hash[2 * 32 + 1];\n}"
+        },
+        "unions": {},
+        "enums": {
+          "LOGGING_TAG": "enum LOGGING_TAG\n{\n    INFO_TAG = 1,\n    ERROR_TAG = 2,\n    WARNING_TAG = 3\n}"
+        },
+        "functions": {
+          "init_repo": "int init_repo(struct repository *repo, struct author *author)\n{\n    repo = (struct repository *)malloc(sizeof(struct repository));\n    strcpy(repo->name, \"foo\");\n    if (getcwd(repo->dir, 1024) == ((void *)0))\n    {\n        logger(ERROR_TAG, \"[init_repo] Can not get the current working directory\");\n        return -1;\n    };\n    repo->author = author;\n    struct commit *first_commit = (struct commit *)malloc(sizeof(struct commit));\n    strcpy(first_commit->hash, \"0\");\n    stpcpy(first_commit->parent_hash, \"-\");\n    first_commit->author = author;\n    repo->last_commit = first_commit;\n    char dotdir_path[1024];\n    strcpy(dotdir_path, repo->dir);\n    strcat(dotdir_path, \"/.vsync\");\n    if (mkdir(dotdir_path, 0777) != 0)\n    {\n        logger(ERROR_TAG, \"[init_repo] Can not create .vsync dir\");\n        return -1;\n    }\n    if (write_repository_file(repo) == -1)\n    {\n        logger(ERROR_TAG, \"[init_repo] Can not create repository file\");\n        return -1;\n    }\n    struct hash_map *map = (struct hash_map *)malloc(sizeof(struct hash_map));\n    init_hash_map(map);\n    if (make_init_map_repo(repo, map, repo->dir) == -1)\n    {\n        logger(ERROR_TAG, \"[init_repo] can not create the hashmap for the first commit\");\n        return -1;\n    }\n    if (create_commit(repo, first_commit, map) == -1)\n    {\n        logger(ERROR_TAG, \"[init_repo] can not create the first commit\");\n        return -1;\n    }\n    clear_hash_map(map);\n    return 1;\n}",
+          "write_repository_file": "int write_repository_file(struct repository *repo)\n{\n    char repo_file_path[1024];\n    strcpy(repo_file_path, repo->dir);\n    strcat(repo_file_path, \"/.vsync/repository\");\n    FILE *repo_file = fopen(repo_file_path, \"w\");\n    if (repo_file == ((void *)0))\n    {\n        logger(ERROR_TAG, \" [write_repository_file] Can not open the repository file\");\n        return -1;\n    }\n    fprintf(repo_file, \"%s\\n\", repo->dir);\n    fprintf(repo_file, \"%s\\n\", repo->last_commit->hash);\n    fprintf(repo_file, \"%s\\n\", repo->name);\n    fprintf(repo_file, \"%s %s\", repo->author->username, repo->author->mail);\n    fclose(repo_file);\n    return 1;\n}",
+          "load_repository": "struct repository *load_repository()\n{\n    struct repository *repo = (struct repository *)malloc(sizeof(struct repository));\n    struct commit *last_commit = (struct commit *)malloc(sizeof(struct commit));\n    struct author *author = (struct author *)malloc(sizeof(struct author));\n    repo->last_commit = last_commit;\n    repo->author = author;\n    if (getcwd(repo->dir, 1024) == ((void *)0))\n    {\n        logger(ERROR_TAG, \"[load_repository] Can not get the current working directory\");\n        return ((void *)0);\n    }\n    char repository_file_path[1024];\n    strcpy(repository_file_path, repo->dir);\n    strcat(repository_file_path, \"/.vsync/repository\");\n    FILE *repository_file = fopen(repository_file_path, \"r\");\n    if (repository_file == ((void *)0))\n    {\n        logger(ERROR_TAG, \"[load_repository] Can not load the repository file\");\n        free(author);\n        free(last_commit);\n        free(repo);\n        return ((void *)0);\n    }\n    char line[1024];\n    fgets(line, 1024, repository_file);\n    fgets(line, 1024, repository_file);\n    line[strlen(line) - 1] = 0;\n    char last_commit_path[1024];\n    strcpy(last_commit_path, repo->dir);\n    strcat(last_commit_path, \"/.vsync/\");\n    strcat(last_commit_path, line);\n    strcat(last_commit_path, \"/commit\");\n    FILE *last_commit_file = fopen(last_commit_path, \"r\");\n    if (last_commit_file == ((void *)0))\n    {\n        logger(ERROR_TAG, \"[load_repository] Can not load the last commit\");\n        fclose(repository_file);\n        free(author);\n        free(last_commit);\n        free(repo);\n        return ((void *)0);\n    }\n    strcpy(last_commit->hash, line);\n    fgets(line, 80, repository_file);\n    line[strlen(line) - 1] = 0;\n    strcpy(repo->name, line);\n    fgets(line, 1024, last_commit_file);\n    line[strlen(line) - 1] = 0;\n    strcpy(last_commit->parent_hash, line);\n    struct author *last_commit_author = (struct author *)malloc(sizeof(struct author));\n    fgets(line, 100 + 1 + 50, last_commit_file);\n    line[strlen(line) - 1] = 0;\n    char *spacePos = strchr(line, ' ');\n    if (spacePos == ((void *)0))\n    {\n        logger(ERROR_TAG, \"[load_repository] Can not load the author of last commit\");\n        fclose(repository_file);\n        fclose(last_commit_file);\n        free(last_commit_author);\n        free(author);\n        free(last_commit);\n        free(repo);\n        return ((void *)0);\n    }\n    *spacePos = 0;\n    strcpy(last_commit_author->username, line);\n    strcpy(last_commit_author->mail, spacePos + 1);\n    last_commit->author = last_commit_author;\n    fgets(line, 100 + 1 + 50, repository_file);\n    line[strlen(line) - 1] = 0;\n    spacePos = strchr(line, ' ');\n    if (spacePos == ((void *)0))\n    {\n        logger(ERROR_TAG, \"[load_repository] Can not load the author of repository\");\n        fclose(repository_file);\n        fclose(last_commit_file);\n        free(last_commit_author);\n        free(author);\n        free(last_commit);\n        free(repo);\n        return ((void *)0);\n    }\n    *spacePos = 0;\n    strcpy(author->username, line);\n    strcpy(author->mail, spacePos + 1);\n    fclose(repository_file);\n    fclose(last_commit_file);\n    return repo;\n}",
+          "load_author": "struct author *load_author()\n{\n    struct author *author = (struct author *)malloc(sizeof(struct author));\n    const char *vsync_config_path = getenv(\"VSYNC_CONFIG_PATH\");\n    FILE *vsync_config_file;\n    char line[50 + 1 + 100];\n    if (vsync_config_path != ((void *)0))\n    {\n        vsync_config_file = fopen(vsync_config_path, \"r\");\n        fgets(line, 50 + 1 + 100, vsync_config_file);\n        char *spacePos = strchr(line, ' ');\n        if (spacePos != ((void *)0))\n        {\n            *spacePos = 0;\n            strcpy(author->username, line);\n            strcpy(author->mail, spacePos + 1);\n            author->mail[strlen(author->mail) - 1] = 0;\n            return author;\n        }\n    }\n    free(author);\n    logger(ERROR_TAG, \"[load_author] The global config file does not existed\");\n    return ((void *)0);\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/vm/common.i": {
+      "relative_path": "src/vm/common.i",
+      "original_file": "src/vm/common.c",
+      "includes": [
+        "../../include/vm/common.h",
+        "../../include/crypto/hashing.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "create_file": "int create_file(const char *filename, const char *content)\n{\n    FILE *file = fopen(filename, \"w\");\n    if (file == ((void *)0))\n        return -1;\n    if (fprintf(file, content) < 0)\n        return -1;\n    fclose(file);\n    return 1;\n}",
+          "is_dir_exists": "int is_dir_exists(const char *parentDir, const char *targetDir)\n{\n    DIR *dir = opendir(parentDir);\n    if (dir == ((void *)0))\n        return -1;\n    struct dirent *entry;\n    while ((entry = readdir(dir)) != ((void *)0))\n    {\n        if (entry->d_type == DT_DIR && strcmp(entry->d_name, targetDir) == 0)\n        {\n            closedir(dir);\n            return 1;\n        }\n    }\n    closedir(dir);\n    return 0;\n}",
+          "is_contains": "int is_contains(char **arr, char *str)\n{\n    while (*arr != ((void *)0))\n    {\n        if (strcmp(*arr, str))\n            return 1;\n    }\n    return 0;\n}",
+          "make_string": "void make_string(char *dest, const char *src, ...)\n{\n    strcpy(dest, src);\n    va_list args;\n    __builtin_va_start(args, src);\n    const char *current;\n    while ((current = __builtin_va_arg(args, const char *)) != ((void *)0))\n    {\n        strcat(dest, current);\n    }\n    __builtin_va_end(args);\n}",
+          "create_hash": "void create_hash(char *str)\n{\n    srand(time(((void *)0)));\n    char random_data[16];\n    generate_random_data(random_data, 16);\n    char hash[2 * 32 + 1];\n    generate_hash(random_data, 2 * 32 + 1, hash);\n    for (int i = 0; i < 32; i++)\n    {\n        sprintf(&str[2 * i], \"%02x\", hash[i]);\n    }\n    str[2 * 32 + 1] = 0;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/vm/commit.i": {
+      "relative_path": "src/vm/commit.i",
+      "original_file": "src/vm/commit.c",
+      "includes": [
+        "../../include/vm/common.h",
+        "../../include/vm/commit.h",
+        "../../include/logging/logger.h",
+        "../../include/vm/hashmap.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "author": "struct author\n{\n    char username[50];\n    char mail[100];\n}",
+          "file_node": "struct file_node\n{\n    char path[1024];\n    struct file_node *next;\n}",
+          "key_value": "struct key_value\n{\n    char path[1024];\n    char raw_path[1024];\n    char hash[2 * 32 + 1];\n    struct key_value *next;\n}",
+          "hash_map": "struct hash_map\n{\n    struct key_value *table[10];\n}",
+          "repository": "struct repository\n{\n    char name[80];\n    struct author *author;\n    char dir[1024];\n    struct commit *last_commit;\n}",
+          "commit": "struct commit\n{\n    char hash[2 * 32 + 1];\n    struct author *author;\n    char parent_hash[2 * 32 + 1];\n}"
+        },
+        "unions": {},
+        "enums": {
+          "LOGGING_TAG": "enum LOGGING_TAG\n{\n    INFO_TAG = 1,\n    ERROR_TAG = 2,\n    WARNING_TAG = 3\n}"
+        },
+        "functions": {
+          "add_changes": "int add_changes(struct repository *repo, struct file_node *files)\n{\n    char track_dir_path[1024];\n    strcpy(track_dir_path, repo->dir);\n    strcat(track_dir_path, \"/.vsync\");\n    DIR *dir = opendir(track_dir_path);\n    if (dir == ((void *)0))\n    {\n        logger(ERROR_TAG, \"[add_changes] Can't find .vsync\");\n        return -1;\n    }\n    closedir(dir);\n    strcat(track_dir_path, \"/tracked\");\n    dir = opendir(track_dir_path);\n    if (dir == ((void *)0))\n    {\n        if (mkdir(track_dir_path, 0777) != 0)\n        {\n            logger(ERROR_TAG, \"Can not create a tracking dir\");\n            return -1;\n        }\n    }\n    closedir(dir);\n    struct hash_map *map = (struct hash_map *)malloc(sizeof(struct hash_map));\n    init_hash_map(map);\n    char track_file_path[1024];\n    strcpy(track_file_path, track_dir_path);\n    strcat(track_file_path, \"/track\");\n    if ((access(track_file_path, 0) == 0) && (populate_hashmap_from_file(map, track_dir_path, track_file_path) == -1))\n    {\n        return -1;\n    }\n    struct file_node *trav = files;\n    while (trav != ((void *)0))\n    {\n        if (access(trav->path, 0) != 0)\n        {\n            logger(ERROR_TAG, \"Can not adding changes that not existed... check the added files\");\n            clear_hash_map(map);\n            return -1;\n        }\n        char *tr = get_hash_from_path(map, trav->path);\n        if (tr != ((void *)0))\n        {\n            char old_file_path[1024];\n            strcpy(old_file_path, track_dir_path);\n            strcat(old_file_path, \"/\");\n            strcat(old_file_path, tr);\n            if (remove(old_file_path) != 0)\n            {\n                logger(ERROR_TAG, \"[add_changes] Can not adding changes\");\n                return -1;\n            }\n            delete_from_map(map, trav->path);\n        }\n        char hash_string[2 * 32 + 1];\n        create_hash(hash_string);\n        insert_map(map, trav->path, hash_string, trav->path);\n        trav = trav->next;\n    }\n    if (make_changes(repo, map) == -1)\n    {\n        logger(ERROR_TAG, \"[add_changes] Can not persist changes\");\n        return -1;\n    }\n    clear_hash_map(map);\n    return 1;\n}",
+          "make_changes": "int make_changes(struct repository *repo, struct hash_map *map)\n{\n    char track_file_path[1024];\n    char track_dir_path[1024];\n    strcpy(track_dir_path, repo->dir);\n    strcat(track_dir_path, \"/.vsync/tracked\");\n    strcat(track_file_path, track_dir_path);\n    strcat(track_file_path, \"/track\");\n    FILE *track_file = fopen(track_file_path, \"w\");\n    if (track_file == ((void *)0))\n    {\n        logger(ERROR_TAG, \"[make_changes] Can not open track file\");\n        return -1;\n    }\n    fprintf(track_file, \"-\\n\");\n    fprintf(track_file, \"-\\n\");\n    for (int i = 0; i < 10; i++)\n    {\n        struct key_value *current = map->table[i];\n        while (current != ((void *)0))\n        {\n            char destination_path[1024];\n            strcpy(destination_path, track_dir_path);\n            strcat(destination_path, \"/\");\n            strcat(destination_path, current->hash);\n            if (strcmp(current->raw_path, destination_path) != 0)\n            {\n                FILE *changes_file = fopen(current->raw_path, \"rb\");\n                FILE *destination_file = fopen(destination_path, \"wb\");\n                if (changes_file == ((void *)0))\n                {\n                    logger(ERROR_TAG, \"[make_changes] Can not open changes file\");\n                    return -1;\n                }\n                if (destination_file == ((void *)0))\n                {\n                    logger(ERROR_TAG, \"[make_changes] Can not open destination file\");\n                    return -1;\n                }\n                char buffer[1024];\n                size_t bytesRead;\n                while ((bytesRead = fread(buffer, 1, sizeof(buffer), changes_file)) > 0)\n                {\n                    fwrite(buffer, 1, bytesRead, destination_file);\n                }\n                fclose(changes_file);\n                fclose(destination_file);\n            }\n            fprintf(track_file, \"%s %s\\n\", current->path, current->hash);\n            current = current->next;\n        }\n    }\n    fclose(track_file);\n    return 1;\n}",
+          "make_init_map_repo": "int make_init_map_repo(struct repository *repo, struct hash_map *map, const char *path)\n{\n    DIR *dir = opendir(path);\n    struct dirent *entry;\n    if (dir == ((void *)0))\n    {\n        perror(\"[make_init_map_repo] Can not open the init commit dir\");\n        return -1;\n    }\n    while ((entry = readdir(dir)) != ((void *)0))\n    {\n        if (strcmp(entry->d_name, \".\") != 0 && strcmp(entry->d_name, \"..\") != 0 && strcmp(entry->d_name, \".vsync\") != 0)\n        {\n            char fullpath[4096];\n            snprintf(fullpath, sizeof(fullpath), \"%s/%s\", path, entry->d_name);\n            if (entry->d_type == DT_DIR)\n            {\n                make_init_map_repo(repo, map, fullpath);\n            }\n            else\n            {\n                char hash_string[2 * 32 + 1];\n                create_hash(hash_string);\n                insert_map(map, fullpath, hash_string, fullpath);\n            }\n        }\n    }\n    return 1;\n}",
+          "create_commit": "int create_commit(struct repository *repo, struct commit *commit, struct hash_map *map)\n{\n    char commit_path[1024];\n    strcpy(commit_path, repo->dir);\n    strcat(commit_path, \"/.vsync/\");\n    strcat(commit_path, commit->hash);\n    if (mkdir(commit_path, 0777) != 0)\n    {\n        logger(ERROR_TAG, \"[create_commit] Can not create the commit dir\");\n        return -1;\n    }\n    strcat(commit_path, \"/commit\");\n    FILE *commit_file = fopen(commit_path, \"w\");\n    if (commit_file == ((void *)0))\n    {\n        logger(ERROR_TAG, \"[create_commit] Can not create the commit file\");\n        return -1;\n    }\n    fprintf(commit_file, \"%s\\n\", commit->parent_hash);\n    fprintf(commit_file, \"%s %s\\n\", commit->author->username, commit->author->mail);\n    commit_path[strlen(commit_path) - 6] = 0;\n    for (int i = 0; i < 10; i++)\n    {\n        struct key_value *current = map->table[i];\n        while (current != ((void *)0))\n        {\n            FILE *source_file = fopen(current->raw_path, \"rb\");\n            if (source_file == ((void *)0))\n            {\n                logger(ERROR_TAG, \"[create_commit] can not open the src file\");\n                return -1;\n            }\n            char destination_path[1024];\n            strcpy(destination_path, commit_path);\n            strcat(destination_path, current->hash);\n            FILE *destination_file = fopen(destination_path, \"wb\");\n            if (destination_file == ((void *)0))\n            {\n                logger(ERROR_TAG, \"[create_commit] can not open the destination file\");\n                return -1;\n            }\n            char buffer[1024];\n            size_t bytesRead;\n            while ((bytesRead = fread(buffer, 1, sizeof(buffer), source_file)) > 0)\n            {\n                fwrite(buffer, 1, bytesRead, destination_file);\n            }\n            fclose(source_file);\n            fclose(destination_file);\n            fprintf(commit_file, \"%s %s\\n\", current->path, current->hash);\n            current = current->next;\n        }\n    }\n    fclose(commit_file);\n    return 1;\n}",
+          "make_commit": "int make_commit(struct repository *repo, struct author *author, struct commit *commit)\n{\n    create_hash(commit->hash);\n    strcpy(commit->parent_hash, repo->last_commit->hash);\n    commit->author = author;\n    struct hash_map *changes_map = (struct hash_map *)malloc(sizeof(struct hash_map));\n    init_hash_map(changes_map);\n    char track_dir_path[1024];\n    strcpy(track_dir_path, repo->dir);\n    strcat(track_dir_path, \"/.vsync/tracked\");\n    char track_file_path[1024];\n    strcpy(track_file_path, track_dir_path);\n    strcat(track_file_path, \"/track\");\n    if ((access(track_file_path, 0) == 0) &&\n        (populate_hashmap_from_file(changes_map, track_dir_path, track_file_path) == -1))\n    {\n        logger(ERROR_TAG, \"[make_commit] Can not load changes to the map\");\n        return -1;\n    }\n    char last_commit_dir_path[1024];\n    char last_commit_file_path[1024];\n    strcpy(last_commit_dir_path, repo->dir);\n    strcat(last_commit_dir_path, \"/.vsync/\");\n    strcat(last_commit_dir_path, repo->last_commit->hash);\n    strcpy(last_commit_file_path, last_commit_dir_path);\n    strcat(last_commit_file_path, \"/commit\");\n    struct hash_map *last_commit_map = (struct hash_map *)malloc(sizeof(struct hash_map));\n    init_hash_map(last_commit_map);\n    if (populate_hashmap_from_file(last_commit_map, last_commit_dir_path, last_commit_file_path) == -1)\n    {\n        logger(ERROR_TAG, \"[make_commit] can not load commit file to the map\");\n        return -1;\n    }\n    for (int i = 0; i < 10; i++)\n    {\n        struct key_value *current = changes_map->table[i];\n        while (current != ((void *)0))\n        {\n            char *hash = get_hash_from_path(last_commit_map, current->path);\n            if (hash != ((void *)0))\n            {\n                delete_from_map(last_commit_map, current->path);\n            }\n            insert_map(last_commit_map, current->path, current->hash, current->raw_path);\n            current = current->next;\n        }\n    }\n    if (create_commit(repo, commit, last_commit_map) == -1)\n    {\n        logger(ERROR_TAG, \"[make_commit] Can not create the commit\");\n        return -1;\n    }\n    clear_hash_map(last_commit_map);\n    clear_hash_map(changes_map);\n    repo->last_commit = commit;\n    if (write_repository_file(repo) == -1)\n    {\n        logger(ERROR_TAG, \"[make_commit] Can not update the repository file\");\n        return -1;\n    }\n    if (delete_tracked_dir(repo) == -1)\n    {\n        logger(ERROR_TAG, \"[make_commit] Can not delete old tracked files\");\n        return -1;\n    }\n    return 1;\n}",
+          "delete_tracked_dir": "int delete_tracked_dir(struct repository *repo)\n{\n    char tracked_dir_path[1024];\n    strcpy(tracked_dir_path, repo->dir);\n    strcat(tracked_dir_path, \"/.vsync/tracked\");\n    DIR *tracked_dir = opendir(tracked_dir_path);\n    if (tracked_dir == ((void *)0))\n        return 1;\n    struct dirent *entry;\n    while ((entry = readdir(tracked_dir)) != ((void *)0))\n    {\n        if (strcmp(entry->d_name, \".\") != 0 && strcmp(entry->d_name, \"..\") != 0)\n        {\n            char file_path[1024];\n            strcpy(file_path, tracked_dir_path);\n            strcat(file_path, \"/\");\n            strcat(file_path, entry->d_name);\n            if (remove(file_path) != 0)\n            {\n                logger(ERROR_TAG, \"[delete_tracked_dir]\");\n                closedir(tracked_dir);\n                return -1;\n            }\n        }\n    }\n    closedir(tracked_dir);\n    if (rmdir(tracked_dir_path) != 0)\n    {\n        logger(ERROR_TAG, \"[delete_tracked_dir]\");\n        return -1;\n    }\n    return 1;\n}",
+          "rollback": "int rollback(struct repository *repo, const char *commit_hash)\n{\n    char commit_dir_path[1024];\n    strcpy(commit_dir_path, repo->dir);\n    strcat(commit_dir_path, \"/.vsync/\");\n    strcat(commit_dir_path, commit_hash);\n    DIR *commit_dir = opendir(commit_dir_path);\n    if (commit_dir == ((void *)0))\n    {\n        logger(ERROR_TAG, \"[rollback] Commit not found\");\n        return -1;\n    }\n    closedir(commit_dir);\n    struct hash_map *commit_map = (struct hash_map *)malloc(sizeof(struct hash_map));\n    init_hash_map(commit_map);\n    char commit_file_path[1024];\n    strcpy(commit_file_path, commit_dir_path);\n    strcat(commit_file_path, \"/commit\");\n    if (access(commit_file_path, 0) != 0)\n    {\n        logger(ERROR_TAG, \"[rollback] Can not found the commit file\");\n        return -1;\n    }\n    if (populate_hashmap_from_file(commit_map, commit_dir_path, commit_file_path) == -1)\n    {\n        logger(ERROR_TAG, \"[rollback] Can not populate the hashmap from the file\");\n        return -1;\n    }\n    if (reset_repo_dir(repo->dir, repo->dir) == -1)\n    {\n        logger(ERROR_TAG, \"[rollback] Can not delete files from the repository\");\n        return -1;\n    }\n    if (make_rollback_commit(commit_map) == -1)\n    {\n        logger(ERROR_TAG, \"[rollback] Can not rollback files from the commit\");\n        return -1;\n    }\n    struct commit *commit = ((void *)0);\n    if ((commit = load_commit(repo, commit_hash)) == ((void *)0))\n    {\n        logger(ERROR_TAG, \"[rollback] Can not load the commit\");\n        return -1;\n    }\n    free(repo->last_commit);\n    repo->last_commit = commit;\n    if (write_repository_file(repo) == -1)\n    {\n        logger(ERROR_TAG, \"[rollback] Can not update the repository file\");\n        return -1;\n    }\n    return 1;\n}",
+          "reset_repo_dir": "int reset_repo_dir(const char *path, const char *root_path)\n{\n    DIR *dir = opendir(path);\n    if (dir != ((void *)0))\n    {\n        struct dirent *entry;\n        while ((entry = readdir(dir)) != ((void *)0))\n        {\n            if (strcmp(entry->d_name, \".\") != 0 && strcmp(entry->d_name, \"..\") != 0 &&\n                strcmp(entry->d_name, \".vsync\") != 0)\n            {\n                char full_path[4096];\n                snprintf(full_path, sizeof(full_path), \"%s/%s\", path, entry->d_name);\n                if (entry->d_type == DT_DIR)\n                {\n                    if (reset_repo_dir(full_path, root_path) == -1)\n                    {\n                        closedir(dir);\n                        return -1;\n                    }\n                }\n                else\n                {\n                    if (remove(full_path) != 0)\n                    {\n                        closedir(dir);\n                        return -1;\n                    }\n                }\n            }\n        }\n        closedir(dir);\n        if (strcmp(path, root_path) != 0 && rmdir(path) != 0)\n        {\n            return -1;\n        }\n        return 1;\n    }\n    return -1;\n}",
+          "make_rollback_commit": "int make_rollback_commit(struct hash_map *map)\n{\n    for (int i = 0; i < 10; i++)\n    {\n        struct key_value *current = map->table[i];\n        while (current != ((void *)0))\n        {\n            if (create_directories(current->path) == -1)\n            {\n                logger(ERROR_TAG, \"[make_rollback_commit] can not create directories for copying\");\n                return -1;\n            }\n            FILE *src_file = fopen(current->raw_path, \"rb\");\n            if (src_file == ((void *)0))\n            {\n                logger(ERROR_TAG, \"[make_rollback_commit] can not open the raw file\");\n                return -1;\n            }\n            if (create_directories(current->path) == -1)\n            {\n                logger(ERROR_TAG, \"[make_rollback_commit] can not creating dirs for dest file\");\n                fclose(src_file);\n                return -1;\n            }\n            FILE *dest_file = fopen(current->path, \"wb\");\n            if (dest_file == ((void *)0))\n            {\n                logger(ERROR_TAG, \"[make_rollback_commit] can not open the destination file\");\n                fclose(src_file);\n                return -1;\n            }\n            char buffer[1024];\n            size_t bytesRead;\n            while ((bytesRead = fread(buffer, 1, sizeof(buffer), src_file)) > 0)\n            {\n                fwrite(buffer, 1, bytesRead, dest_file);\n            }\n            fclose(src_file);\n            fclose(dest_file);\n            current = current->next;\n        }\n    }\n    return 1;\n}",
+          "create_directories": "int create_directories(const char *path)\n{\n    if (path == ((void *)0) || strcmp(path, \"\") == 0)\n    {\n        return 1;\n    }\n    char *path_copy = strdup(path);\n    if (path_copy == ((void *)0))\n    {\n        return -1;\n    }\n    char *last_slash = strrchr(path_copy, '/');\n    if (last_slash != ((void *)0))\n    {\n        *last_slash = '\\0';\n        if (strcmp(path_copy, \"\") == 0)\n            return 1;\n        int parent_result = create_directories(path_copy);\n        if (parent_result != 0)\n        {\n            free(path_copy);\n            return parent_result;\n        }\n        struct stat st;\n        if (stat(path_copy, &st) != 0)\n        {\n            if (mkdir(path_copy, 0777) != 0)\n            {\n                free(path_copy);\n                return -1;\n            }\n        }\n    }\n    free(path_copy);\n    return 1;\n}",
+          "load_commit": "struct commit *load_commit(struct repository *repo, const char *hash)\n{\n    char commit_file_path[1024];\n    strcpy(commit_file_path, repo->dir);\n    strcat(commit_file_path, \"/.vsync/\");\n    strcat(commit_file_path, hash);\n    strcat(commit_file_path, \"/commit\");\n    FILE *commit_file = fopen(commit_file_path, \"r\");\n    if (commit_file == ((void *)0))\n    {\n        logger(ERROR_TAG, \"[load_commit] Commit no found\");\n        return ((void *)0);\n    }\n    struct commit *commit = (struct commit *)malloc(sizeof(struct commit));\n    strcpy(commit->hash, hash);\n    struct author *author = (struct author *)malloc(sizeof(struct author));\n    char line[1024];\n    fgets(line, 1024, commit_file);\n    line[strlen(line) - 1] = 0;\n    strcpy(commit->parent_hash, line);\n    fgets(line, 1024, commit_file);\n    line[strlen(line) - 1] = 0;\n    char *spacePos = strchr(line, ' ');\n    if (spacePos == ((void *)0))\n    {\n        logger(ERROR_TAG, \"[load_commit] Author of commit not found\");\n        free(commit);\n        free(author);\n        fclose(commit_file);\n        return ((void *)0);\n    }\n    *spacePos = 0;\n    strcpy(author->username, line);\n    strcpy(author->mail, spacePos + 1);\n    commit->author = author;\n    return commit;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/vm/file.i": {
+      "relative_path": "src/vm/file.i",
+      "original_file": "src/vm/file.c",
+      "includes": [
+        "../../include/vm/file.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "file_node": "struct file_node\n{\n    char path[1024];\n    struct file_node *next;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "addFile": "struct file_node *addFile(struct file_node *head, const char *path)\n{\n    struct file_node *newNode = (struct file_node *)malloc(sizeof(struct file_node));\n    strcpy(newNode->path, path);\n    newNode->next = head;\n    return newNode;\n}",
+          "removeFileByPath": "struct file_node *removeFileByPath(struct file_node *head, const char *path)\n{\n    struct file_node *current = head;\n    struct file_node *previous = ((void *)0);\n    while (current != ((void *)0))\n    {\n        if (strcmp(current->path, path) == 0)\n        {\n            if (previous == ((void *)0))\n            {\n                head = current->next;\n            }\n            else\n            {\n                previous->next = current->next;\n            }\n            free(current);\n            return head;\n        }\n        previous = current;\n        current = current->next;\n    }\n    return head;\n}",
+          "findByPath": "struct file_node *findByPath(struct file_node *head, const char *path)\n{\n    struct file_node *current = head;\n    while (current != ((void *)0))\n    {\n        if (strcmp(current->path, path) == 0)\n        {\n            return current;\n        }\n        current = current->next;\n    }\n    return ((void *)0);\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/vm/hashmap.i": {
+      "relative_path": "src/vm/hashmap.i",
+      "original_file": "src/vm/hashmap.c",
+      "includes": [
+        "../../include/vm/hashmap.h",
+        "../../include/logging/logger.h",
+        "../../include/vm/common.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "key_value": "struct key_value\n{\n    char path[1024];\n    char raw_path[1024];\n    char hash[2 * 32 + 1];\n    struct key_value *next;\n}",
+          "hash_map": "struct hash_map\n{\n    struct key_value *table[10];\n}"
+        },
+        "unions": {},
+        "enums": {
+          "LOGGING_TAG": "enum LOGGING_TAG\n{\n    INFO_TAG = 1,\n    ERROR_TAG = 2,\n    WARNING_TAG = 3\n}"
+        },
+        "functions": {
+          "init_hash_map": "void init_hash_map(struct hash_map *map)\n{\n    for (int i = 0; i < 10; i++)\n    {\n        map->table[i] = ((void *)0);\n    }\n}",
+          "hash": "unsigned int hash(const char *path)\n{\n    unsigned int hash_value = 0;\n    for (int i = 0; i < strlen(path); ++i)\n    {\n        hash_value = hash_value * 31 + path[i];\n    }\n    return hash_value % 10;\n}",
+          "insert_map": "void insert_map(struct hash_map *map, const char *path, const char *hash_string, const char *raw_path)\n{\n    unsigned int index = hash(path);\n    struct key_value *newNode = (struct key_value *)malloc(sizeof(struct key_value));\n    strcpy(newNode->path, path);\n    strcpy(newNode->hash, hash_string);\n    strcpy(newNode->raw_path, raw_path);\n    newNode->next = map->table[index];\n    map->table[index] = newNode;\n}",
+          "get_hash_from_path": "char *get_hash_from_path(struct hash_map *map, const char *path)\n{\n    unsigned int index = hash(path);\n    struct key_value *current = map->table[index];\n    while (current != ((void *)0))\n    {\n        if (strcmp(current->path, path) == 0)\n        {\n            return current->hash;\n        }\n        current = current->next;\n    }\n    return ((void *)0);\n}",
+          "delete_from_map": "void delete_from_map(struct hash_map *map, const char *path)\n{\n    unsigned int index = hash(path);\n    struct key_value *current = map->table[index];\n    struct key_value *previous = ((void *)0);\n    while (current != ((void *)0))\n    {\n        if (strcmp(current->path, path) == 0)\n        {\n            if (previous == ((void *)0))\n            {\n                map->table[index] = current->next;\n            }\n            else\n            {\n                previous->next = current->next;\n            }\n            free(current);\n            return;\n        }\n        previous = current;\n        current = current->next;\n    }\n}",
+          "clear_hash_map": "void clear_hash_map(struct hash_map *map)\n{\n    for (int i = 0; i < 10; i++)\n    {\n        struct key_value *current = map->table[i];\n        while (current != ((void *)0))\n        {\n            struct key_value *temp = current;\n            current = current->next;\n            free(temp);\n        }\n        map->table[i] = ((void *)0);\n    }\n}",
+          "populate_hashmap_from_file": "int populate_hashmap_from_file(struct hash_map *map, const char *raw_path, const char *filename)\n{\n    FILE *file = fopen(filename, \"r\");\n    if (file == ((void *)0))\n    {\n        logger(ERROR_TAG, \"Can not populate a hashmap from such as this file\");\n        return -1;\n    }\n    char line[2 * 32 + 1 + 1 + 1024];\n    fgets(line, sizeof(line), file);\n    fgets(line, sizeof(line), file);\n    while (fgets(line, sizeof(line), file) != ((void *)0))\n    {\n        char *spacePos = strchr(line, ' ');\n        if (spacePos != ((void *)0))\n        {\n            *spacePos = '\\0';\n            char *path = line;\n            char *hash = spacePos + 1;\n            hash[strlen(hash) - 1] = '\\0';\n            char src_file_path[1024];\n            strcpy(src_file_path, raw_path);\n            strcat(src_file_path, \"/\");\n            strcat(src_file_path, hash);\n            insert_map(map, path, hash, src_file_path);\n        }\n    }\n    fclose(file);\n    return 1;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "CMakeFiles/3.28.3/CompilerIdC/CMakeCCompilerId.i": {
+      "relative_path": "CMakeFiles/3.28.3/CompilerIdC/CMakeCCompilerId.i",
+      "original_file": "CMakeFiles/3.28.3/CompilerIdC/CMakeCCompilerId.c",
+      "includes": [],
+      "declarations": {
+        "globals": {
+          "info_compiler": "char const *info_compiler = \"INFO\"\n                            \":\"\n                            \"compiler[\"\n                            \"GNU\"\n                            \"]\";",
+          "info_version": "char const info_version[] = {'I',\n                             'N',\n                             'F',\n                             'O',\n                             ':',\n                             'c',\n                             'o',\n                             'm',\n                             'p',\n                             'i',\n                             'l',\n                             'e',\n                             'r',\n                             '_',\n                             'v',\n                             'e',\n                             'r',\n                             's',\n                             'i',\n                             'o',\n                             'n',\n                             '[',\n                             ('0' + (((13) / 10000000) % 10)),\n                             ('0' + (((13) / 1000000) % 10)),\n                             ('0' + (((13) / 100000) % 10)),\n                             ('0' + (((13) / 10000) % 10)),\n                             ('0' + (((13) / 1000) % 10)),\n                             ('0' + (((13) / 100) % 10)),\n                             ('0' + (((13) / 10) % 10)),\n                             ('0' + ((13) % 10)),\n                             '.',\n                             ('0' + (((3) / 10000000) % 10)),\n                             ('0' + (((3) / 1000000) % 10)),\n                             ('0' + (((3) / 100000) % 10)),\n                             ('0' + (((3) / 10000) % 10)),\n                             ('0' + (((3) / 1000) % 10)),\n                             ('0' + (((3) / 100) % 10)),\n                             ('0' + (((3) / 10) % 10)),\n                             ('0' + ((3) % 10)),\n                             '.',\n                             ('0' + (((0) / 10000000) % 10)),\n                             ('0' + (((0) / 1000000) % 10)),\n                             ('0' + (((0) / 100000) % 10)),\n                             ('0' + (((0) / 10000) % 10)),\n                             ('0' + (((0) / 1000) % 10)),\n                             ('0' + (((0) / 100) % 10)),\n                             ('0' + (((0) / 10) % 10)),\n                             ('0' + ((0) % 10)),\n                             ']',\n                             '\\0'};",
+          "info_platform": "char const *info_platform = \"INFO\"\n                            \":\"\n                            \"platform[\"\n                            \"Linux\"\n                            \"]\";",
+          "info_arch": "char const *info_arch = \"INFO\"\n                        \":\"\n                        \"arch[\"\n                        \"]\";",
+          "info_language_standard_default": "const char *info_language_standard_default = \"INFO\"\n                                             \":\"\n                                             \"standard_default[\"\n                                             \"17\"\n                                             \"]\";",
+          "info_language_extensions_default": "const char *info_language_extensions_default = \"INFO\"\n                                               \":\"\n                                               \"extensions_default[\"\n                                               \"ON\"\n                                               \"]\";"
+        },
+        "structs": {},
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "main": "int main(int argc, char *argv[])\n{\n    int require = 0;\n    require += info_compiler[argc];\n    require += info_platform[argc];\n    require += info_arch[argc];\n    require += info_version[argc];\n    require += info_language_standard_default[argc];\n    require += info_language_extensions_default[argc];\n    (void)argv;\n    return require;\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

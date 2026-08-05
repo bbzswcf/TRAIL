@@ -1,0 +1,53 @@
+{
+  "project_name": "libbeaufort",
+  "files": {
+    "src/decrypt.i": {
+      "relative_path": "src/decrypt.i",
+      "original_file": "src/decrypt.c",
+      "includes": [],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "ssize": "static size_t ssize(const char *str)\n{\n    size_t size = 0;\n    while ('\\0' != str[size])\n        size++;\n    return size;\n}",
+          "beaufort_decrypt": "char *beaufort_decrypt(const char *src, const char *key, char **mat)\n{\n    char *dec = ((void *)0);\n    char ch = 0;\n    char k = 0;\n    size_t ksize = 0;\n    size_t size = 0;\n    size_t rsize = 0;\n    size_t len = 0;\n    int i = 0;\n    int x = 0;\n    int y = 0;\n    int j = 0;\n    int needed = 1;\n    if (((void *)0) == mat)\n    {\n        mat = beaufort_tableau(\"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz\");\n        if (((void *)0) == mat)\n        {\n            return ((void *)0);\n        }\n    }\n    ksize = ssize(key);\n    len = ssize(src);\n    rsize = ssize(mat[0]);\n    dec = (char *)malloc(sizeof(char) * len + 1);\n    if (((void *)0) == dec)\n    {\n        return ((void *)0);\n    }\n    for (; (ch = src[i]); ++i)\n    {\n        needed = 1;\n        for (y = 0; y < rsize; ++y)\n        {\n            if (ch == mat[y][0])\n            {\n                needed = 1;\n                break;\n            }\n            else\n            {\n                needed = 0;\n            }\n        }\n        if (0 == needed)\n        {\n            dec[size++] = ch;\n            continue;\n        }\n        k = key[(j++) % ksize];\n        for (x = 0; x < rsize; ++x)\n        {\n            if (k == mat[y][x])\n            {\n                needed = 1;\n                break;\n            }\n            else\n            {\n                needed = 0;\n            }\n        }\n        if (0 == needed)\n        {\n            dec[size++] = ch;\n            j--;\n            continue;\n        }\n        dec[size++] = mat[0][x];\n    }\n    dec[size] = '\\0';\n    return dec;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/encrypt.i": {
+      "relative_path": "src/encrypt.i",
+      "original_file": "src/encrypt.c",
+      "includes": [],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "ssize": "static size_t ssize(const char *str)\n{\n    size_t size = 0;\n    while ('\\0' != str[size])\n        size++;\n    return size;\n}",
+          "beaufort_encrypt": "char *beaufort_encrypt(const char *src, const char *key, char **mat)\n{\n    char *enc = ((void *)0);\n    char ch = 0;\n    char k = 0;\n    size_t ksize = 0;\n    size_t size = 0;\n    size_t len = 0;\n    size_t rsize = 0;\n    int i = 0;\n    int x = 0;\n    int y = 0;\n    int j = 0;\n    int needed = 1;\n    if (((void *)0) == mat)\n    {\n        mat = beaufort_tableau(\"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz\");\n        if (((void *)0) == mat)\n        {\n            return ((void *)0);\n        }\n    }\n    ksize = ssize(key);\n    len = ssize(src);\n    rsize = ssize(mat[0]);\n    enc = (char *)malloc(sizeof(char) * len + 1);\n    if (((void *)0) == enc)\n    {\n        return ((void *)0);\n    }\n    for (; (ch = src[i]); ++i)\n    {\n        needed = 1;\n        for (x = 0, y = 0; x < rsize; ++x)\n        {\n            if (ch == mat[y][x])\n            {\n                needed = 1;\n                break;\n            }\n            else\n            {\n                needed = 0;\n            }\n        }\n        if (0 == needed)\n        {\n            enc[size++] = ch;\n            continue;\n        }\n        k = key[(j++) % ksize];\n        for (y = 0; y < rsize; ++y)\n        {\n            if (k == mat[y][x])\n            {\n                needed = 1;\n                break;\n            }\n            else\n            {\n                needed = 0;\n            }\n        }\n        if (0 == needed)\n        {\n            enc[size++] = ch;\n            j--;\n            continue;\n        }\n        enc[size++] = mat[y][0];\n    }\n    enc[size] = '\\0';\n    return enc;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/tableau.i": {
+      "relative_path": "src/tableau.i",
+      "original_file": "src/tableau.c",
+      "includes": [],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "ssize": "static size_t ssize(const char *str)\n{\n    size_t size = 0;\n    while ('\\0' != str[size])\n        size++;\n    return size;\n}",
+          "beaufort_tableau": "char **beaufort_tableau(const char *alpha)\n{\n    size_t size = ssize(alpha);\n    char **mat = ((void *)0);\n    int x = 0;\n    int y = 0;\n    int j = 0;\n    mat = (char **)calloc(size + 1, sizeof(char *));\n    if (((void *)0) == mat)\n    {\n        return ((void *)0);\n    }\n    for (; y < size; ++y)\n    {\n        mat[y] = (char *)calloc(size, sizeof(char));\n        if (((void *)0) == mat[y])\n        {\n            return ((void *)0);\n        }\n        for (x = 0, j = size; x < size; ++x, --j)\n        {\n            mat[y][x] = alpha[(j + y) % size];\n        }\n        mat[y][x] = '\\0';\n    }\n    mat[y] = ((void *)0);\n    return mat;\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

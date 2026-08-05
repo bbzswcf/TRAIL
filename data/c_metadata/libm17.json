@@ -1,0 +1,306 @@
+{
+  "project_name": "libm17",
+  "files": {
+    "m17.i": {
+      "relative_path": "m17.i",
+      "original_file": "m17.c",
+      "includes": [],
+      "declarations": {
+        "globals": {
+          "puncture_pattern_1": "extern const uint8_t puncture_pattern_1[61];",
+          "puncture_pattern_2": "extern const uint8_t puncture_pattern_2[12];",
+          "puncture_pattern_3": "extern const uint8_t puncture_pattern_3[8];",
+          "M17_CRC_POLY": "extern const uint16_t M17_CRC_POLY;",
+          "encode_matrix": "extern const uint16_t encode_matrix[12];",
+          "decode_matrix": "extern const uint16_t decode_matrix[12];",
+          "intrl_seq": "extern const uint16_t intrl_seq[184 * 2];",
+          "rand_seq": "extern const uint8_t rand_seq[46];",
+          "rrc_taps_10": "extern const float rrc_taps_10[8 * 10 + 1];",
+          "rrc_taps_5": "extern const float rrc_taps_5[8 * 5 + 1];",
+          "symbol_map": "extern const int8_t symbol_map[4];",
+          "symbol_list": "extern const int8_t symbol_list[4];",
+          "SYNC_LSF": "extern const uint16_t SYNC_LSF;",
+          "SYNC_STR": "extern const uint16_t SYNC_STR;",
+          "SYNC_PKT": "extern const uint16_t SYNC_PKT;",
+          "SYNC_BER": "extern const uint16_t SYNC_BER;",
+          "EOT_MRKR": "extern const uint16_t EOT_MRKR;",
+          "eot_symbols": "extern const float eot_symbols[8];",
+          "lsf_sync_symbols": "extern const int8_t lsf_sync_symbols[8];",
+          "str_sync_symbols": "extern const int8_t str_sync_symbols[8];",
+          "pkt_sync_symbols": "extern const int8_t pkt_sync_symbols[8];",
+          "symbol_levels": "extern const float symbol_levels[4];"
+        },
+        "structs": {
+          "lsf_t": "typedef struct\n{\n    uint8_t dst[6];\n    uint8_t src[6];\n    uint8_t type[2];\n    uint8_t meta[112 / 8];\n    uint8_t crc[2];\n} lsf_t;"
+        },
+        "unions": {},
+        "enums": {
+          "pream_t": "typedef enum\n{\n    PREAM_LSF,\n    PREAM_BERT\n} pream_t;",
+          "frame_t": "typedef enum\n{\n    FRAME_LSF,\n    FRAME_STR,\n    FRAME_PKT\n} frame_t;"
+        },
+        "functions": {
+          "send_preamble": "void send_preamble(float out[192], uint32_t *cnt, const pream_t type)\n{\n    if (type == PREAM_BERT)\n    {\n        for (uint16_t i = 0; i < 192 / 2; i++)\n        {\n            out[(*cnt)++] = -3.0;\n            out[(*cnt)++] = +3.0;\n        }\n    }\n    else\n    {\n        for (uint16_t i = 0; i < 192 / 2; i++)\n        {\n            out[(*cnt)++] = +3.0;\n            out[(*cnt)++] = -3.0;\n        }\n    }\n}",
+          "send_syncword": "void send_syncword(float out[8], uint32_t *cnt, const uint16_t syncword)\n{\n    for (uint8_t i = 0; i < 8 * 2; i += 2)\n    {\n        out[(*cnt)++] = symbol_map[(syncword >> (14 - i)) & 3];\n    }\n}",
+          "send_data": "void send_data(float out[184], uint32_t *cnt, const uint8_t *in)\n{\n    for (uint16_t i = 0; i < 184; i++)\n    {\n        out[(*cnt)++] = symbol_map[in[2 * i] * 2 + in[2 * i + 1]];\n    }\n}",
+          "send_eot": "void send_eot(float out[192], uint32_t *cnt)\n{\n    for (uint16_t i = 0; i < 192; i++)\n    {\n        out[(*cnt)++] = eot_symbols[i % 8];\n    }\n}",
+          "send_frame": "void send_frame(float out[192], const uint8_t *data, const frame_t type, const lsf_t *lsf, const uint8_t lich_cnt,\n                const uint16_t fn)\n{\n    uint8_t lich[6];\n    uint8_t lich_encoded[12];\n    uint8_t enc_bits[184 * 2];\n    uint8_t rf_bits[184 * 2];\n    uint32_t sym_cnt = 0;\n    if (type == FRAME_LSF)\n    {\n        send_syncword(out, &sym_cnt, SYNC_LSF);\n        conv_encode_LSF(enc_bits, lsf);\n    }\n    else if (type == FRAME_STR)\n    {\n        send_syncword(out, &sym_cnt, SYNC_STR);\n        extract_LICH(lich, lich_cnt, lsf);\n        encode_LICH(lich_encoded, lich);\n        unpack_LICH(enc_bits, lich_encoded);\n        conv_encode_stream_frame(&enc_bits[96], data, fn);\n    }\n    else if (type == FRAME_PKT)\n    {\n        send_syncword(out, &sym_cnt, SYNC_PKT);\n        conv_encode_packet_frame(enc_bits, data);\n    }\n    reorder_bits(rf_bits, enc_bits);\n    randomize_bits(rf_bits);\n    send_data(out, &sym_cnt, rf_bits);\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "decode/decode.i": {
+      "relative_path": "decode/decode.i",
+      "original_file": "decode/decode.c",
+      "includes": [],
+      "declarations": {
+        "globals": {
+          "puncture_pattern_1": "extern const uint8_t puncture_pattern_1[61];",
+          "puncture_pattern_2": "extern const uint8_t puncture_pattern_2[12];",
+          "puncture_pattern_3": "extern const uint8_t puncture_pattern_3[8];",
+          "M17_CRC_POLY": "extern const uint16_t M17_CRC_POLY;",
+          "encode_matrix": "extern const uint16_t encode_matrix[12];",
+          "decode_matrix": "extern const uint16_t decode_matrix[12];",
+          "intrl_seq": "extern const uint16_t intrl_seq[184 * 2];",
+          "rand_seq": "extern const uint8_t rand_seq[46];",
+          "rrc_taps_10": "extern const float rrc_taps_10[8 * 10 + 1];",
+          "rrc_taps_5": "extern const float rrc_taps_5[8 * 5 + 1];",
+          "symbol_map": "extern const int8_t symbol_map[4];",
+          "symbol_list": "extern const int8_t symbol_list[4];",
+          "SYNC_LSF": "extern const uint16_t SYNC_LSF;",
+          "SYNC_STR": "extern const uint16_t SYNC_STR;",
+          "SYNC_PKT": "extern const uint16_t SYNC_PKT;",
+          "SYNC_BER": "extern const uint16_t SYNC_BER;",
+          "EOT_MRKR": "extern const uint16_t EOT_MRKR;",
+          "eot_symbols": "extern const float eot_symbols[8];",
+          "lsf_sync_symbols": "const int8_t lsf_sync_symbols[8] = {+3, +3, +3, +3, -3, -3, +3, -3};",
+          "str_sync_symbols": "const int8_t str_sync_symbols[8] = {-3, -3, -3, -3, +3, +3, -3, +3};",
+          "pkt_sync_symbols": "const int8_t pkt_sync_symbols[8] = {+3, -3, +3, +3, -3, -3, -3, -3};",
+          "symbol_levels": "const float symbol_levels[4] = {-3.0, -1.0, +1.0, +3.0};",
+          "prevMetrics": "static uint32_t prevMetrics[(1 << (5 - 1))];",
+          "currMetrics": "static uint32_t currMetrics[(1 << (5 - 1))];",
+          "prevMetricsData": "static uint32_t prevMetricsData[(1 << (5 - 1))];",
+          "currMetricsData": "static uint32_t currMetricsData[(1 << (5 - 1))];",
+          "viterbi_history": "static uint16_t viterbi_history[244];"
+        },
+        "structs": {
+          "lsf_t": "typedef struct\n{\n    uint8_t dst[6];\n    uint8_t src[6];\n    uint8_t type[2];\n    uint8_t meta[112 / 8];\n    uint8_t crc[2];\n} lsf_t;"
+        },
+        "unions": {},
+        "enums": {
+          "pream_t": "typedef enum\n{\n    PREAM_LSF,\n    PREAM_BERT\n} pream_t;",
+          "frame_t": "typedef enum\n{\n    FRAME_LSF,\n    FRAME_STR,\n    FRAME_PKT\n} frame_t;"
+        },
+        "functions": {
+          "viterbi_decode": "uint32_t viterbi_decode(uint8_t *out, const uint16_t *in, const uint16_t len)\n{\n    if (len > 244 * 2)\n        fprintf(stderr, \"Input size exceeds max history\\n\");\n    viterbi_reset();\n    size_t pos = 0;\n    for (size_t i = 0; i < len; i += 2)\n    {\n        uint16_t s0 = in[i];\n        uint16_t s1 = in[i + 1];\n        viterbi_decode_bit(s0, s1, pos);\n        pos++;\n    }\n    return viterbi_chainback(out, pos, len / 2);\n}",
+          "viterbi_decode_punctured": "uint32_t viterbi_decode_punctured(uint8_t *out, const uint16_t *in, const uint8_t *punct, const uint16_t in_len,\n                                  const uint16_t p_len)\n{\n    if (in_len > 244 * 2)\n        fprintf(stderr, \"Input size exceeds max history\\n\");\n    uint16_t umsg[244 * 2];\n    uint8_t p = 0;\n    uint16_t u = 0;\n    uint16_t i = 0;\n    while (i < in_len)\n    {\n        if (punct[p])\n        {\n            umsg[u] = in[i];\n            i++;\n        }\n        else\n        {\n            umsg[u] = 0x7FFF;\n        }\n        u++;\n        p++;\n        p %= p_len;\n    }\n    return viterbi_decode(out, umsg, u) - (u - in_len) * 0x7FFF;\n}",
+          "viterbi_decode_bit": "void viterbi_decode_bit(uint16_t s0, uint16_t s1, const size_t pos)\n{\n    static const uint16_t COST_TABLE_0[] = {0, 0, 0, 0, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF};\n    static const uint16_t COST_TABLE_1[] = {0, 0xFFFF, 0xFFFF, 0, 0, 0xFFFF, 0xFFFF, 0};\n    for (uint8_t i = 0; i < (1 << (5 - 1)) / 2; i++)\n    {\n        uint32_t metric = q_abs_diff(COST_TABLE_0[i], s0) + q_abs_diff(COST_TABLE_1[i], s1);\n        uint32_t m0 = prevMetrics[i] + metric;\n        uint32_t m1 = prevMetrics[i + (1 << (5 - 1)) / 2] + (0x1FFFE - metric);\n        uint32_t m2 = prevMetrics[i] + (0x1FFFE - metric);\n        uint32_t m3 = prevMetrics[i + (1 << (5 - 1)) / 2] + metric;\n        uint8_t i0 = 2 * i;\n        uint8_t i1 = i0 + 1;\n        if (m0 >= m1)\n        {\n            viterbi_history[pos] |= (1 << i0);\n            currMetrics[i0] = m1;\n        }\n        else\n        {\n            viterbi_history[pos] &= ~(1 << i0);\n            currMetrics[i0] = m0;\n        }\n        if (m2 >= m3)\n        {\n            viterbi_history[pos] |= (1 << i1);\n            currMetrics[i1] = m3;\n        }\n        else\n        {\n            viterbi_history[pos] &= ~(1 << i1);\n            currMetrics[i1] = m2;\n        }\n    }\n    uint32_t tmp[(1 << (5 - 1))];\n    for (uint8_t i = 0; i < (1 << (5 - 1)); i++)\n    {\n        tmp[i] = currMetrics[i];\n    }\n    for (uint8_t i = 0; i < (1 << (5 - 1)); i++)\n    {\n        currMetrics[i] = prevMetrics[i];\n        prevMetrics[i] = tmp[i];\n    }\n}",
+          "viterbi_chainback": "uint32_t viterbi_chainback(uint8_t *out, size_t pos, uint16_t len)\n{\n    uint8_t state = 0;\n    size_t bitPos = len + 4;\n    memset(out, 0, (len - 1) / 8 + 1);\n    while (pos > 0)\n    {\n        bitPos--;\n        pos--;\n        uint16_t bit = viterbi_history[pos] & ((1 << (state >> 4)));\n        state >>= 1;\n        if (bit)\n        {\n            state |= 0x80;\n            out[bitPos / 8] |= 1 << (7 - (bitPos % 8));\n        }\n    }\n    uint32_t cost = prevMetrics[0];\n    for (size_t i = 0; i < (1 << (5 - 1)); i++)\n    {\n        uint32_t m = prevMetrics[i];\n        if (m < cost)\n            cost = m;\n    }\n    return cost;\n}",
+          "viterbi_reset": "void viterbi_reset(void)\n{\n    memset((uint8_t *)viterbi_history, 0, 2 * 244);\n    memset((uint8_t *)currMetrics, 0, 4 * (1 << (5 - 1)));\n    memset((uint8_t *)prevMetrics, 0, 4 * (1 << (5 - 1)));\n    memset((uint8_t *)currMetricsData, 0, 4 * (1 << (5 - 1)));\n    memset((uint8_t *)prevMetricsData, 0, 4 * (1 << (5 - 1)));\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "phy/phy.i": {
+      "relative_path": "phy/phy.i",
+      "original_file": "phy/phy.c",
+      "includes": [],
+      "declarations": {
+        "globals": {
+          "puncture_pattern_1": "extern const uint8_t puncture_pattern_1[61];",
+          "puncture_pattern_2": "extern const uint8_t puncture_pattern_2[12];",
+          "puncture_pattern_3": "extern const uint8_t puncture_pattern_3[8];",
+          "M17_CRC_POLY": "extern const uint16_t M17_CRC_POLY;",
+          "encode_matrix": "extern const uint16_t encode_matrix[12];",
+          "decode_matrix": "extern const uint16_t decode_matrix[12];",
+          "intrl_seq": "const uint16_t intrl_seq[184 * 2] = {\n    0,   137, 90,  227, 180, 317, 270, 39,  360, 129, 82,  219, 172, 309, 262, 31,  352, 121, 74,  211, 164, 301, 254,\n    23,  344, 113, 66,  203, 156, 293, 246, 15,  336, 105, 58,  195, 148, 285, 238, 7,   328, 97,  50,  187, 140, 277,\n    230, 367, 320, 89,  42,  179, 132, 269, 222, 359, 312, 81,  34,  171, 124, 261, 214, 351, 304, 73,  26,  163, 116,\n    253, 206, 343, 296, 65,  18,  155, 108, 245, 198, 335, 288, 57,  10,  147, 100, 237, 190, 327, 280, 49,  2,   139,\n    92,  229, 182, 319, 272, 41,  362, 131, 84,  221, 174, 311, 264, 33,  354, 123, 76,  213, 166, 303, 256, 25,  346,\n    115, 68,  205, 158, 295, 248, 17,  338, 107, 60,  197, 150, 287, 240, 9,   330, 99,  52,  189, 142, 279, 232, 1,\n    322, 91,  44,  181, 134, 271, 224, 361, 314, 83,  36,  173, 126, 263, 216, 353, 306, 75,  28,  165, 118, 255, 208,\n    345, 298, 67,  20,  157, 110, 247, 200, 337, 290, 59,  12,  149, 102, 239, 192, 329, 282, 51,  4,   141, 94,  231,\n    184, 321, 274, 43,  364, 133, 86,  223, 176, 313, 266, 35,  356, 125, 78,  215, 168, 305, 258, 27,  348, 117, 70,\n    207, 160, 297, 250, 19,  340, 109, 62,  199, 152, 289, 242, 11,  332, 101, 54,  191, 144, 281, 234, 3,   324, 93,\n    46,  183, 136, 273, 226, 363, 316, 85,  38,  175, 128, 265, 218, 355, 308, 77,  30,  167, 120, 257, 210, 347, 300,\n    69,  22,  159, 112, 249, 202, 339, 292, 61,  14,  151, 104, 241, 194, 331, 284, 53,  6,   143, 96,  233, 186, 323,\n    276, 45,  366, 135, 88,  225, 178, 315, 268, 37,  358, 127, 80,  217, 170, 307, 260, 29,  350, 119, 72,  209, 162,\n    299, 252, 21,  342, 111, 64,  201, 154, 291, 244, 13,  334, 103, 56,  193, 146, 283, 236, 5,   326, 95,  48,  185,\n    138, 275, 228, 365, 318, 87,  40,  177, 130, 267, 220, 357, 310, 79,  32,  169, 122, 259, 212, 349, 302, 71,  24,\n    161, 114, 251, 204, 341, 294, 63,  16,  153, 106, 243, 196, 333, 286, 55,  8,   145, 98,  235, 188, 325, 278, 47};",
+          "rand_seq": "const uint8_t rand_seq[46] = {0xD6, 0xB5, 0xE2, 0x30, 0x82, 0xFF, 0x84, 0x62, 0xBA, 0x4E, 0x96, 0x90,\n                              0xD8, 0x98, 0xDD, 0x5D, 0x0C, 0xC8, 0x52, 0x43, 0x91, 0x1D, 0xF8, 0x6E,\n                              0x68, 0x2F, 0x35, 0xDA, 0x14, 0xEA, 0xCD, 0x76, 0x19, 0x8D, 0xD5, 0x80,\n                              0xD1, 0x33, 0x87, 0x13, 0x57, 0x18, 0x2D, 0x29, 0x78, 0xC3};",
+          "rrc_taps_10": "extern const float rrc_taps_10[8 * 10 + 1];",
+          "rrc_taps_5": "extern const float rrc_taps_5[8 * 5 + 1];",
+          "symbol_map": "extern const int8_t symbol_map[4];",
+          "symbol_list": "extern const int8_t symbol_list[4];",
+          "SYNC_LSF": "const uint16_t SYNC_LSF = 0x55F7;",
+          "SYNC_STR": "const uint16_t SYNC_STR = 0xFF5D;",
+          "SYNC_PKT": "const uint16_t SYNC_PKT = 0x75FF;",
+          "SYNC_BER": "const uint16_t SYNC_BER = 0xDF55;",
+          "EOT_MRKR": "const uint16_t EOT_MRKR = 0x555D;",
+          "eot_symbols": "extern const float eot_symbols[8];",
+          "lsf_sync_symbols": "extern const int8_t lsf_sync_symbols[8];",
+          "str_sync_symbols": "extern const int8_t str_sync_symbols[8];",
+          "pkt_sync_symbols": "extern const int8_t pkt_sync_symbols[8];",
+          "symbol_levels": "extern const float symbol_levels[4];"
+        },
+        "structs": {
+          "lsf_t": "typedef struct\n{\n    uint8_t dst[6];\n    uint8_t src[6];\n    uint8_t type[2];\n    uint8_t meta[112 / 8];\n    uint8_t crc[2];\n} lsf_t;"
+        },
+        "unions": {},
+        "enums": {
+          "pream_t": "typedef enum\n{\n    PREAM_LSF,\n    PREAM_BERT\n} pream_t;",
+          "frame_t": "typedef enum\n{\n    FRAME_LSF,\n    FRAME_STR,\n    FRAME_PKT\n} frame_t;"
+        },
+        "functions": {
+          "reorder_bits": "void reorder_bits(uint8_t outp[184 * 2], const uint8_t inp[184 * 2])\n{\n    for (uint16_t i = 0; i < 184 * 2; i++)\n        outp[i] = inp[intrl_seq[i]];\n}",
+          "reorder_soft_bits": "void reorder_soft_bits(uint16_t outp[184 * 2], const uint16_t inp[184 * 2])\n{\n    for (uint16_t i = 0; i < 184 * 2; i++)\n        outp[i] = inp[intrl_seq[i]];\n}",
+          "randomize_bits": "void randomize_bits(uint8_t inp[184 * 2])\n{\n    for (uint16_t i = 0; i < 184 * 2; i++)\n    {\n        if ((rand_seq[i / 8] >> (7 - (i % 8))) & 1)\n        {\n            if (inp[i])\n                inp[i] = 0;\n            else\n                inp[i] = 1;\n        }\n    }\n}",
+          "randomize_soft_bits": "void randomize_soft_bits(uint16_t inp[184 * 2])\n{\n    for (uint16_t i = 0; i < 184 * 2; i++)\n    {\n        if ((rand_seq[i / 8] >> (7 - (i % 8))) & 1)\n        {\n            inp[i] = soft_bit_NOT(inp[i]);\n        }\n    }\n}",
+          "slice_symbols": "void slice_symbols(uint16_t out[2 * 184], const float inp[184])\n{\n    for (uint8_t i = 0; i < 184; i++)\n    {\n        if (inp[i] >= symbol_list[3])\n        {\n            out[i * 2 + 1] = 0xFFFF;\n        }\n        else if (inp[i] >= symbol_list[2])\n        {\n            out[i * 2 + 1] = -(float)0xFFFF / (symbol_list[3] - symbol_list[2]) * symbol_list[2] +\n                             inp[i] * (float)0xFFFF / (symbol_list[3] - symbol_list[2]);\n        }\n        else if (inp[i] >= symbol_list[1])\n        {\n            out[i * 2 + 1] = 0x0000;\n        }\n        else if (inp[i] >= symbol_list[0])\n        {\n            out[i * 2 + 1] = (float)0xFFFF / (symbol_list[1] - symbol_list[0]) * symbol_list[1] -\n                             inp[i] * (float)0xFFFF / (symbol_list[1] - symbol_list[0]);\n        }\n        else\n        {\n            out[i * 2 + 1] = 0xFFFF;\n        }\n        if (inp[i] >= symbol_list[2])\n        {\n            out[i * 2] = 0x0000;\n        }\n        else if (inp[i] >= symbol_list[1])\n        {\n            out[i * 2] = 0x7FFF - inp[i] * (float)0xFFFF / (symbol_list[2] - symbol_list[1]);\n        }\n        else\n        {\n            out[i * 2] = 0xFFFF;\n        }\n    }\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "payload/payload.i": {
+      "relative_path": "payload/payload.i",
+      "original_file": "payload/payload.c",
+      "includes": [],
+      "declarations": {
+        "globals": {
+          "puncture_pattern_1": "extern const uint8_t puncture_pattern_1[61];",
+          "puncture_pattern_2": "extern const uint8_t puncture_pattern_2[12];",
+          "puncture_pattern_3": "extern const uint8_t puncture_pattern_3[8];",
+          "M17_CRC_POLY": "const uint16_t M17_CRC_POLY = 0x5935;",
+          "encode_matrix": "extern const uint16_t encode_matrix[12];",
+          "decode_matrix": "extern const uint16_t decode_matrix[12];",
+          "intrl_seq": "extern const uint16_t intrl_seq[184 * 2];",
+          "rand_seq": "extern const uint8_t rand_seq[46];",
+          "rrc_taps_10": "extern const float rrc_taps_10[8 * 10 + 1];",
+          "rrc_taps_5": "extern const float rrc_taps_5[8 * 5 + 1];",
+          "symbol_map": "extern const int8_t symbol_map[4];",
+          "symbol_list": "extern const int8_t symbol_list[4];",
+          "SYNC_LSF": "extern const uint16_t SYNC_LSF;",
+          "SYNC_STR": "extern const uint16_t SYNC_STR;",
+          "SYNC_PKT": "extern const uint16_t SYNC_PKT;",
+          "SYNC_BER": "extern const uint16_t SYNC_BER;",
+          "EOT_MRKR": "extern const uint16_t EOT_MRKR;",
+          "eot_symbols": "extern const float eot_symbols[8];",
+          "lsf_sync_symbols": "extern const int8_t lsf_sync_symbols[8];",
+          "str_sync_symbols": "extern const int8_t str_sync_symbols[8];",
+          "pkt_sync_symbols": "extern const int8_t pkt_sync_symbols[8];",
+          "symbol_levels": "extern const float symbol_levels[4];"
+        },
+        "structs": {
+          "lsf_t": "typedef struct\n{\n    uint8_t dst[6];\n    uint8_t src[6];\n    uint8_t type[2];\n    uint8_t meta[112 / 8];\n    uint8_t crc[2];\n} lsf_t;"
+        },
+        "unions": {},
+        "enums": {
+          "pream_t": "typedef enum\n{\n    PREAM_LSF,\n    PREAM_BERT\n} pream_t;",
+          "frame_t": "typedef enum\n{\n    FRAME_LSF,\n    FRAME_STR,\n    FRAME_PKT\n} frame_t;"
+        },
+        "functions": {
+          "decode_callsign_value": "void decode_callsign_value(uint8_t *outp, const uint64_t inp)\n{\n    uint64_t encoded = inp;\n    uint8_t start = 0;\n    if (encoded >= (262144000000000UL))\n    {\n        if (encoded == 0xFFFFFFFFFFFF)\n        {\n            sprintf((char *)outp, \"@ALL\");\n            return;\n        }\n        else if (encoded <= (268697600000000UL))\n        {\n            start = 1;\n            encoded -= (262144000000000UL);\n            outp[0] = '#';\n        }\n        else\n        {\n            return;\n        }\n    }\n    uint8_t i = start;\n    while (encoded > 0)\n    {\n        outp[i] = \" ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-/.\"[encoded % 40];\n        encoded /= 40;\n        i++;\n    }\n    outp[i] = 0;\n}",
+          "decode_callsign_bytes": "void decode_callsign_bytes(uint8_t *outp, const uint8_t inp[6])\n{\n    uint64_t encoded = 0;\n    for (uint8_t i = 0; i < 6; i++)\n        encoded |= (uint64_t)inp[5 - i] << (8 * i);\n    decode_callsign_value(outp, encoded);\n}",
+          "encode_callsign_value": "int8_t encode_callsign_value(uint64_t *out, const uint8_t *inp)\n{\n    if (strlen((const char *)inp) > 9)\n        return -1;\n    const uint8_t charMap[40] = \" ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-/.\";\n    uint64_t tmp = 0;\n    uint8_t start = 0;\n    if (strcmp((const char *)inp, \"@ALL\") == 0)\n    {\n        *out = 0xFFFFFFFFFFFF;\n        return 0;\n    }\n    if (inp[0] == '#')\n        start = 1;\n    for (int8_t i = strlen((const char *)inp) - 1; i >= start; i--)\n    {\n        for (uint8_t j = 0; j < 40; j++)\n        {\n            if (inp[i] == charMap[j])\n            {\n                tmp = tmp * 40 + j;\n                break;\n            }\n        }\n    }\n    if (start)\n        tmp += (262144000000000UL);\n    *out = tmp;\n    return 0;\n}",
+          "encode_callsign_bytes": "int8_t encode_callsign_bytes(uint8_t out[6], const uint8_t *inp)\n{\n    uint64_t tmp = 0;\n    if (encode_callsign_value(&tmp, inp))\n    {\n        return -1;\n    }\n    for (uint8_t i = 0; i < 6; i++)\n        out[5 - i] = (tmp >> (8 * i)) & 0xFF;\n    return 0;\n}",
+          "CRC_M17": "uint16_t CRC_M17(const uint8_t *in, const uint16_t len)\n{\n    uint32_t crc = 0xFFFF;\n    for (uint16_t i = 0; i < len; i++)\n    {\n        crc ^= in[i] << 8;\n        for (uint8_t j = 0; j < 8; j++)\n        {\n            crc <<= 1;\n            if (crc & 0x10000)\n                crc = (crc ^ M17_CRC_POLY) & 0xFFFF;\n        }\n    }\n    return crc & (0xFFFF);\n}",
+          "LSF_CRC": "uint16_t LSF_CRC(const lsf_t *in)\n{\n    uint8_t d[28];\n    memcpy(&d[0], in->dst, 6);\n    memcpy(&d[6], in->src, 6);\n    memcpy(&d[12], in->type, 2);\n    memcpy(&d[14], in->meta, 14);\n    return CRC_M17(d, 28);\n}",
+          "extract_LICH": "void extract_LICH(uint8_t outp[6], const uint8_t cnt, const lsf_t *inp)\n{\n    switch (cnt)\n    {\n    case 0:\n        outp[0] = inp->dst[0];\n        outp[1] = inp->dst[1];\n        outp[2] = inp->dst[2];\n        outp[3] = inp->dst[3];\n        outp[4] = inp->dst[4];\n        break;\n    case 1:\n        outp[0] = inp->dst[5];\n        outp[1] = inp->src[0];\n        outp[2] = inp->src[1];\n        outp[3] = inp->src[2];\n        outp[4] = inp->src[3];\n        break;\n    case 2:\n        outp[0] = inp->src[4];\n        outp[1] = inp->src[5];\n        outp[2] = inp->type[0];\n        outp[3] = inp->type[1];\n        outp[4] = inp->meta[0];\n        break;\n    case 3:\n        outp[0] = inp->meta[1];\n        outp[1] = inp->meta[2];\n        outp[2] = inp->meta[3];\n        outp[3] = inp->meta[4];\n        outp[4] = inp->meta[5];\n        break;\n    case 4:\n        outp[0] = inp->meta[6];\n        outp[1] = inp->meta[7];\n        outp[2] = inp->meta[8];\n        outp[3] = inp->meta[9];\n        outp[4] = inp->meta[10];\n        break;\n    case 5:\n        outp[0] = inp->meta[11];\n        outp[1] = inp->meta[12];\n        outp[2] = inp->meta[13];\n        outp[3] = inp->crc[0];\n        outp[4] = inp->crc[1];\n        break;\n    default:;\n        break;\n    }\n    outp[5] = cnt << 5;\n}",
+          "unpack_LICH": "void unpack_LICH(uint8_t *out, const uint8_t in[12])\n{\n    for (uint8_t i = 0; i < 12; i++)\n    {\n        for (uint8_t j = 0; j < 8; j++)\n            out[i * 8 + j] = (in[i] >> (7 - j)) & 1;\n    }\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "math/math.i": {
+      "relative_path": "math/math.i",
+      "original_file": "math/math.c",
+      "includes": [],
+      "declarations": {
+        "globals": {
+          "puncture_pattern_1": "extern const uint8_t puncture_pattern_1[61];",
+          "puncture_pattern_2": "extern const uint8_t puncture_pattern_2[12];",
+          "puncture_pattern_3": "extern const uint8_t puncture_pattern_3[8];",
+          "M17_CRC_POLY": "extern const uint16_t M17_CRC_POLY;",
+          "encode_matrix": "const uint16_t encode_matrix[12] = {0x8eb, 0x93e, 0xa97, 0xdc6, 0x367, 0x6cd, 0xd99, 0x3da, 0x7b4, 0xf68, 0x63b, 0xc75};",
+          "decode_matrix": "const uint16_t decode_matrix[12] = {0xc75, 0x49f, 0x93e, 0x6e3, 0xdc6, 0xf13, 0xab9, 0x1ed, 0x3da, 0x7b4, 0xf68, 0xa4f};",
+          "intrl_seq": "extern const uint16_t intrl_seq[184 * 2];",
+          "rand_seq": "extern const uint8_t rand_seq[46];",
+          "rrc_taps_10": "const float rrc_taps_10[8 * 10 + 1] = {\n    -0.003195702904062073f, -0.002930279157647190f, -0.001940667871554463f, -0.000356087678023658f,\n    0.001547011339077758f,  0.003389554791179751f,  0.004761898604225673f,  0.005310860846138910f,\n    0.004824746306020221f,  0.003297923526848786f,  0.000958710871218619f,  -0.001749908029791816f,\n    -0.004238694106631223f, -0.005881783042101693f, -0.006150256456781309f, -0.004745376707651645f,\n    -0.001704189656473565f, 0.002547854551539951f,  0.007215575568844704f,  0.011231038205363532f,\n    0.013421952197060707f,  0.012730475385624438f,  0.008449554307303753f,  0.000436744366018287f,\n    -0.010735380379191660f, -0.023726883538258272f, -0.036498030780605324f, -0.046500883189991064f,\n    -0.050979050575999614f, -0.047340680079891187f, -0.033554880492651755f, -0.008513823955725943f,\n    0.027696543159614194f,  0.073664520037517042f,  0.126689053778116234f,  0.182990955139333916f,\n    0.238080025892859704f,  0.287235637987091563f,  0.326040247765297220f,  0.350895727088112619f,\n    0.359452932027607974f,  0.350895727088112619f,  0.326040247765297220f,  0.287235637987091563f,\n    0.238080025892859704f,  0.182990955139333916f,  0.126689053778116234f,  0.073664520037517042f,\n    0.027696543159614194f,  -0.008513823955725943f, -0.033554880492651755f, -0.047340680079891187f,\n    -0.050979050575999614f, -0.046500883189991064f, -0.036498030780605324f, -0.023726883538258272f,\n    -0.010735380379191660f, 0.000436744366018287f,  0.008449554307303753f,  0.012730475385624438f,\n    0.013421952197060707f,  0.011231038205363532f,  0.007215575568844704f,  0.002547854551539951f,\n    -0.001704189656473565f, -0.004745376707651645f, -0.006150256456781309f, -0.005881783042101693f,\n    -0.004238694106631223f, -0.001749908029791816f, 0.000958710871218619f,  0.003297923526848786f,\n    0.004824746306020221f,  0.005310860846138910f,  0.004761898604225673f,  0.003389554791179751f,\n    0.001547011339077758f,  -0.000356087678023658f, -0.001940667871554463f, -0.002930279157647190f,\n    -0.003195702904062073f};",
+          "rrc_taps_5": "const float rrc_taps_5[8 * 5 + 1] = {\n    -0.004519384154389f, -0.002744505321971f, 0.002187793653660f,  0.006734308458208f,  0.006823188093192f,\n    0.001355815246317f,  -0.005994389201970f, -0.008697733303330f, -0.002410076268276f, 0.010204314627992f,\n    0.018981413448435f,  0.011949415510291f,  -0.015182045838927f, -0.051615756197679f, -0.072094910038768f,\n    -0.047453533621088f, 0.039168634270669f,  0.179164496628150f,  0.336694345124862f,  0.461088271869920f,\n    0.508340710642860f,  0.461088271869920f,  0.336694345124862f,  0.179164496628150f,  0.039168634270669f,\n    -0.047453533621088f, -0.072094910038768f, -0.051615756197679f, -0.015182045838927f, 0.011949415510291f,\n    0.018981413448435f,  0.010204314627992f,  -0.002410076268276f, -0.008697733303330f, -0.005994389201970f,\n    0.001355815246317f,  0.006823188093192f,  0.006734308458208f,  0.002187793653660f,  -0.002744505321971f,\n    -0.004519384154389f};",
+          "symbol_map": "extern const int8_t symbol_map[4];",
+          "symbol_list": "extern const int8_t symbol_list[4];",
+          "SYNC_LSF": "extern const uint16_t SYNC_LSF;",
+          "SYNC_STR": "extern const uint16_t SYNC_STR;",
+          "SYNC_PKT": "extern const uint16_t SYNC_PKT;",
+          "SYNC_BER": "extern const uint16_t SYNC_BER;",
+          "EOT_MRKR": "extern const uint16_t EOT_MRKR;",
+          "eot_symbols": "extern const float eot_symbols[8];",
+          "lsf_sync_symbols": "extern const int8_t lsf_sync_symbols[8];",
+          "str_sync_symbols": "extern const int8_t str_sync_symbols[8];",
+          "pkt_sync_symbols": "extern const int8_t pkt_sync_symbols[8];",
+          "symbol_levels": "extern const float symbol_levels[4];"
+        },
+        "structs": {
+          "lsf_t": "typedef struct\n{\n    uint8_t dst[6];\n    uint8_t src[6];\n    uint8_t type[2];\n    uint8_t meta[112 / 8];\n    uint8_t crc[2];\n} lsf_t;"
+        },
+        "unions": {},
+        "enums": {
+          "pream_t": "typedef enum\n{\n    PREAM_LSF,\n    PREAM_BERT\n} pream_t;",
+          "frame_t": "typedef enum\n{\n    FRAME_LSF,\n    FRAME_STR,\n    FRAME_PKT\n} frame_t;"
+        },
+        "functions": {
+          "golay24_encode": "uint32_t golay24_encode(const uint16_t data)\n{\n    uint16_t checksum = 0;\n    for (uint8_t i = 0; i < 12; i++)\n    {\n        if (data & (1 << i))\n        {\n            checksum ^= encode_matrix[i];\n        }\n    }\n    return ((uint32_t)data << 12) | checksum;\n}",
+          "s_popcount": "uint32_t s_popcount(const uint16_t *in, uint8_t siz)\n{\n    uint32_t tmp = 0;\n    for (uint8_t i = 0; i < siz; i++)\n        tmp += in[i];\n    return tmp;\n}",
+          "s_calc_checksum": "void s_calc_checksum(uint16_t *out, const uint16_t *value)\n{\n    uint16_t checksum[12];\n    uint16_t soft_em[12];\n    for (uint8_t i = 0; i < 12; i++)\n        checksum[i] = 0;\n    for (uint8_t i = 0; i < 12; i++)\n    {\n        int_to_soft(soft_em, encode_matrix[i], 12);\n        if (value[i] > 0x7FFF)\n        {\n            soft_XOR(checksum, checksum, soft_em, 12);\n        }\n    }\n    memcpy((uint8_t *)out, (uint8_t *)checksum, 12 * 2);\n}",
+          "s_detect_errors": "uint32_t s_detect_errors(const uint16_t *codeword)\n{\n    uint16_t data[12];\n    uint16_t parity[12];\n    uint16_t cksum[12];\n    uint16_t syndrome[12];\n    uint32_t weight;\n    memcpy((uint8_t *)data, (uint8_t *)&codeword[12], 2 * 12);\n    memcpy((uint8_t *)parity, (uint8_t *)&codeword[0], 2 * 12);\n    s_calc_checksum(cksum, data);\n    soft_XOR(syndrome, parity, cksum, 12);\n    weight = s_popcount(syndrome, 12);\n    if (weight < 4 * 0xFFFE)\n    {\n        return soft_to_int(syndrome, 12);\n    }\n    for (uint8_t i = 0; i < 12; i++)\n    {\n        uint16_t e = 1 << i;\n        uint16_t coded_error = encode_matrix[i];\n        uint16_t scoded_error[12];\n        uint16_t sc[12];\n        int_to_soft(scoded_error, coded_error, 12);\n        soft_XOR(sc, syndrome, scoded_error, 12);\n        weight = s_popcount(sc, 12);\n        if (weight < 3 * 0xFFFE)\n        {\n            uint16_t s = soft_to_int(syndrome, 12);\n            return (e << 12) | (s ^ coded_error);\n        }\n    }\n    for (uint8_t i = 0; i < 11; i++)\n    {\n        for (uint8_t j = i + 1; j < 12; j++)\n        {\n            uint16_t e = (1 << i) | (1 << j);\n            uint16_t coded_error = encode_matrix[i] ^ encode_matrix[j];\n            uint16_t scoded_error[12];\n            uint16_t sc[12];\n            int_to_soft(scoded_error, coded_error, 12);\n            soft_XOR(sc, syndrome, scoded_error, 12);\n            weight = s_popcount(sc, 12);\n            if (weight < 2 * 0xFFFF)\n            {\n                uint16_t s = soft_to_int(syndrome, 12);\n                return (e << 12) | (s ^ coded_error);\n            }\n        }\n    }\n    uint16_t inv_syndrome[12] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};\n    uint16_t dm[12];\n    for (uint8_t i = 0; i < 12; i++)\n    {\n        if (syndrome[i] > 0x7FFF)\n        {\n            int_to_soft(dm, decode_matrix[i], 12);\n            soft_XOR(inv_syndrome, inv_syndrome, dm, 12);\n        }\n    }\n    weight = s_popcount(inv_syndrome, 12);\n    if (weight < 4 * 0xFFFF)\n    {\n        return soft_to_int(inv_syndrome, 12) << 12;\n    }\n    for (uint8_t i = 0; i < 12; i++)\n    {\n        uint16_t e = 1 << i;\n        uint16_t coding_error = decode_matrix[i];\n        uint16_t ce[12];\n        uint16_t tmp[12];\n        int_to_soft(ce, coding_error, 12);\n        soft_XOR(tmp, inv_syndrome, ce, 12);\n        weight = s_popcount(tmp, 12);\n        if (weight < 3 * (0xFFFF + 2))\n        {\n            return ((soft_to_int(inv_syndrome, 12) ^ coding_error) << 12) | e;\n        }\n    }\n    return 0xFFFFFFFFUL;\n}",
+          "golay24_sdecode": "uint16_t golay24_sdecode(const uint16_t codeword[24])\n{\n    uint16_t cw[24];\n    for (uint8_t i = 0; i < 24; i++)\n        cw[i] = codeword[23 - i];\n    uint32_t errors = s_detect_errors(cw);\n    if (errors == 0xFFFFFFFF)\n        return 0xFFFF;\n    return (((soft_to_int(&cw[0], 16) | (soft_to_int(&cw[16], 8) << 16)) ^ errors) >> 12) & 0x0FFF;\n}",
+          "decode_LICH": "void decode_LICH(uint8_t outp[6], const uint16_t inp[96])\n{\n    uint16_t tmp;\n    memset(outp, 0, 6);\n    tmp = golay24_sdecode(&inp[0]);\n    outp[0] = (tmp >> 4) & 0xFF;\n    outp[1] |= (tmp & 0xF) << 4;\n    tmp = golay24_sdecode(&inp[1 * 24]);\n    outp[1] |= (tmp >> 8) & 0xF;\n    outp[2] = tmp & 0xFF;\n    tmp = golay24_sdecode(&inp[2 * 24]);\n    outp[3] = (tmp >> 4) & 0xFF;\n    outp[4] |= (tmp & 0xF) << 4;\n    tmp = golay24_sdecode(&inp[3 * 24]);\n    outp[4] |= (tmp >> 8) & 0xF;\n    outp[5] = tmp & 0xFF;\n}",
+          "encode_LICH": "void encode_LICH(uint8_t outp[12], const uint8_t inp[6])\n{\n    uint32_t val;\n    val = golay24_encode((inp[0] << 4) | (inp[1] >> 4));\n    outp[0] = (val >> 16) & 0xFF;\n    outp[1] = (val >> 8) & 0xFF;\n    outp[2] = (val >> 0) & 0xFF;\n    val = golay24_encode(((inp[1] & 0x0F) << 8) | inp[2]);\n    outp[3] = (val >> 16) & 0xFF;\n    outp[4] = (val >> 8) & 0xFF;\n    outp[5] = (val >> 0) & 0xFF;\n    val = golay24_encode((inp[3] << 4) | (inp[4] >> 4));\n    outp[6] = (val >> 16) & 0xFF;\n    outp[7] = (val >> 8) & 0xFF;\n    outp[8] = (val >> 0) & 0xFF;\n    val = golay24_encode(((inp[4] & 0x0F) << 8) | inp[5]);\n    outp[9] = (val >> 16) & 0xFF;\n    outp[10] = (val >> 8) & 0xFF;\n    outp[11] = (val >> 0) & 0xFF;\n}",
+          "q_abs_diff": "uint16_t q_abs_diff(const uint16_t v1, const uint16_t v2)\n{\n    if (v2 > v1)\n        return v2 - v1;\n    return v1 - v2;\n}",
+          "eucl_norm": "float eucl_norm(const float *in1, const int8_t *in2, const uint8_t n)\n{\n    float tmp = 0.0f;\n    for (uint8_t i = 0; i < n; i++)\n    {\n        tmp += (in1[i] - (float)in2[i]) * (in1[i] - (float)in2[i]);\n    }\n    return sqrtf(tmp);\n}",
+          "int_to_soft": "void int_to_soft(uint16_t *out, const uint16_t in, const uint8_t len)\n{\n    for (uint8_t i = 0; i < len; i++)\n    {\n        (in >> i) & 1 ? (out[i] = 0xFFFF) : (out[i] = 0);\n    }\n}",
+          "soft_to_int": "uint16_t soft_to_int(const uint16_t *in, const uint8_t len)\n{\n    uint16_t tmp = 0;\n    for (uint8_t i = 0; i < len; i++)\n    {\n        if (in[i] > 0x7FFFU)\n            tmp |= (1 << i);\n    }\n    return tmp;\n}",
+          "add16": "uint16_t add16(const uint16_t a, const uint16_t b)\n{\n    uint32_t r = (uint32_t)a + b;\n    return r <= 0xFFFFU ? r : 0xFFFFU;\n}",
+          "sub16": "uint16_t sub16(const uint16_t a, const uint16_t b)\n{\n    if (a >= b)\n        return a - b;\n    else\n        return 0x0000U;\n}",
+          "div16": "uint16_t div16(const uint16_t a, const uint16_t b)\n{\n    uint32_t aa = (uint32_t)a << 16;\n    uint32_t r = aa / b;\n    return r <= 0xFFFFU ? r : 0xFFFFU;\n}",
+          "mul16": "uint16_t mul16(const uint16_t a, const uint16_t b)\n{\n    return (uint16_t)(((uint32_t)a * b) >> 16);\n}",
+          "soft_bit_XOR": "uint16_t soft_bit_XOR(const uint16_t a, const uint16_t b)\n{\n    return add16(mul16(a, sub16(0xFFFF, b)), mul16(b, sub16(0xFFFF, a)));\n}",
+          "soft_bit_NOT": "uint16_t soft_bit_NOT(const uint16_t a)\n{\n    return 0xFFFFU - a;\n}",
+          "soft_XOR": "void soft_XOR(uint16_t *out, const uint16_t *a, const uint16_t *b, const uint8_t len)\n{\n    for (uint8_t i = 0; i < len; i++)\n        out[i] = soft_bit_XOR(a[i], b[i]);\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "encode/encode.i": {
+      "relative_path": "encode/encode.i",
+      "original_file": "encode/encode.c",
+      "includes": [],
+      "declarations": {
+        "globals": {
+          "puncture_pattern_1": "const uint8_t puncture_pattern_1[61] = {1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1,\n                                        1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1,\n                                        0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1};",
+          "puncture_pattern_2": "const uint8_t puncture_pattern_2[12] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0};",
+          "puncture_pattern_3": "const uint8_t puncture_pattern_3[8] = {1, 1, 1, 1, 1, 1, 1, 0};",
+          "M17_CRC_POLY": "extern const uint16_t M17_CRC_POLY;",
+          "encode_matrix": "extern const uint16_t encode_matrix[12];",
+          "decode_matrix": "extern const uint16_t decode_matrix[12];",
+          "intrl_seq": "extern const uint16_t intrl_seq[184 * 2];",
+          "rand_seq": "extern const uint8_t rand_seq[46];",
+          "rrc_taps_10": "extern const float rrc_taps_10[8 * 10 + 1];",
+          "rrc_taps_5": "extern const float rrc_taps_5[8 * 5 + 1];",
+          "symbol_map": "const int8_t symbol_map[4] = {+1, +3, -1, -3};",
+          "symbol_list": "const int8_t symbol_list[4] = {-3, -1, +1, +3};",
+          "SYNC_LSF": "extern const uint16_t SYNC_LSF;",
+          "SYNC_STR": "extern const uint16_t SYNC_STR;",
+          "SYNC_PKT": "extern const uint16_t SYNC_PKT;",
+          "SYNC_BER": "extern const uint16_t SYNC_BER;",
+          "EOT_MRKR": "extern const uint16_t EOT_MRKR;",
+          "eot_symbols": "const float eot_symbols[8] = {+3, +3, +3, +3, +3, +3, -3, +3};",
+          "lsf_sync_symbols": "extern const int8_t lsf_sync_symbols[8];",
+          "str_sync_symbols": "extern const int8_t str_sync_symbols[8];",
+          "pkt_sync_symbols": "extern const int8_t pkt_sync_symbols[8];",
+          "symbol_levels": "extern const float symbol_levels[4];"
+        },
+        "structs": {
+          "lsf_t": "typedef struct\n{\n    uint8_t dst[6];\n    uint8_t src[6];\n    uint8_t type[2];\n    uint8_t meta[112 / 8];\n    uint8_t crc[2];\n} lsf_t;"
+        },
+        "unions": {},
+        "enums": {
+          "pream_t": "typedef enum\n{\n    PREAM_LSF,\n    PREAM_BERT\n} pream_t;",
+          "frame_t": "typedef enum\n{\n    FRAME_LSF,\n    FRAME_STR,\n    FRAME_PKT\n} frame_t;"
+        },
+        "functions": {
+          "conv_encode_stream_frame": "void conv_encode_stream_frame(uint8_t *out, const uint8_t *in, const uint16_t fn)\n{\n    uint8_t pp_len = sizeof(puncture_pattern_2);\n    uint8_t p = 0;\n    uint16_t pb = 0;\n    uint8_t ud[144 + 4 + 4];\n    memset(ud, 0, 144 + 4 + 4);\n    for (uint8_t i = 0; i < 16; i++)\n    {\n        ud[4 + i] = (fn >> (15 - i)) & 1;\n    }\n    for (uint8_t i = 0; i < 16; i++)\n    {\n        for (uint8_t j = 0; j < 8; j++)\n        {\n            ud[4 + 16 + i * 8 + j] = (in[i] >> (7 - j)) & 1;\n        }\n    }\n    for (uint8_t i = 0; i < 144 + 4; i++)\n    {\n        uint8_t G1 = (ud[i + 4] + ud[i + 1] + ud[i + 0]) % 2;\n        uint8_t G2 = (ud[i + 4] + ud[i + 3] + ud[i + 2] + ud[i + 0]) % 2;\n        if (puncture_pattern_2[p])\n        {\n            out[pb] = G1;\n            pb++;\n        }\n        p++;\n        p %= pp_len;\n        if (puncture_pattern_2[p])\n        {\n            out[pb] = G2;\n            pb++;\n        }\n        p++;\n        p %= pp_len;\n    }\n}",
+          "conv_encode_packet_frame": "void conv_encode_packet_frame(uint8_t *out, const uint8_t *in)\n{\n    uint8_t pp_len = sizeof(puncture_pattern_3);\n    uint8_t p = 0;\n    uint16_t pb = 0;\n    uint8_t ud[206 + 4 + 4];\n    memset(ud, 0, 206 + 4 + 4);\n    for (uint8_t i = 0; i < 26; i++)\n    {\n        for (uint8_t j = 0; j < 8; j++)\n        {\n            if (i <= 24 || j <= 5)\n                ud[4 + i * 8 + j] = (in[i] >> (7 - j)) & 1;\n        }\n    }\n    for (uint8_t i = 0; i < 206 + 4; i++)\n    {\n        uint8_t G1 = (ud[i + 4] + ud[i + 1] + ud[i + 0]) % 2;\n        uint8_t G2 = (ud[i + 4] + ud[i + 3] + ud[i + 2] + ud[i + 0]) % 2;\n        if (puncture_pattern_3[p])\n        {\n            out[pb] = G1;\n            pb++;\n        }\n        p++;\n        p %= pp_len;\n        if (puncture_pattern_3[p])\n        {\n            out[pb] = G2;\n            pb++;\n        }\n        p++;\n        p %= pp_len;\n    }\n}",
+          "conv_encode_LSF": "void conv_encode_LSF(uint8_t *out, const lsf_t *in)\n{\n    uint8_t pp_len = sizeof(puncture_pattern_1);\n    uint8_t p = 0;\n    uint16_t pb = 0;\n    uint8_t ud[240 + 4 + 4];\n    memset(ud, 0, 240 + 4 + 4);\n    for (uint8_t i = 0; i < 8; i++)\n    {\n        ud[4 + i] = ((in->dst[0]) >> (7 - i)) & 1;\n        ud[4 + i + 8] = ((in->dst[1]) >> (7 - i)) & 1;\n        ud[4 + i + 16] = ((in->dst[2]) >> (7 - i)) & 1;\n        ud[4 + i + 24] = ((in->dst[3]) >> (7 - i)) & 1;\n        ud[4 + i + 32] = ((in->dst[4]) >> (7 - i)) & 1;\n        ud[4 + i + 40] = ((in->dst[5]) >> (7 - i)) & 1;\n    }\n    for (uint8_t i = 0; i < 8; i++)\n    {\n        ud[4 + i + 48] = ((in->src[0]) >> (7 - i)) & 1;\n        ud[4 + i + 56] = ((in->src[1]) >> (7 - i)) & 1;\n        ud[4 + i + 64] = ((in->src[2]) >> (7 - i)) & 1;\n        ud[4 + i + 72] = ((in->src[3]) >> (7 - i)) & 1;\n        ud[4 + i + 80] = ((in->src[4]) >> (7 - i)) & 1;\n        ud[4 + i + 88] = ((in->src[5]) >> (7 - i)) & 1;\n    }\n    for (uint8_t i = 0; i < 8; i++)\n    {\n        ud[4 + i + 96] = ((in->type[0]) >> (7 - i)) & 1;\n        ud[4 + i + 104] = ((in->type[1]) >> (7 - i)) & 1;\n    }\n    for (uint8_t i = 0; i < 8; i++)\n    {\n        ud[4 + i + 112] = ((in->meta[0]) >> (7 - i)) & 1;\n        ud[4 + i + 120] = ((in->meta[1]) >> (7 - i)) & 1;\n        ud[4 + i + 128] = ((in->meta[2]) >> (7 - i)) & 1;\n        ud[4 + i + 136] = ((in->meta[3]) >> (7 - i)) & 1;\n        ud[4 + i + 144] = ((in->meta[4]) >> (7 - i)) & 1;\n        ud[4 + i + 152] = ((in->meta[5]) >> (7 - i)) & 1;\n        ud[4 + i + 160] = ((in->meta[6]) >> (7 - i)) & 1;\n        ud[4 + i + 168] = ((in->meta[7]) >> (7 - i)) & 1;\n        ud[4 + i + 176] = ((in->meta[8]) >> (7 - i)) & 1;\n        ud[4 + i + 184] = ((in->meta[9]) >> (7 - i)) & 1;\n        ud[4 + i + 192] = ((in->meta[10]) >> (7 - i)) & 1;\n        ud[4 + i + 200] = ((in->meta[11]) >> (7 - i)) & 1;\n        ud[4 + i + 208] = ((in->meta[12]) >> (7 - i)) & 1;\n        ud[4 + i + 216] = ((in->meta[13]) >> (7 - i)) & 1;\n    }\n    for (uint8_t i = 0; i < 8; i++)\n    {\n        ud[4 + i + 224] = ((in->crc[0]) >> (7 - i)) & 1;\n        ud[4 + i + 232] = ((in->crc[1]) >> (7 - i)) & 1;\n    }\n    for (uint8_t i = 0; i < 240 + 4; i++)\n    {\n        uint8_t G1 = (ud[i + 4] + ud[i + 1] + ud[i + 0]) % 2;\n        uint8_t G2 = (ud[i + 4] + ud[i + 3] + ud[i + 2] + ud[i + 0]) % 2;\n        if (puncture_pattern_1[p])\n        {\n            out[pb] = G1;\n            pb++;\n        }\n        p++;\n        p %= pp_len;\n        if (puncture_pattern_1[p])\n        {\n            out[pb] = G2;\n            pb++;\n        }\n        p++;\n        p %= pp_len;\n    }\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

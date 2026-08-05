@@ -1,0 +1,657 @@
+{
+  "project_name": "fslib",
+  "files": {
+    "src/heap.i": {
+      "relative_path": "src/heap.i",
+      "original_file": "src/heap.c",
+      "includes": [
+        "heap.h",
+        "hash.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "_bitem": "struct _bitem\n{\n    void *key;\n    void *value;\n    struct _bitem *next;\n}",
+          "_bucket": "struct _bucket\n{\n    struct _bitem *head;\n    struct _bitem *tail;\n}",
+          "_hash": "struct _hash\n{\n    struct _bucket *buckets;\n    size_t item_size;\n    size_t key_size;\n    size_t size;\n    size_t n_items;\n    hash_func hash_f;\n    cmp_func cmp_f;\n}",
+          "_heap": "struct _heap\n{\n    size_t n_items;\n    size_t n_max;\n    size_t item_size;\n    size_t limit;\n    heap_cmp cmp;\n    struct _hash *ht;\n    char *items;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "heap_items_swap": "static void heap_items_swap(struct _heap *heap, size_t i, size_t j)\n{\n    char *items = heap->items;\n    size_t s = heap->item_size;\n    char *tmp = malloc(s);\n    memcpy(tmp, items + i * s, s);\n    memcpy(items + i * s, items + j * s, s);\n    memcpy(items + j * s, tmp, s);\n    if (heap->ht != ((void *)0))\n    {\n        hash_add(heap->ht, items + i * s, &i);\n        hash_add(heap->ht, items + j * s, &j);\n    }\n    free(tmp);\n}",
+          "heap_create": "struct _heap *heap_create(heap_cmp cmp, size_t item_size, size_t init_size, size_t limit)\n{\n    struct _heap *heap;\n    heap = malloc(sizeof(struct _heap));\n    heap->n_items = 0;\n    heap->item_size = item_size;\n    heap->limit = limit;\n    heap->cmp = cmp;\n    if (limit != 0)\n    {\n        heap->n_max = limit + 1;\n    }\n    else\n    {\n        if (init_size == 0)\n            heap->n_max = 0xff;\n        else\n            heap->n_max = init_size;\n    }\n    heap->items = malloc(heap->item_size * heap->n_max);\n    heap->ht = ((void *)0);\n    return heap;\n}",
+          "heap_index": "struct _hash *heap_index(struct _heap *heap, hash_func hsh, cmp_func hcmp)\n{\n    if (heap->ht != ((void *)0))\n        hash_remove(heap->ht);\n    heap->ht = hash_create(hsh, hcmp, heap->item_size, sizeof(size_t), heap->n_max);\n    for (size_t i = 0; i < heap->n_items; ++i)\n        hash_add(heap->ht, heap->items + i * heap->item_size, &i);\n    return heap->ht;\n}",
+          "heap_remove": "void heap_remove(struct _heap *heap)\n{\n    ((void)sizeof((heap != ((void *)0)) ? 1 : 0), __extension__({\n         if (heap != ((void *)0))\n             ;\n         else\n             __assert_fail(\"heap != NULL\", \"/home/bbzs/code/reporeflectrust/data/project/CBench/fslib/src/heap.c\", 95,\n                           __extension__ __PRETTY_FUNCTION__);\n     }));\n    ((void)sizeof((heap->items != ((void *)0)) ? 1 : 0), __extension__({\n         if (heap->items != ((void *)0))\n             ;\n         else\n             __assert_fail(\"heap->items != NULL\",\n                           \"/home/bbzs/code/reporeflectrust/data/project/CBench/fslib/src/heap.c\", 96,\n                           __extension__ __PRETTY_FUNCTION__);\n     }));\n    if (heap->ht != ((void *)0))\n    {\n        hash_remove(heap->ht);\n    }\n    free(heap->items);\n    free(heap);\n}",
+          "heap_pop": "void *heap_pop(struct _heap *heap, void *item)\n{\n    char *items = heap->items;\n    size_t s = heap->item_size;\n    if (heap->n_items == 0)\n        return ((void *)0);\n    memcpy(item, items, s);\n    --heap->n_items;\n    if (heap->n_items > 0)\n    {\n        memcpy(items, items + heap->n_items * s, s);\n        size_t i = 0;\n        if (heap->ht != ((void *)0))\n            hash_add(heap->ht, items, &i);\n    }\n    if (heap->n_items > 1)\n        heap_heapify(heap, 0);\n    return item;\n}",
+          "heap_heapify": "void heap_heapify(struct _heap *heap, size_t i)\n{\n    char *items = heap->items;\n    size_t s = heap->item_size;\n    size_t l, r, mx;\n    int done = 0;\n    ((void)sizeof((i < heap->n_items) ? 1 : 0), __extension__({\n         if (i < heap->n_items)\n             ;\n         else\n             __assert_fail(\"i < heap->n_items\", \"/home/bbzs/code/reporeflectrust/data/project/CBench/fslib/src/heap.c\",\n                           151, __extension__ __PRETTY_FUNCTION__);\n     }));\n    while (!done)\n    {\n        l = (((i + 1) << 1) - 1);\n        r = ((i + 1) << 1);\n        mx = (l < heap->n_items && heap->cmp(items + l * s, items + i * s)) ? l : i;\n        mx = (r < heap->n_items && heap->cmp(items + r * s, items + mx * s)) ? r : mx;\n        if (mx != i)\n        {\n            heap_items_swap(heap, i, mx);\n            i = mx;\n        }\n        else\n        {\n            done = 1;\n        }\n    }\n}",
+          "heap_delete_max": "static void heap_delete_max(struct _heap *heap)\n{\n    char *items = heap->items;\n    size_t s = heap->item_size;\n    size_t m = 0;\n    for (size_t i = 1; i < heap->n_items + 1; ++i)\n    {\n        if (heap->cmp(items + m * s, items + i * s))\n            m = i;\n    }\n    if (m != heap->n_items)\n    {\n        memcpy(items + m * s, items + heap->n_items * s, s);\n        if (heap->ht != ((void *)0))\n            hash_add(heap->ht, items + m * s, &m);\n        heap_update(heap, ((void *)0), m);\n    }\n}",
+          "heap_insert": "void heap_insert(struct _heap *heap, void *item)\n{\n    size_t s = heap->item_size;\n    if (heap->limit == 0 && heap->n_max == heap->n_items)\n    {\n        heap->n_max *= 2;\n        heap->items = realloc(heap->items, heap->n_max * s);\n    }\n    memcpy(heap->items + heap->n_items * s, item, s);\n    if (heap->ht != ((void *)0))\n        hash_add(heap->ht, item, &heap->n_items);\n    if (heap->limit == 0 || heap->n_items < heap->limit)\n    {\n        heap_update(heap, ((void *)0), heap->n_items++);\n    }\n    else\n    {\n        heap_delete_max(heap);\n    }\n}",
+          "heap_update": "void heap_update(struct _heap *heap, void *item, size_t i)\n{\n    char *items = heap->items;\n    size_t s = heap->item_size;\n    size_t j;\n    ((void)sizeof((i < heap->n_items) ? 1 : 0), __extension__({\n         if (i < heap->n_items)\n             ;\n         else\n             __assert_fail(\"i < heap->n_items\", \"/home/bbzs/code/reporeflectrust/data/project/CBench/fslib/src/heap.c\",\n                           238, __extension__ __PRETTY_FUNCTION__);\n     }));\n    if (item != ((void *)0))\n    {\n        ((void)sizeof((heap->cmp(item, items + i * s)) ? 1 : 0), __extension__({\n             if (heap->cmp(item, items + i * s))\n                 ;\n             else\n                 __assert_fail(\"heap->cmp(item, items + i*s)\",\n                               \"/home/bbzs/code/reporeflectrust/data/project/CBench/fslib/src/heap.c\", 243,\n                               __extension__ __PRETTY_FUNCTION__);\n         }));\n        memcpy(items + i * s, item, s);\n        if (heap->ht != ((void *)0))\n            hash_add(heap->ht, item, &i);\n    }\n    while (i > 0 && heap->cmp(items + i * s, items + (((i + 1) >> 1) - 1) * s))\n    {\n        j = (((i + 1) >> 1) - 1);\n        heap_items_swap(heap, i, j);\n        i = j;\n    }\n}",
+          "heap_find": "void *heap_find(struct _heap *heap, void *item, size_t *pi)\n{\n    ((void)sizeof((heap->ht != ((void *)0)) ? 1 : 0), __extension__({\n         if (heap->ht != ((void *)0))\n             ;\n         else\n             __assert_fail(\"heap->ht != NULL\", \"/home/bbzs/code/reporeflectrust/data/project/CBench/fslib/src/heap.c\",\n                           261, __extension__ __PRETTY_FUNCTION__);\n     }));\n    return hash_get(heap->ht, item, pi);\n}"
+        },
+        "typedefs": {
+          "hash_func": "typedef size_t (*hash_func)(void *key);",
+          "cmp_func": "typedef int (*cmp_func)(void *key_a, void *key_b);",
+          "heap_cmp": "typedef int (*heap_cmp)(const void *a, const void *b);",
+          "heap_key_eq": "typedef int (*heap_key_eq)(const void *a, const void *b);"
+        }
+      }
+    },
+    "src/iter.i": {
+      "relative_path": "src/iter.i",
+      "original_file": "src/iter.c",
+      "includes": [
+        "queue.h",
+        "bitset.h",
+        "fst.h",
+        "iter.h"
+      ],
+      "declarations": {
+        "globals": {
+          "sr_types": "extern struct _sr sr_types[];",
+          "_fst_header": "static const uint32_t _fst_header = 0x66733031;"
+        },
+        "structs": {
+          "_queue": "struct _queue\n{\n    struct _qnode *head;\n    struct _qnode *tail;\n    size_t item_size;\n    size_t n_items;\n}",
+          "_qnode": "struct _qnode\n{\n    struct _qnode *next;\n    char item[1];\n}",
+          "_bitset": "struct _bitset\n{\n    word_t *words;\n    int n_words;\n}",
+          "_sr": "struct _sr\n{\n    sr_sum sum;\n    sr_prod prod;\n    float zero;\n    float one;\n}",
+          "_bitem": "struct _bitem\n{\n    void *key;\n    void *value;\n    struct _bitem *next;\n}",
+          "_bucket": "struct _bucket\n{\n    struct _bitem *head;\n    struct _bitem *tail;\n}",
+          "_hash": "struct _hash\n{\n    struct _bucket *buckets;\n    size_t item_size;\n    size_t key_size;\n    size_t size;\n    size_t n_items;\n    hash_func hash_f;\n    cmp_func cmp_f;\n}",
+          "_symt": "struct _symt\n{\n    size_t n_items;\n    size_t n_max;\n    char **sym;\n    struct _hash *rev;\n}",
+          "_fst": "struct _fst\n{\n    uint32_t start;\n    uint32_t n_states;\n    uint32_t n_max;\n    uint8_t sr_type;\n    uint8_t flags;\n    struct _state *states;\n}",
+          "_state": "struct _state\n{\n    uint32_t n_arcs;\n    uint32_t n_max;\n    float weight;\n    int final;\n    struct _arc *arcs;\n}",
+          "_arc": "struct _arc\n{\n    uint32_t state;\n    float weight;\n    uint32_t ilabel;\n    uint32_t olabel;\n}",
+          "_spair": "struct _spair\n{\n    uint32_t a;\n    uint32_t b;\n}",
+          "_striple": "struct _striple\n{\n    uint32_t a;\n    uint32_t b;\n    uint32_t c;\n}",
+          "_apair": "struct _apair\n{\n    uint32_t a;\n    uint32_t b;\n}",
+          "_arc_pair": "struct _arc_pair\n{\n    struct _arc a;\n    struct _arc b;\n}",
+          "_match_item": "struct _match_item\n{\n    struct _arc a;\n    struct _arc b;\n}",
+          "_fst_iter": "struct _fst_iter\n{\n    const struct _fst *fst;\n    struct _bitset *marked;\n    struct _queue *queue;\n    uint32_t state;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "fst_iter_create": "struct _fst_iter *fst_iter_create(const struct _fst *fst)\n{\n    struct _fst_iter *iter;\n    iter = malloc(sizeof(struct _fst_iter));\n    iter->fst = fst;\n    iter->state = fst->start;\n    iter->marked = bitset_create(fst->n_states);\n    iter->queue = queue_create(sizeof(uint32_t));\n    queue_enque(iter->queue, &iter->state);\n    bitset_set(iter->marked, iter->state);\n    return iter;\n}",
+          "fst_iter_remove": "void fst_iter_remove(struct _fst_iter *iter)\n{\n    bitset_remove(iter->marked);\n    queue_remove(iter->queue);\n    iter->fst = ((void *)0);\n    free(iter);\n}",
+          "fst_iter_next": "uint32_t fst_iter_next(struct _fst_iter *iter)\n{\n    struct _arc *arc;\n    struct _state *state;\n    uint32_t s;\n    uint32_t a;\n    if ((queue_deque(iter->queue, &s)) != ((void *)0))\n    {\n        iter->state = s;\n        state = &iter->fst->states[s];\n        for (a = 0; a < state->n_arcs; ++a)\n        {\n            arc = &state->arcs[a];\n            if (bitset_get(iter->marked, arc->state) == 0)\n            {\n                queue_enque(iter->queue, &arc->state);\n                bitset_set(iter->marked, arc->state);\n            }\n        }\n    }\n    else\n    {\n        iter->state = -1;\n    }\n    return iter->state;\n}",
+          "fst_iter_visited": "int fst_iter_visited(struct _fst_iter *iter, uint32_t s)\n{\n    return bitset_get(iter->marked, s);\n}"
+        },
+        "typedefs": {
+          "word_t": "typedef uint32_t word_t;",
+          "sr_sum": "typedef float (*sr_sum)(const float a, const float b);",
+          "sr_prod": "typedef float (*sr_prod)(const float a, const float b);",
+          "hash_func": "typedef size_t (*hash_func)(void *key);",
+          "cmp_func": "typedef int (*cmp_func)(void *key_a, void *key_b);",
+          "token_t": "typedef char token_t[1024];"
+        }
+      }
+    },
+    "src/queue.i": {
+      "relative_path": "src/queue.i",
+      "original_file": "src/queue.c",
+      "includes": [
+        "queue.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "_queue": "struct _queue\n{\n    struct _qnode *head;\n    struct _qnode *tail;\n    size_t item_size;\n    size_t n_items;\n}",
+          "_qnode": "struct _qnode\n{\n    struct _qnode *next;\n    char item[1];\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "queue_create": "struct _queue *queue_create(size_t item_size)\n{\n    struct _queue *q;\n    q = (struct _queue *)malloc(sizeof(struct _queue));\n    q->item_size = item_size;\n    q->n_items = 0;\n    q->head = ((void *)0);\n    q->tail = ((void *)0);\n    return q;\n}",
+          "queue_enque": "void queue_enque(struct _queue *q, void *item)\n{\n    struct _qnode *node;\n    ((void)sizeof((q != ((void *)0)) ? 1 : 0), __extension__({\n         if (q != ((void *)0))\n             ;\n         else\n             __assert_fail(\"q != NULL\", \"/home/bbzs/code/reporeflectrust/data/project/CBench/fslib/src/queue.c\", 28,\n                           __extension__ __PRETTY_FUNCTION__);\n     }));\n    node = (struct _qnode *)malloc(sizeof(struct _qnode) - 1 + q->item_size);\n    node->next = ((void *)0);\n    memcpy(node->item, item, q->item_size);\n    if (q->head == ((void *)0))\n        q->head = q->tail = node;\n    else\n    {\n        q->tail->next = node;\n        q->tail = node;\n    }\n    ++q->n_items;\n}",
+          "queue_deque": "void *queue_deque(struct _queue *q, void *item)\n{\n    struct _qnode *t_node;\n    ((void)sizeof((q != ((void *)0)) ? 1 : 0), __extension__({\n         if (q != ((void *)0))\n             ;\n         else\n             __assert_fail(\"q != NULL\", \"/home/bbzs/code/reporeflectrust/data/project/CBench/fslib/src/queue.c\", 48,\n                           __extension__ __PRETTY_FUNCTION__);\n     }));\n    if (q->head == ((void *)0))\n        return ((void *)0);\n    t_node = q->head;\n    memcpy(item, t_node->item, q->item_size);\n    q->head = t_node->next;\n    free(t_node);\n    --q->n_items;\n    return item;\n}",
+          "queue_empty": "void queue_empty(struct _queue *q)\n{\n    void *item = malloc(q->item_size);\n    while (queue_deque(q, item) != ((void *)0))\n        ;\n    q->n_items = 0;\n    free(item);\n}",
+          "queue_remove": "void queue_remove(struct _queue *q)\n{\n    queue_empty(q);\n    free(q);\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/symt.i": {
+      "relative_path": "src/symt.i",
+      "original_file": "src/symt.c",
+      "includes": [
+        "symt.h",
+        "hash.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "_bitem": "struct _bitem\n{\n    void *key;\n    void *value;\n    struct _bitem *next;\n}",
+          "_bucket": "struct _bucket\n{\n    struct _bitem *head;\n    struct _bitem *tail;\n}",
+          "_hash": "struct _hash\n{\n    struct _bucket *buckets;\n    size_t item_size;\n    size_t key_size;\n    size_t size;\n    size_t n_items;\n    hash_func hash_f;\n    cmp_func cmp_f;\n}",
+          "_symt": "struct _symt\n{\n    size_t n_items;\n    size_t n_max;\n    char **sym;\n    struct _hash *rev;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "fnv32": "static size_t fnv32(void *str)\n{\n    const char *s = str;\n    uint32_t hsh = 2166136261U, i;\n    for (i = 0; i < strlen(s); i++)\n    {\n        hsh = hsh ^ (s[i]);\n        hsh = hsh * 16777619;\n    }\n    return hsh;\n}",
+          "str_cmp": "static int str_cmp(void *a, void *b)\n{\n    return strcmp((const char *)a, (const char *)b) == 0 ? 1 : 0;\n}",
+          "symt_read": "struct _symt *symt_read(struct _symt *st, FILE *fin)\n{\n    char p[0xffff];\n    char token[1024];\n    size_t line = 1;\n    size_t token_id;\n    while (fgets(p, sizeof(p), fin) != ((void *)0))\n    {\n        if (sscanf(p, \"%s\\t%zu\", token, &token_id) == 2)\n        {\n            symt_add(st, token_id, token);\n        }\n        else\n        {\n            printf(\"Invalid input line %zd: %s\", line, p);\n            exit(1);\n        }\n        ++line;\n    }\n    return st;\n}",
+          "symt_compile": "struct _symt *symt_compile(struct _symt *st, const char *str)\n{\n    char p[0xffff];\n    char token[1024];\n    char *tok;\n    size_t line = 1;\n    size_t token_id;\n    strcpy(p, str);\n    do\n    {\n        if (line == 1)\n            tok = strtok(p, \"\\n\");\n        else\n        {\n            tok = strtok(((void *)0), \"\\n\");\n        }\n        if (tok)\n        {\n            if (sscanf(p, \"%s\\t%zd\", token, &token_id) == 2)\n            {\n                symt_add(st, token_id, token);\n            }\n            else\n            {\n                printf(\"Invalid input line %zd: %s\", line, p);\n                exit(1);\n            }\n        }\n        ++line;\n    } while (tok);\n    return st;\n}",
+          "symt_fread": "struct _symt *symt_fread(struct _symt *st, const char *filename)\n{\n    FILE *fin = ((void *)0);\n    if ((fin = fopen(filename, \"r\")) == ((void *)0))\n    {\n        fprintf(stderr, \"Error opening file: %s\\n\", filename);\n        exit(1);\n    }\n    st = symt_read(st, fin);\n    if (fin != ((void *)0))\n        fclose(fin);\n    return st;\n}",
+          "symt_create": "struct _symt *symt_create()\n{\n    struct _symt *st = malloc(sizeof(struct _symt));\n    st->rev = ((void *)0);\n    st->sym = malloc(1024 * sizeof(char *));\n    st->n_items = 0;\n    st->n_max = 1024;\n    for (size_t i = 0; i < st->n_max; ++i)\n        st->sym[i] = ((void *)0);\n    return st;\n}",
+          "symt_remove": "void symt_remove(struct _symt *st)\n{\n    for (size_t i = 0; i < st->n_max; ++i)\n        if (st->sym[i] != ((void *)0))\n            free(st->sym[i]);\n    if (st->rev != ((void *)0))\n        hash_remove(st->rev);\n    free(st->sym);\n    free(st);\n}",
+          "symt_add": "char *symt_add(struct _symt *st, size_t id, const char *token)\n{\n    size_t s = st->n_max;\n    char **p;\n    ((void)sizeof((st->sym != ((void *)0)) ? 1 : 0), __extension__({\n         if (st->sym != ((void *)0))\n             ;\n         else\n             __assert_fail(\"st->sym != NULL\", \"/home/bbzs/code/reporeflectrust/data/project/CBench/fslib/src/symt.c\",\n                           125, __extension__ __PRETTY_FUNCTION__);\n     }));\n    ((void)sizeof((st->n_max != 0) ? 1 : 0), __extension__({\n         if (st->n_max != 0)\n             ;\n         else\n             __assert_fail(\"st->n_max != 0\", \"/home/bbzs/code/reporeflectrust/data/project/CBench/fslib/src/symt.c\",\n                           126, __extension__ __PRETTY_FUNCTION__);\n     }));\n    while (st->n_max <= id)\n    {\n        st->n_max *= 2;\n    }\n    if (st->n_max > s)\n    {\n        p = realloc(st->sym, st->n_max * sizeof(char *));\n        st->sym = p;\n    }\n    for (size_t i = s; i < st->n_max; ++i)\n        st->sym[i] = ((void *)0);\n    char *t = malloc(strlen(token) + 1);\n    strcpy(t, token);\n    st->sym[id] = t;\n    ++st->n_items;\n    return st->sym[id];\n}",
+          "symt_print": "void symt_print(struct _symt *st)\n{\n    for (size_t i = 0; i < st->n_max; ++i)\n    {\n        if (st->sym[i] != ((void *)0))\n            printf(\"%s\\t%zd\\n\", st->sym[i], i);\n    }\n}",
+          "symt_reverse": "struct _hash *symt_reverse(struct _symt *st)\n{\n    if (st->rev != ((void *)0))\n        hash_remove(st->rev);\n    st->rev = hash_create(fnv32, str_cmp, 1024, sizeof(size_t), st->n_items * 2);\n    char token[1024] = {0};\n    for (size_t i = 0; i < st->n_max; ++i)\n    {\n        if (st->sym[i] != ((void *)0))\n        {\n            strncpy(token, st->sym[i], 1024 - 1);\n            hash_add(st->rev, token, &i);\n        }\n    }\n    return st->rev;\n}",
+          "symt_getr": "size_t symt_getr(struct _symt *st, char *token)\n{\n    size_t id = -1;\n    if (st->rev == ((void *)0))\n        symt_reverse(st);\n    hash_get(st->rev, token, &id);\n    return id;\n}",
+          "symt_get": "char *symt_get(struct _symt *st, size_t id)\n{\n    if (id > st->n_items)\n        return ((void *)0);\n    return st->sym[id];\n}"
+        },
+        "typedefs": {
+          "hash_func": "typedef size_t (*hash_func)(void *key);",
+          "cmp_func": "typedef int (*cmp_func)(void *key_a, void *key_b);",
+          "token_t": "typedef char token_t[1024];"
+        }
+      }
+    },
+    "src/draw.i": {
+      "relative_path": "src/draw.i",
+      "original_file": "src/draw.c",
+      "includes": [
+        "fst.h"
+      ],
+      "declarations": {
+        "globals": {
+          "sr_types": "extern struct _sr sr_types[];",
+          "_fst_header": "static const uint32_t _fst_header = 0x66733031;",
+          "header": "static const char *header = \"digraph T {\\n\"\n                            \"\\trankdir = LR;\\n\"\n                            \"\\torientation = Landscape;\\n\";",
+          "footer": "static const char *footer = \"}\\n\";"
+        },
+        "structs": {
+          "_sr": "struct _sr\n{\n    sr_sum sum;\n    sr_prod prod;\n    float zero;\n    float one;\n}",
+          "_bitset": "struct _bitset\n{\n    word_t *words;\n    int n_words;\n}",
+          "_queue": "struct _queue\n{\n    struct _qnode *head;\n    struct _qnode *tail;\n    size_t item_size;\n    size_t n_items;\n}",
+          "_qnode": "struct _qnode\n{\n    struct _qnode *next;\n    char item[1];\n}",
+          "_bitem": "struct _bitem\n{\n    void *key;\n    void *value;\n    struct _bitem *next;\n}",
+          "_bucket": "struct _bucket\n{\n    struct _bitem *head;\n    struct _bitem *tail;\n}",
+          "_hash": "struct _hash\n{\n    struct _bucket *buckets;\n    size_t item_size;\n    size_t key_size;\n    size_t size;\n    size_t n_items;\n    hash_func hash_f;\n    cmp_func cmp_f;\n}",
+          "_symt": "struct _symt\n{\n    size_t n_items;\n    size_t n_max;\n    char **sym;\n    struct _hash *rev;\n}",
+          "_fst": "struct _fst\n{\n    uint32_t start;\n    uint32_t n_states;\n    uint32_t n_max;\n    uint8_t sr_type;\n    uint8_t flags;\n    struct _state *states;\n}",
+          "_state": "struct _state\n{\n    uint32_t n_arcs;\n    uint32_t n_max;\n    float weight;\n    int final;\n    struct _arc *arcs;\n}",
+          "_arc": "struct _arc\n{\n    uint32_t state;\n    float weight;\n    uint32_t ilabel;\n    uint32_t olabel;\n}",
+          "_spair": "struct _spair\n{\n    uint32_t a;\n    uint32_t b;\n}",
+          "_striple": "struct _striple\n{\n    uint32_t a;\n    uint32_t b;\n    uint32_t c;\n}",
+          "_apair": "struct _apair\n{\n    uint32_t a;\n    uint32_t b;\n}",
+          "_arc_pair": "struct _arc_pair\n{\n    struct _arc a;\n    struct _arc b;\n}",
+          "_match_item": "struct _match_item\n{\n    struct _arc a;\n    struct _arc b;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "fst_draw": "int fst_draw(const struct _fst *fst, FILE *fout)\n{\n    struct _state *state;\n    struct _arc *arc;\n    fprintf(fout, \"%s\", header);\n    for (uint32_t s = 0; s < fst->n_states; ++s)\n    {\n        state = &fst->states[s];\n        if (!state->final)\n        {\n            fprintf(fout,\n                    \"\\t%\"\n                    \"u\"\n                    \" [label = \\\"%\"\n                    \"u\"\n                    \"\\\", shape = circle, style = %s ];\\n\",\n                    s, s, s == fst->start ? \"filled\" : \"solid\");\n        }\n        else\n        {\n            fprintf(fout,\n                    \"\\t%\"\n                    \"u\"\n                    \" [label = \\\"%\"\n                    \"u\"\n                    \"\\\", shape = doublecircle, style = filled ];\\n\",\n                    s, s);\n        }\n        for (uint32_t a = 0; a < state->n_arcs; ++a)\n        {\n            arc = &state->arcs[a];\n            fprintf(fout,\n                    \"\\t\\t%\"\n                    \"u\"\n                    \" -> %\"\n                    \"u\"\n                    \" [ label = \\\"%\"\n                    \"u\"\n                    \":%\"\n                    \"u\"\n                    \"/%g\\\" ];\\n\",\n                    s, arc->state, arc->ilabel, arc->olabel, arc->weight);\n        }\n    }\n    fprintf(fout, \"%s\", footer);\n    return 0;\n}",
+          "trn": "static char *trn(struct _symt *st, size_t id, char *token)\n{\n    sprintf(token, \"%zu\", id);\n    return token;\n}",
+          "trt": "static char *trt(struct _symt *st, size_t id, char *token)\n{\n    char *t = symt_get(st, id);\n    if (t == ((void *)0))\n    {\n        token = ((void *)0);\n        fprintf(stderr, \"Unknown token: %s\\n\", token);\n    }\n    else\n    {\n        strcpy(token, t);\n    }\n    return token;\n}",
+          "fst_draw_sym": "int fst_draw_sym(const struct _fst *fst, FILE *fout, struct _symt *ist, struct _symt *ost, struct _symt *sst)\n{\n    struct _state *state;\n    struct _arc *arc;\n    token_t sa, sb, li, lo;\n    rtrans_f strans, itrans, otrans;\n    itrans = (ist == ((void *)0) ? trn : trt);\n    otrans = (ost == ((void *)0) ? trn : trt);\n    strans = (sst == ((void *)0) ? trn : trt);\n    fprintf(fout, \"%s\", header);\n    for (uint32_t s = 0; s < fst->n_states; ++s)\n    {\n        state = &fst->states[s];\n        strans(sst, s, sa);\n        if (sa == ((void *)0))\n        {\n            fprintf(stderr, \"Invalid symbol\\n\");\n            exit(1);\n        }\n        if (!state->final)\n        {\n            fprintf(fout, \"\\t%s [label = \\\"%s\\\", shape = circle, style = %s ];\\n\", sa, sa,\n                    s == fst->start ? \"filled\" : \"solid\");\n        }\n        else\n        {\n            fprintf(fout, \"\\t%s [label = \\\"%s\\\", shape = doublecircle, style = filled ];\\n\", sa, sa);\n        }\n        for (uint32_t a = 0; a < state->n_arcs; ++a)\n        {\n            arc = &state->arcs[a];\n            strans(sst, arc->state, sb);\n            itrans(ist, arc->ilabel, li);\n            otrans(ost, arc->olabel, lo);\n            if (sb == ((void *)0) || li == ((void *)0) || lo == ((void *)0))\n            {\n                fprintf(stderr, \"Invalid symbol\\n\");\n                exit(1);\n            }\n            fprintf(fout, \"\\t\\t%s -> %s [ label = \\\"%s:%s/%g\\\" ];\\n\", sa, sb, li, lo, arc->weight);\n        }\n    }\n    fprintf(fout, \"%s\", footer);\n    return 0;\n}"
+        },
+        "typedefs": {
+          "sr_sum": "typedef float (*sr_sum)(const float a, const float b);",
+          "sr_prod": "typedef float (*sr_prod)(const float a, const float b);",
+          "word_t": "typedef uint32_t word_t;",
+          "hash_func": "typedef size_t (*hash_func)(void *key);",
+          "cmp_func": "typedef int (*cmp_func)(void *key_a, void *key_b);",
+          "token_t": "typedef char token_t[1024];",
+          "rtrans_f": "typedef char *(*rtrans_f)(struct _symt *st, size_t id, char *token);"
+        }
+      }
+    },
+    "src/bitset.i": {
+      "relative_path": "src/bitset.i",
+      "original_file": "src/bitset.c",
+      "includes": [
+        "bitset.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "_bitset": "struct _bitset\n{\n    word_t *words;\n    int n_words;\n}"
+        },
+        "unions": {},
+        "enums": {
+          "WORD_SIZE": "enum\n{\n    WORD_SIZE = sizeof(word_t) * 8\n}"
+        },
+        "functions": {
+          "bindex": "static inline int bindex(int b)\n{\n    return b / WORD_SIZE;\n}",
+          "boffset": "static inline int boffset(int b)\n{\n    return b % WORD_SIZE;\n}",
+          "bitset_create": "struct _bitset *bitset_create(int nbits)\n{\n    struct _bitset *bitset;\n    bitset = malloc(sizeof(struct _bitset));\n    bitset->n_words = (nbits / WORD_SIZE + 1);\n    bitset->words = malloc(sizeof(*bitset->words) * bitset->n_words);\n    bitset_clear_all(bitset);\n    return bitset;\n}",
+          "bitset_remove": "void bitset_remove(struct _bitset *bitset)\n{\n    free(bitset->words);\n    free(bitset);\n}",
+          "bitset_set": "void bitset_set(struct _bitset *bitset, int b)\n{\n    bitset->words[bindex(b)] |= 1 << (boffset(b));\n}",
+          "bitset_clear": "void bitset_clear(struct _bitset *bitset, int b)\n{\n    bitset->words[bindex(b)] &= ~(1 << (boffset(b)));\n}",
+          "bitset_get": "int bitset_get(struct _bitset *bitset, int b)\n{\n    return bitset->words[bindex(b)] & (1 << (boffset(b))) ? 1 : 0;\n}",
+          "bitset_clear_all": "void bitset_clear_all(struct _bitset *bitset)\n{\n    for (int i = 0; i < bitset->n_words; ++i)\n        bitset->words[i] = 0;\n}",
+          "bitset_set_all": "void bitset_set_all(struct _bitset *bitset)\n{\n    for (int i = 0; i < bitset->n_words; ++i)\n        bitset->words[i] = ~0;\n}",
+          "bitset_union": "void bitset_union(struct _bitset *a, const struct _bitset *b)\n{\n    ((void)sizeof((a->n_words == b->n_words) ? 1 : 0), __extension__({\n         if (a->n_words == b->n_words)\n             ;\n         else\n             __assert_fail(\"a->n_words == b->n_words\",\n                           \"/home/bbzs/code/reporeflectrust/data/project/CBench/fslib/src/bitset.c\", 53,\n                           __extension__ __PRETTY_FUNCTION__);\n     }));\n    for (int i = 0; i < a->n_words; ++i)\n        a->words[i] |= b->words[i];\n}",
+          "bitset_intersect": "void bitset_intersect(struct _bitset *a, const struct _bitset *b)\n{\n    ((void)sizeof((a->n_words == b->n_words) ? 1 : 0), __extension__({\n         if (a->n_words == b->n_words)\n             ;\n         else\n             __assert_fail(\"a->n_words == b->n_words\",\n                           \"/home/bbzs/code/reporeflectrust/data/project/CBench/fslib/src/bitset.c\", 60,\n                           __extension__ __PRETTY_FUNCTION__);\n     }));\n    for (int i = 0; i < a->n_words; ++i)\n        a->words[i] &= b->words[i];\n}",
+          "bitset_toggle_all": "struct _bitset *bitset_toggle_all(struct _bitset *bitset)\n{\n    for (int i = 0; i < bitset->n_words; ++i)\n        bitset->words[i] ^= ~0;\n    return bitset;\n}"
+        },
+        "typedefs": {
+          "word_t": "typedef uint32_t word_t;"
+        }
+      }
+    },
+    "src/sr.i": {
+      "relative_path": "src/sr.i",
+      "original_file": "src/sr.c",
+      "includes": [
+        "sr.h"
+      ],
+      "declarations": {
+        "globals": {
+          "sr_types": "extern struct _sr sr_types[];",
+          "sr_real": "const struct _sr sr_real = {.sum = real_sum, .prod = real_product, .zero = 0, .one = 1};",
+          "sr_tropical": "const struct _sr sr_tropical = {\n    .sum = tropical_sum, .prod = tropical_product, .zero = 3.40282346638528859811704183484516925e+38F, .one = 0};"
+        },
+        "structs": {
+          "_sr": "struct _sr\n{\n    sr_sum sum;\n    sr_prod prod;\n    float zero;\n    float one;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "real_sum": "float real_sum(const float a, const float b)\n{\n    return a + b;\n}",
+          "real_product": "float real_product(const float a, const float b)\n{\n    return a * b;\n}",
+          "tropical_sum": "float tropical_sum(const float a, const float b)\n{\n    return a < b ? a : b;\n}",
+          "tropical_product": "float tropical_product(const float a, const float b)\n{\n    return a + b;\n}",
+          "sr_get": "struct _sr sr_get(uint8_t sr_type)\n{\n    switch (sr_type)\n    {\n    case 1:\n        return sr_real;\n    case 0:\n        return sr_tropical;\n    default:\n        return sr_tropical;\n    }\n}"
+        },
+        "typedefs": {
+          "sr_sum": "typedef float (*sr_sum)(const float a, const float b);",
+          "sr_prod": "typedef float (*sr_prod)(const float a, const float b);"
+        }
+      }
+    },
+    "src/trim.i": {
+      "relative_path": "src/trim.i",
+      "original_file": "src/trim.c",
+      "includes": [
+        "fst.h",
+        "iter.h",
+        "bitset.h",
+        "queue.h"
+      ],
+      "declarations": {
+        "globals": {
+          "sr_types": "extern struct _sr sr_types[];",
+          "_fst_header": "static const uint32_t _fst_header = 0x66733031;"
+        },
+        "structs": {
+          "_sr": "struct _sr\n{\n    sr_sum sum;\n    sr_prod prod;\n    float zero;\n    float one;\n}",
+          "_bitset": "struct _bitset\n{\n    word_t *words;\n    int n_words;\n}",
+          "_queue": "struct _queue\n{\n    struct _qnode *head;\n    struct _qnode *tail;\n    size_t item_size;\n    size_t n_items;\n}",
+          "_qnode": "struct _qnode\n{\n    struct _qnode *next;\n    char item[1];\n}",
+          "_bitem": "struct _bitem\n{\n    void *key;\n    void *value;\n    struct _bitem *next;\n}",
+          "_bucket": "struct _bucket\n{\n    struct _bitem *head;\n    struct _bitem *tail;\n}",
+          "_hash": "struct _hash\n{\n    struct _bucket *buckets;\n    size_t item_size;\n    size_t key_size;\n    size_t size;\n    size_t n_items;\n    hash_func hash_f;\n    cmp_func cmp_f;\n}",
+          "_symt": "struct _symt\n{\n    size_t n_items;\n    size_t n_max;\n    char **sym;\n    struct _hash *rev;\n}",
+          "_fst": "struct _fst\n{\n    uint32_t start;\n    uint32_t n_states;\n    uint32_t n_max;\n    uint8_t sr_type;\n    uint8_t flags;\n    struct _state *states;\n}",
+          "_state": "struct _state\n{\n    uint32_t n_arcs;\n    uint32_t n_max;\n    float weight;\n    int final;\n    struct _arc *arcs;\n}",
+          "_arc": "struct _arc\n{\n    uint32_t state;\n    float weight;\n    uint32_t ilabel;\n    uint32_t olabel;\n}",
+          "_spair": "struct _spair\n{\n    uint32_t a;\n    uint32_t b;\n}",
+          "_striple": "struct _striple\n{\n    uint32_t a;\n    uint32_t b;\n    uint32_t c;\n}",
+          "_apair": "struct _apair\n{\n    uint32_t a;\n    uint32_t b;\n}",
+          "_arc_pair": "struct _arc_pair\n{\n    struct _arc a;\n    struct _arc b;\n}",
+          "_match_item": "struct _match_item\n{\n    struct _arc a;\n    struct _arc b;\n}",
+          "_fst_iter": "struct _fst_iter\n{\n    const struct _fst *fst;\n    struct _bitset *marked;\n    struct _queue *queue;\n    uint32_t state;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "fst_close": "void fst_close(struct _fst *fst, struct _queue *finals)\n{\n    if (finals->n_items < 2)\n        return;\n    struct _state *state;\n    struct _sr sr = sr_get(fst->sr_type);\n    uint32_t final;\n    uint32_t s;\n    final = fst_add_state(fst);\n    fst_set_final(fst, final, sr.one);\n    while (queue_deque(finals, &s) != ((void *)0))\n    {\n        state = &fst->states[s];\n        state->final = 0;\n        fst_add_arc(fst, s, final, 0, 0, state->weight);\n    }\n}",
+          "fst_reverse": "void fst_reverse(struct _fst *fst)\n{\n    struct _sr sr = sr_get(fst->sr_type);\n    struct _state *state;\n    struct _arc *arc;\n    struct _fst *orig = fst_create();\n    uint32_t s;\n    uint32_t start_s = fst->start;\n    fst_copy(fst, orig);\n    for (s = 0; s < fst->n_states; ++s)\n    {\n        state = &fst->states[s];\n        state->n_arcs = 0;\n        if (state->final)\n        {\n            fst->start = s;\n            state->final = 0;\n        }\n    }\n    fst_set_final(fst, start_s, sr.one);\n    for (s = 0; s < orig->n_states; ++s)\n    {\n        state = &orig->states[s];\n        for (uint32_t a = 0; a < state->n_arcs; ++a)\n        {\n            arc = &state->arcs[a];\n            fst_add_arc(fst, arc->state, s, arc->ilabel, arc->olabel, arc->weight);\n        }\n    }\n    fst_remove(orig);\n}",
+          "fst_rm_states": "struct _fst *fst_rm_states(struct _fst *fst, struct _bitset *mask)\n{\n    struct _state *state;\n    struct _arc *arc;\n    uint32_t idx[sizeof(uint32_t) * fst->n_states];\n    uint32_t shift = 0;\n    for (uint32_t s = 0; s < fst->n_states; ++s)\n    {\n        if (bitset_get(mask, s))\n        {\n            ++shift;\n        }\n        else\n        {\n            idx[s] = shift;\n            fst->states[s - shift] = fst->states[s];\n        }\n    }\n    fst->n_states -= shift;\n    for (uint32_t s = 0; s < fst->n_states; ++s)\n    {\n        state = &fst->states[s];\n        uint32_t sh = 0;\n        for (uint32_t a = 0; a < state->n_arcs; ++a)\n        {\n            arc = &state->arcs[a];\n            arc->state -= idx[arc->state];\n            if (arc->state >= fst->n_states)\n            {\n                ++sh;\n            }\n            else\n            {\n                state->arcs[a - sh] = state->arcs[a];\n            }\n        }\n        state->n_arcs -= sh;\n    }\n    return fst;\n}",
+          "fst_get_finals": "static void fst_get_finals(struct _fst *fst, struct _queue *finals)\n{\n    struct _state *state;\n    for (uint32_t s = 0; s < fst->n_states; ++s)\n    {\n        state = fst->states + s;\n        if (state->final)\n            queue_enque(finals, &s);\n    }\n}",
+          "fst_trim": "struct _fst *fst_trim(struct _fst *fst)\n{\n    struct _queue *finals = queue_create(sizeof(uint32_t));\n    fst_get_finals(fst, finals);\n    if (finals->n_items == 0)\n    {\n        fst_empty(fst);\n    }\n    else\n    {\n        if (finals->n_items > 1)\n        {\n            fst_close(fst, finals);\n        }\n        struct _fst_iter *iter = fst_iter_create(fst);\n        while (fst_iter_next(iter) != -1)\n            ;\n        fst_reverse(fst);\n        struct _fst_iter *iter_rev = fst_iter_create(fst);\n        while (fst_iter_next(iter_rev) != -1)\n            ;\n        fst_reverse(fst);\n        bitset_intersect(iter->marked, iter_rev->marked);\n        bitset_toggle_all(iter->marked);\n        fst_rm_states(fst, iter->marked);\n        fst_iter_remove(iter_rev);\n        fst_iter_remove(iter);\n    }\n    queue_remove(finals);\n    return fst;\n}"
+        },
+        "typedefs": {
+          "sr_sum": "typedef float (*sr_sum)(const float a, const float b);",
+          "sr_prod": "typedef float (*sr_prod)(const float a, const float b);",
+          "word_t": "typedef uint32_t word_t;",
+          "hash_func": "typedef size_t (*hash_func)(void *key);",
+          "cmp_func": "typedef int (*cmp_func)(void *key_a, void *key_b);",
+          "token_t": "typedef char token_t[1024];"
+        }
+      }
+    },
+    "src/sort.i": {
+      "relative_path": "src/sort.i",
+      "original_file": "src/sort.c",
+      "includes": [
+        "fst.h"
+      ],
+      "declarations": {
+        "globals": {
+          "sr_types": "extern struct _sr sr_types[];",
+          "_fst_header": "static const uint32_t _fst_header = 0x66733031;"
+        },
+        "structs": {
+          "_sr": "struct _sr\n{\n    sr_sum sum;\n    sr_prod prod;\n    float zero;\n    float one;\n}",
+          "_bitset": "struct _bitset\n{\n    word_t *words;\n    int n_words;\n}",
+          "_queue": "struct _queue\n{\n    struct _qnode *head;\n    struct _qnode *tail;\n    size_t item_size;\n    size_t n_items;\n}",
+          "_qnode": "struct _qnode\n{\n    struct _qnode *next;\n    char item[1];\n}",
+          "_bitem": "struct _bitem\n{\n    void *key;\n    void *value;\n    struct _bitem *next;\n}",
+          "_bucket": "struct _bucket\n{\n    struct _bitem *head;\n    struct _bitem *tail;\n}",
+          "_hash": "struct _hash\n{\n    struct _bucket *buckets;\n    size_t item_size;\n    size_t key_size;\n    size_t size;\n    size_t n_items;\n    hash_func hash_f;\n    cmp_func cmp_f;\n}",
+          "_symt": "struct _symt\n{\n    size_t n_items;\n    size_t n_max;\n    char **sym;\n    struct _hash *rev;\n}",
+          "_fst": "struct _fst\n{\n    uint32_t start;\n    uint32_t n_states;\n    uint32_t n_max;\n    uint8_t sr_type;\n    uint8_t flags;\n    struct _state *states;\n}",
+          "_state": "struct _state\n{\n    uint32_t n_arcs;\n    uint32_t n_max;\n    float weight;\n    int final;\n    struct _arc *arcs;\n}",
+          "_arc": "struct _arc\n{\n    uint32_t state;\n    float weight;\n    uint32_t ilabel;\n    uint32_t olabel;\n}",
+          "_spair": "struct _spair\n{\n    uint32_t a;\n    uint32_t b;\n}",
+          "_striple": "struct _striple\n{\n    uint32_t a;\n    uint32_t b;\n    uint32_t c;\n}",
+          "_apair": "struct _apair\n{\n    uint32_t a;\n    uint32_t b;\n}",
+          "_arc_pair": "struct _arc_pair\n{\n    struct _arc a;\n    struct _arc b;\n}",
+          "_match_item": "struct _match_item\n{\n    struct _arc a;\n    struct _arc b;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "icomp": "static int icomp(const void *a, const void *b)\n{\n    return (int)(((struct _arc *)a)->ilabel - ((struct _arc *)b)->ilabel);\n}",
+          "ocomp": "static int ocomp(const void *a, const void *b)\n{\n    return (int)(((struct _arc *)a)->olabel - ((struct _arc *)b)->olabel);\n}",
+          "fst_arc_sort": "void fst_arc_sort(struct _fst *fst, int sort_outer)\n{\n    struct _state *state;\n    int (*comp)(const void *, const void *);\n    if (sort_outer == 0)\n    {\n        comp = icomp;\n        fst->flags |= 0x01;\n    }\n    else\n    {\n        comp = ocomp;\n        fst->flags |= 0x02;\n    }\n    for (uint32_t s = 0; s < fst->n_states; ++s)\n    {\n        state = &fst->states[s];\n        qsort(state->arcs, state->n_arcs, sizeof(struct _arc), comp);\n    }\n}"
+        },
+        "typedefs": {
+          "sr_sum": "typedef float (*sr_sum)(const float a, const float b);",
+          "sr_prod": "typedef float (*sr_prod)(const float a, const float b);",
+          "word_t": "typedef uint32_t word_t;",
+          "hash_func": "typedef size_t (*hash_func)(void *key);",
+          "cmp_func": "typedef int (*cmp_func)(void *key_a, void *key_b);",
+          "token_t": "typedef char token_t[1024];"
+        }
+      }
+    },
+    "src/compile.i": {
+      "relative_path": "src/compile.i",
+      "original_file": "src/compile.c",
+      "includes": [
+        "sr.h",
+        "fst.h",
+        "symt.h"
+      ],
+      "declarations": {
+        "globals": {
+          "sr_types": "extern struct _sr sr_types[];",
+          "_fst_header": "static const uint32_t _fst_header = 0x66733031;"
+        },
+        "structs": {
+          "_sr": "struct _sr\n{\n    sr_sum sum;\n    sr_prod prod;\n    float zero;\n    float one;\n}",
+          "_bitset": "struct _bitset\n{\n    word_t *words;\n    int n_words;\n}",
+          "_queue": "struct _queue\n{\n    struct _qnode *head;\n    struct _qnode *tail;\n    size_t item_size;\n    size_t n_items;\n}",
+          "_qnode": "struct _qnode\n{\n    struct _qnode *next;\n    char item[1];\n}",
+          "_bitem": "struct _bitem\n{\n    void *key;\n    void *value;\n    struct _bitem *next;\n}",
+          "_bucket": "struct _bucket\n{\n    struct _bitem *head;\n    struct _bitem *tail;\n}",
+          "_hash": "struct _hash\n{\n    struct _bucket *buckets;\n    size_t item_size;\n    size_t key_size;\n    size_t size;\n    size_t n_items;\n    hash_func hash_f;\n    cmp_func cmp_f;\n}",
+          "_symt": "struct _symt\n{\n    size_t n_items;\n    size_t n_max;\n    char **sym;\n    struct _hash *rev;\n}",
+          "_fst": "struct _fst\n{\n    uint32_t start;\n    uint32_t n_states;\n    uint32_t n_max;\n    uint8_t sr_type;\n    uint8_t flags;\n    struct _state *states;\n}",
+          "_state": "struct _state\n{\n    uint32_t n_arcs;\n    uint32_t n_max;\n    float weight;\n    int final;\n    struct _arc *arcs;\n}",
+          "_arc": "struct _arc\n{\n    uint32_t state;\n    float weight;\n    uint32_t ilabel;\n    uint32_t olabel;\n}",
+          "_spair": "struct _spair\n{\n    uint32_t a;\n    uint32_t b;\n}",
+          "_striple": "struct _striple\n{\n    uint32_t a;\n    uint32_t b;\n    uint32_t c;\n}",
+          "_apair": "struct _apair\n{\n    uint32_t a;\n    uint32_t b;\n}",
+          "_arc_pair": "struct _arc_pair\n{\n    struct _arc a;\n    struct _arc b;\n}",
+          "_match_item": "struct _match_item\n{\n    struct _arc a;\n    struct _arc b;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "trn": "static size_t trn(char *token, struct _symt *st)\n{\n    char *end;\n    long dig = strtol(token, &end, 10);\n    if (!*end)\n        return (size_t)dig;\n    fprintf(stderr, \"Incorrect token: %s\\n\", token);\n    return -1;\n}",
+          "trt": "static size_t trt(char *token, struct _symt *st)\n{\n    size_t t = symt_getr(st, token);\n    if (-1 == t)\n    {\n        fprintf(stderr, \"Unknown token: %s\\n\", token);\n    }\n    return t;\n}",
+          "_add_arc": "static void _add_arc(struct _fst *fst, size_t sa, size_t sb, size_t li, size_t lo, float w)\n{\n    while ((sa + 1 > fst->n_states) || (sb + 1 > fst->n_states))\n        fst_add_state(fst);\n    fst_add_arc(fst, sa, sb, (uint32_t)li, (uint32_t)lo, w);\n}",
+          "_add_final": "static void _add_final(struct _fst *fst, size_t s, float w)\n{\n    while (s + 1 > fst->n_states)\n        fst_add_state(fst);\n    fst_set_final(fst, s, w);\n}",
+          "_parse_line": "static int _parse_line(struct _fst *fst, char *buf)\n{\n    size_t sa, sb, sf, li, lo;\n    float w;\n    struct _sr sr = sr_get(fst->sr_type);\n    if (sscanf(buf, \"%zd\\t%zd\\t%zd\\t%zd\\t%f\", &sa, &sb, &li, &lo, &w) == 5)\n    {\n        _add_arc(fst, sa, sb, li, lo, w);\n    }\n    else\n    {\n        if (sscanf(buf, \"%zd\\t%zd\\t%zd\\t%zd\", &sa, &sb, &li, &lo) == 4)\n        {\n            _add_arc(fst, sa, sb, li, lo, sr.one);\n        }\n        else\n        {\n            if (sscanf(buf, \"%zd\\t%f\", &sf, &w) == 2)\n            {\n                _add_final(fst, sf, w);\n            }\n            else\n            {\n                if (sscanf(buf, \"%zd\", &sf) == 1)\n                    _add_final(fst, sf, sr.one);\n                else\n                    return -1;\n            }\n        }\n    }\n    return 0;\n}",
+          "_parse_line_sym": "static int _parse_line_sym(struct _fst *fst, char *buf, struct _symt *ist, struct _symt *ost, struct _symt *sst)\n{\n    trans_f strans, itrans, otrans;\n    token_t sa, sb, sf, li, lo;\n    size_t _sa, _sb, _sf, _li, _lo;\n    float w;\n    struct _sr sr = sr_get(fst->sr_type);\n    itrans = (ist == ((void *)0) ? trn : trt);\n    otrans = (ost == ((void *)0) ? trn : trt);\n    strans = (sst == ((void *)0) ? trn : trt);\n    if (sscanf(buf, \"%s\\t%s\\t%s\\t%s\\t%f\", sa, sb, li, lo, &w) == 5)\n    {\n        _sa = strans(sa, sst);\n        _sb = strans(sb, sst);\n        _li = itrans(li, ist);\n        _lo = otrans(lo, ost);\n        if (_sa == -1 || _sb == -1 || _li == -1 || _lo == -1)\n            return -1;\n        _add_arc(fst, _sa, _sb, _li, _lo, w);\n    }\n    else\n    {\n        if (sscanf(buf, \"%s\\t%s\\t%s\\t%s\", sa, sb, li, lo) == 4)\n        {\n            _sa = strans(sa, sst);\n            _sb = strans(sb, sst);\n            _li = itrans(li, ist);\n            _lo = otrans(lo, ost);\n            if (_sa == -1 || _sb == -1 || _li == -1 || _lo == -1)\n                return -1;\n            _add_arc(fst, _sa, _sb, _li, _lo, sr.one);\n        }\n        else\n        {\n            if (sscanf(buf, \"%s\\t%f\", sf, &w) == 2)\n            {\n                _sf = strans(sf, sst);\n                if (-1 == _sf)\n                    return -1;\n                _add_final(fst, _sf, w);\n            }\n            else\n            {\n                if (sscanf(buf, \"%s\", sf) == 1)\n                {\n                    _sf = strans(sf, sst);\n                    if (-1 == _sf)\n                        return -1;\n                    _add_final(fst, _sf, sr.one);\n                }\n                else\n                    return -1;\n            }\n        }\n    }\n    return 0;\n}",
+          "_parse_line_sym_acc": "static int _parse_line_sym_acc(struct _fst *fst, char *buf, struct _symt *ist, struct _symt *sst)\n{\n    trans_f strans, itrans;\n    token_t sa, sb, sf, li;\n    size_t _sa, _sb, _sf, _li;\n    float w = -1.0;\n    struct _sr sr = sr_get(fst->sr_type);\n    itrans = (ist == ((void *)0) ? trn : trt);\n    strans = (sst == ((void *)0) ? trn : trt);\n    if (sscanf(buf, \"%s\\t%s\\t%s\\t%f\", sa, sb, li, &w) == 4)\n    {\n        _sa = strans(sa, sst);\n        _sb = strans(sb, sst);\n        _li = itrans(li, ist);\n        if (_sa == -1 || _sb == -1 || _li == -1)\n            return -1;\n        _add_arc(fst, _sa, _sb, _li, _li, w);\n    }\n    else\n    {\n        if (sscanf(buf, \"%s\\t%s\\t%s\", sa, sb, li) == 3)\n        {\n            _sa = strans(sa, sst);\n            _sb = strans(sb, sst);\n            _li = itrans(li, ist);\n            if (_sa == -1 || _sb == -1 || _li == -1)\n                return -1;\n            _add_arc(fst, _sa, _sb, _li, _li, sr.one);\n        }\n        else\n        {\n            if (sscanf(buf, \"%s\\t%f\", sf, &w) == 2)\n            {\n                _sf = strans(sf, sst);\n                if (-1 == _sf)\n                    return -1;\n                _add_final(fst, _sf, w);\n            }\n            else\n            {\n                if (sscanf(buf, \"%s\", sf) == 1)\n                {\n                    _sf = strans(sf, sst);\n                    if (-1 == _sf)\n                        return -1;\n                    _add_final(fst, _sf, sr.one);\n                }\n                else\n                    return -1;\n            }\n        }\n    }\n    return 0;\n}",
+          "fst_compile": "struct _fst *fst_compile(struct _fst *fst, FILE *fin, struct _symt *ist, struct _symt *ost, struct _symt *sst,\n                         int is_acc)\n{\n    char p[0xffff];\n    size_t line = 1;\n    int res = 0;\n    while (fgets(p, sizeof(p), fin) != ((void *)0))\n    {\n        ++line;\n        if (is_acc == 0)\n            res = _parse_line_sym(fst, p, ist, ost, sst);\n        else\n            res = _parse_line_sym_acc(fst, p, ist, sst);\n        if (res != 0)\n        {\n            fprintf(stderr, \"Invalid input line %zd: %s\", line, p);\n            exit(1);\n        }\n    }\n    size_t start_state;\n    if (sst != ((void *)0))\n    {\n        if ((start_state = symt_getr(sst, \"<start>\")) != -1)\n            fst->start = start_state;\n    }\n    return fst;\n}",
+          "fst_compile_str": "struct _fst *fst_compile_str(struct _fst *fst, const char *str)\n{\n    char p[0xffff];\n    char *tok;\n    size_t line = 1;\n    strcpy(p, str);\n    do\n    {\n        if (line == 1)\n            tok = strtok(p, \"\\n\");\n        else\n        {\n            tok = strtok(((void *)0), \"\\n\");\n        }\n        if (tok)\n            if (_parse_line(fst, tok) != 0)\n            {\n                fprintf(stderr, \"Invalid input line %zd: %s\\n\", line, tok);\n                exit(1);\n            }\n        ++line;\n    } while (tok);\n    return fst;\n}"
+        },
+        "typedefs": {
+          "sr_sum": "typedef float (*sr_sum)(const float a, const float b);",
+          "sr_prod": "typedef float (*sr_prod)(const float a, const float b);",
+          "word_t": "typedef uint32_t word_t;",
+          "hash_func": "typedef size_t (*hash_func)(void *key);",
+          "cmp_func": "typedef int (*cmp_func)(void *key_a, void *key_b);",
+          "token_t": "typedef char token_t[1024];",
+          "trans_f": "typedef size_t (*trans_f)(char *token, struct _symt *st);"
+        }
+      }
+    },
+    "src/fst.i": {
+      "relative_path": "src/fst.i",
+      "original_file": "src/fst.c",
+      "includes": [
+        "fst.h"
+      ],
+      "declarations": {
+        "globals": {
+          "sr_types": "extern struct _sr sr_types[];",
+          "_fst_header": "static const uint32_t _fst_header = 0x66733031;"
+        },
+        "structs": {
+          "_sr": "struct _sr\n{\n    sr_sum sum;\n    sr_prod prod;\n    float zero;\n    float one;\n}",
+          "_bitset": "struct _bitset\n{\n    word_t *words;\n    int n_words;\n}",
+          "_queue": "struct _queue\n{\n    struct _qnode *head;\n    struct _qnode *tail;\n    size_t item_size;\n    size_t n_items;\n}",
+          "_qnode": "struct _qnode\n{\n    struct _qnode *next;\n    char item[1];\n}",
+          "_bitem": "struct _bitem\n{\n    void *key;\n    void *value;\n    struct _bitem *next;\n}",
+          "_bucket": "struct _bucket\n{\n    struct _bitem *head;\n    struct _bitem *tail;\n}",
+          "_hash": "struct _hash\n{\n    struct _bucket *buckets;\n    size_t item_size;\n    size_t key_size;\n    size_t size;\n    size_t n_items;\n    hash_func hash_f;\n    cmp_func cmp_f;\n}",
+          "_symt": "struct _symt\n{\n    size_t n_items;\n    size_t n_max;\n    char **sym;\n    struct _hash *rev;\n}",
+          "_fst": "struct _fst\n{\n    uint32_t start;\n    uint32_t n_states;\n    uint32_t n_max;\n    uint8_t sr_type;\n    uint8_t flags;\n    struct _state *states;\n}",
+          "_state": "struct _state\n{\n    uint32_t n_arcs;\n    uint32_t n_max;\n    float weight;\n    int final;\n    struct _arc *arcs;\n}",
+          "_arc": "struct _arc\n{\n    uint32_t state;\n    float weight;\n    uint32_t ilabel;\n    uint32_t olabel;\n}",
+          "_spair": "struct _spair\n{\n    uint32_t a;\n    uint32_t b;\n}",
+          "_striple": "struct _striple\n{\n    uint32_t a;\n    uint32_t b;\n    uint32_t c;\n}",
+          "_apair": "struct _apair\n{\n    uint32_t a;\n    uint32_t b;\n}",
+          "_arc_pair": "struct _arc_pair\n{\n    struct _arc a;\n    struct _arc b;\n}",
+          "_match_item": "struct _match_item\n{\n    struct _arc a;\n    struct _arc b;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "fst_create": "struct _fst *fst_create()\n{\n    struct _fst *fst;\n    fst = malloc(sizeof(struct _fst));\n    fst->sr_type = 0;\n    fst->n_states = 0;\n    fst->n_max = 0;\n    fst->start = 0;\n    fst->flags = 0;\n    fst->states = ((void *)0);\n    return fst;\n}",
+          "fst_add_state": "uint32_t fst_add_state(struct _fst *fst)\n{\n    struct _state *state;\n    ++fst->n_states;\n    if (fst->n_states > fst->n_max)\n    {\n        fst->n_max = fst->n_states * 2;\n        fst->states = realloc(fst->states, sizeof(struct _state) * fst->n_max);\n    }\n    state = &fst->states[fst->n_states - 1];\n    state->n_arcs = 0;\n    state->n_max = 0;\n    state->final = 0;\n    state->weight = 0;\n    state->arcs = ((void *)0);\n    return fst->n_states - 1;\n}",
+          "fst_add_arc": "uint32_t fst_add_arc(struct _fst *fst, uint32_t src, uint32_t dst, uint32_t il, uint32_t ol, float weight)\n{\n    struct _arc *arc;\n    struct _state *state = &fst->states[src];\n    ++state->n_arcs;\n    if (state->n_arcs > state->n_max)\n    {\n        state->n_max = state->n_arcs * 2;\n        state->arcs = realloc(state->arcs, sizeof(struct _arc) * state->n_max);\n    }\n    arc = &state->arcs[state->n_arcs - 1];\n    arc->state = dst;\n    arc->ilabel = il;\n    arc->olabel = ol;\n    arc->weight = weight;\n    return state->n_arcs - 1;\n}",
+          "fst_remove": "void fst_remove(struct _fst *fst)\n{\n    fst_empty(fst);\n    free(fst);\n}",
+          "fst_empty": "void fst_empty(struct _fst *fst)\n{\n    struct _state *state;\n    for (uint32_t s = 0; s < fst->n_states; ++s)\n    {\n        state = fst->states + s;\n        if (state->arcs != ((void *)0))\n            free(state->arcs);\n    }\n    if (fst->states != ((void *)0))\n        free(fst->states);\n    fst->n_states = 0;\n    fst->n_max = 0;\n    fst->states = ((void *)0);\n    fst->start = 0;\n}",
+          "fst_set_final": "void fst_set_final(struct _fst *fst, uint32_t s, float w)\n{\n    (&fst->states[s])->final = 1;\n    (&fst->states[s])->weight = w;\n}",
+          "fst_write": "void fst_write(const struct _fst *fst, FILE *fout)\n{\n    struct _state *state;\n    fwrite(&_fst_header, sizeof(_fst_header), 1, fout);\n    fwrite(&fst->start, sizeof(uint32_t), 1, fout);\n    fwrite(&fst->n_states, sizeof(uint32_t), 1, fout);\n    fwrite(&fst->sr_type, sizeof(uint8_t), 1, fout);\n    fwrite(&fst->flags, sizeof(uint8_t), 1, fout);\n    for (int s = 0; s < fst->n_states; ++s)\n    {\n        state = &fst->states[s];\n        fwrite(&state->weight, sizeof(float), 1, fout);\n        fwrite(&state->n_arcs, sizeof(uint32_t), 1, fout);\n        fwrite(&state->final, sizeof(int), 1, fout);\n        fwrite(state->arcs, sizeof(struct _arc), state->n_arcs, fout);\n    }\n}",
+          "fst_read": "void fst_read(struct _fst *fst, FILE *fin)\n{\n    struct _state *state;\n    uint32_t header = 0;\n    fread(&header, sizeof(header), 1, fin);\n    if (header != _fst_header)\n    {\n        printf(\"Wrong file format\\n\");\n        exit(1);\n    }\n    fread(&fst->start, sizeof(uint32_t), 1, fin);\n    fread(&fst->n_states, sizeof(uint32_t), 1, fin);\n    fread(&fst->sr_type, sizeof(uint8_t), 1, fin);\n    fread(&fst->flags, sizeof(uint8_t), 1, fin);\n    fst->n_max = fst->n_states;\n    fst->states = malloc(sizeof(struct _state) * fst->n_states);\n    for (int s = 0; s < fst->n_states; ++s)\n    {\n        state = &fst->states[s];\n        fread(&state->weight, sizeof(float), 1, fin);\n        fread(&state->n_arcs, sizeof(uint32_t), 1, fin);\n        fread(&state->final, sizeof(int), 1, fin);\n        state->n_max = state->n_arcs;\n        state->arcs = malloc(sizeof(struct _arc) * state->n_arcs);\n        fread(state->arcs, sizeof(struct _arc), state->n_arcs, fin);\n    }\n}",
+          "fst_fwrite": "void fst_fwrite(const struct _fst *fst, const char *filename)\n{\n    FILE *fout = ((void *)0);\n    if ((fout = fopen(filename, \"wb\")) == ((void *)0))\n    {\n        fprintf(stderr, \"Error opening file: %s\", filename);\n        exit(1);\n    }\n    fst_write(fst, fout);\n    fclose(fout);\n}",
+          "fst_fread": "void fst_fread(struct _fst *fst, const char *filename)\n{\n    FILE *fin = ((void *)0);\n    if ((fin = fopen(filename, \"rb\")) == ((void *)0))\n    {\n        fprintf(stderr, \"Error opening file: %s\", filename);\n        exit(1);\n    }\n    fst_read(fst, fin);\n    fclose(fin);\n}",
+          "fst_get_n_arcs": "uint32_t fst_get_n_arcs(const struct _fst *fst)\n{\n    uint32_t n = 0;\n    for (uint32_t s = 0; s < fst->n_states; ++s)\n    {\n        n += fst->states[s].n_arcs;\n    }\n    return n;\n}",
+          "fst_stack": "void fst_stack(struct _fst *a, const struct _fst *b)\n{\n    struct _state *state;\n    struct _arc *arc_tmp;\n    uint32_t offset = a->n_states;\n    a->n_states = a->n_states + b->n_states;\n    if (a->n_max < a->n_states)\n    {\n        a->n_max = a->n_states;\n        a->states = realloc(a->states, a->n_max * sizeof(struct _state));\n    }\n    memcpy(&a->states[offset], b->states, b->n_states * sizeof(struct _state));\n    for (uint32_t i = offset; i < a->n_states; ++i)\n    {\n        state = &a->states[i];\n        arc_tmp = state->arcs;\n        state->arcs = malloc(state->n_max * sizeof(struct _arc));\n        memcpy(state->arcs, arc_tmp, state->n_arcs * sizeof(struct _arc));\n        for (uint32_t j = 0; j < state->n_arcs; ++j)\n            (&state->arcs[j])->state += offset;\n    }\n}",
+          "fst_copy": "void fst_copy(const struct _fst *orig, struct _fst *copy)\n{\n    struct _state *so, *sc;\n    memcpy(copy, orig, sizeof(struct _fst));\n    copy->states = malloc(sizeof(struct _state) * orig->n_max);\n    memcpy(copy->states, orig->states, sizeof(struct _state) * orig->n_states);\n    for (uint32_t s = 0; s < copy->n_states; ++s)\n    {\n        sc = &copy->states[s];\n        so = &orig->states[s];\n        sc->arcs = malloc(sizeof(struct _arc) * sc->n_max);\n        memcpy(sc->arcs, so->arcs, sizeof(struct _arc) * sc->n_arcs);\n    }\n}",
+          "fst_relabel": "void fst_relabel(struct _fst *fst, uint32_t old, uint32_t new, int dir)\n{\n    struct _state *state;\n    struct _arc *arc;\n    for (uint32_t s = 0; s < fst->n_states; ++s)\n    {\n        state = &fst->states[s];\n        for (uint32_t a = 0; a < state->n_arcs; ++a)\n        {\n            arc = &state->arcs[a];\n            if (dir == 0)\n            {\n                if (arc->ilabel == old)\n                    arc->ilabel = new;\n            }\n            else\n            {\n                if (arc->olabel == old)\n                    arc->olabel = new;\n            }\n        }\n    }\n}"
+        },
+        "typedefs": {
+          "sr_sum": "typedef float (*sr_sum)(const float a, const float b);",
+          "sr_prod": "typedef float (*sr_prod)(const float a, const float b);",
+          "word_t": "typedef uint32_t word_t;",
+          "hash_func": "typedef size_t (*hash_func)(void *key);",
+          "cmp_func": "typedef int (*cmp_func)(void *key_a, void *key_b);",
+          "token_t": "typedef char token_t[1024];"
+        }
+      }
+    },
+    "src/compose.i": {
+      "relative_path": "src/compose.i",
+      "original_file": "src/compose.c",
+      "includes": [
+        "queue.h",
+        "fst.h",
+        "hash.h"
+      ],
+      "declarations": {
+        "globals": {
+          "sr_types": "extern struct _sr sr_types[];",
+          "_fst_header": "static const uint32_t _fst_header = 0x66733031;"
+        },
+        "structs": {
+          "_queue": "struct _queue\n{\n    struct _qnode *head;\n    struct _qnode *tail;\n    size_t item_size;\n    size_t n_items;\n}",
+          "_qnode": "struct _qnode\n{\n    struct _qnode *next;\n    char item[1];\n}",
+          "_sr": "struct _sr\n{\n    sr_sum sum;\n    sr_prod prod;\n    float zero;\n    float one;\n}",
+          "_bitset": "struct _bitset\n{\n    word_t *words;\n    int n_words;\n}",
+          "_bitem": "struct _bitem\n{\n    void *key;\n    void *value;\n    struct _bitem *next;\n}",
+          "_bucket": "struct _bucket\n{\n    struct _bitem *head;\n    struct _bitem *tail;\n}",
+          "_hash": "struct _hash\n{\n    struct _bucket *buckets;\n    size_t item_size;\n    size_t key_size;\n    size_t size;\n    size_t n_items;\n    hash_func hash_f;\n    cmp_func cmp_f;\n}",
+          "_symt": "struct _symt\n{\n    size_t n_items;\n    size_t n_max;\n    char **sym;\n    struct _hash *rev;\n}",
+          "_fst": "struct _fst\n{\n    uint32_t start;\n    uint32_t n_states;\n    uint32_t n_max;\n    uint8_t sr_type;\n    uint8_t flags;\n    struct _state *states;\n}",
+          "_state": "struct _state\n{\n    uint32_t n_arcs;\n    uint32_t n_max;\n    float weight;\n    int final;\n    struct _arc *arcs;\n}",
+          "_arc": "struct _arc\n{\n    uint32_t state;\n    float weight;\n    uint32_t ilabel;\n    uint32_t olabel;\n}",
+          "_spair": "struct _spair\n{\n    uint32_t a;\n    uint32_t b;\n}",
+          "_striple": "struct _striple\n{\n    uint32_t a;\n    uint32_t b;\n    uint32_t c;\n}",
+          "_apair": "struct _apair\n{\n    uint32_t a;\n    uint32_t b;\n}",
+          "_arc_pair": "struct _arc_pair\n{\n    struct _arc a;\n    struct _arc b;\n}",
+          "_match_item": "struct _match_item\n{\n    struct _arc a;\n    struct _arc b;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "cmp_pair": "static int cmp_pair(void *a, void *b)\n{\n    return memcmp(a, b, sizeof(struct _spair)) == 0 ? 1 : 0;\n}",
+          "hash_pair": "static size_t hash_pair(void *p)\n{\n    size_t hash = 17;\n    hash = hash * 31 + ((struct _spair *)p)->a;\n    hash = hash * 31 + ((struct _spair *)p)->b;\n    return hash;\n}",
+          "match_arcs": "void match_arcs(const struct _fst *fst_a, const struct _fst *fst_b, const struct _spair *pair, struct _sr *sr,\n                struct _queue *mq)\n{\n    struct _state *state_a = &fst_a->states[pair->a];\n    struct _state *state_b = &fst_b->states[pair->b];\n    int osort = fst_a->flags & 0x02;\n    int isort = fst_b->flags & 0x01;\n    size_t asize = sizeof(struct _arc);\n    uint32_t m = state_a->n_arcs + 1;\n    uint32_t n = state_b->n_arcs + 1;\n    struct _arc *arcs_a = malloc(asize * m);\n    struct _arc *arcs_b = malloc(asize * n);\n    memcpy(arcs_a + 1, state_a->arcs, asize * (m - 1));\n    memcpy(arcs_b + 1, state_b->arcs, asize * (n - 1));\n    struct _arc loop_arc_a = {.state = pair->a, .ilabel = 0, .olabel = 0, .weight = sr->one};\n    struct _arc loop_arc_b = {.state = pair->b, .ilabel = 0, .olabel = 0, .weight = sr->one};\n    arcs_a[0] = loop_arc_a;\n    arcs_b[0] = loop_arc_b;\n    if (isort && osort)\n        match_full_sorted(arcs_a, arcs_b, m, n, mq);\n    else if (isort || osort)\n    {\n        if (isort)\n        {\n            match_half_sorted(arcs_a, arcs_b, m, n, mq);\n        }\n        else\n        {\n            match_half_sorted_rev(arcs_a, arcs_b, m, n, mq);\n        }\n    }\n    else\n    {\n        match_unsorted(arcs_a, arcs_b, m, n, mq);\n    }\n    free(arcs_a);\n    free(arcs_b);\n}",
+          "fst_compose": "struct _fst *fst_compose(const struct _fst *fst_a, const struct _fst *fst_b, struct _fst *fst_c)\n{\n    struct _sr sr = sr_get(fst_a->sr_type);\n    struct _queue *q = queue_create(sizeof(struct _spair));\n    struct _queue *mq = queue_create(sizeof(struct _arc_pair));\n    struct _hash *marked = hash_create(hash_pair, cmp_pair, sizeof(struct _spair), sizeof(uint32_t), 1000);\n    struct _spair pair;\n    struct _arc_pair mi;\n    uint32_t sc, dst_sc;\n    struct _state *state_a, *state_b;\n    struct _state *dst_state_a, *dst_state_b;\n    struct _arc *arc_a, *arc_b;\n    pair.a = fst_a->start;\n    pair.b = fst_b->start;\n    queue_enque(q, &pair);\n    while ((queue_deque(q, &pair)) != ((void *)0))\n    {\n        state_a = &fst_a->states[pair.a];\n        state_b = &fst_b->states[pair.b];\n        if (hash_get(marked, &pair, &sc) == ((void *)0))\n        {\n            sc = fst_add_state(fst_c);\n            if (state_a->final && state_b->final)\n                fst_set_final(fst_c, sc, sr.one);\n            if (pair.a == fst_a->start && pair.b == fst_b->start)\n                fst_c->start = sc;\n            hash_add(marked, &pair, &sc);\n        }\n        match_arcs(fst_a, fst_b, &pair, &sr, mq);\n        while (queue_deque(mq, &mi) != ((void *)0))\n        {\n            arc_a = &mi.a;\n            arc_b = &mi.b;\n            pair.a = arc_a->state;\n            pair.b = arc_b->state;\n            if (hash_get(marked, &pair, &dst_sc) == ((void *)0))\n            {\n                dst_state_a = &fst_a->states[pair.a];\n                dst_state_b = &fst_b->states[pair.b];\n                dst_sc = fst_add_state(fst_c);\n                if (dst_state_a->final && dst_state_b->final)\n                {\n                    fst_set_final(fst_c, dst_sc, sr.one);\n                }\n                queue_enque(q, &pair);\n                hash_add(marked, &pair, &dst_sc);\n            }\n            fst_add_arc(fst_c, sc, dst_sc, arc_a->ilabel, arc_b->olabel, sr.prod(arc_a->weight, arc_b->weight));\n        }\n    }\n    queue_remove(q);\n    queue_remove(mq);\n    hash_remove(marked);\n    return fst_c;\n}"
+        },
+        "typedefs": {
+          "sr_sum": "typedef float (*sr_sum)(const float a, const float b);",
+          "sr_prod": "typedef float (*sr_prod)(const float a, const float b);",
+          "word_t": "typedef uint32_t word_t;",
+          "hash_func": "typedef size_t (*hash_func)(void *key);",
+          "cmp_func": "typedef int (*cmp_func)(void *key_a, void *key_b);",
+          "token_t": "typedef char token_t[1024];"
+        }
+      }
+    },
+    "src/hash.i": {
+      "relative_path": "src/hash.i",
+      "original_file": "src/hash.c",
+      "includes": [
+        "hash.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "_bitem": "struct _bitem\n{\n    void *key;\n    void *value;\n    struct _bitem *next;\n}",
+          "_bucket": "struct _bucket\n{\n    struct _bitem *head;\n    struct _bitem *tail;\n}",
+          "_hash": "struct _hash\n{\n    struct _bucket *buckets;\n    size_t item_size;\n    size_t key_size;\n    size_t size;\n    size_t n_items;\n    hash_func hash_f;\n    cmp_func cmp_f;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "hash_create": "struct _hash *hash_create(hash_func hash_f, cmp_func cmp_f, size_t key_size, size_t item_size, size_t size)\n{\n    struct _hash *hash = (struct _hash *)malloc(sizeof(struct _hash));\n    struct _bucket *buckets = (struct _bucket *)malloc(size * sizeof(struct _bucket));\n    for (size_t i = 0; i < size; i++)\n    {\n        buckets[i].head = buckets[i].tail = ((void *)0);\n    }\n    hash->key_size = key_size;\n    hash->item_size = item_size;\n    hash->size = size;\n    hash->buckets = buckets;\n    hash->hash_f = hash_f;\n    hash->cmp_f = cmp_f;\n    hash->n_items = 0;\n    return hash;\n}",
+          "hash_resize": "void hash_resize(struct _hash *hash)\n{\n    size_t old_size = hash->size;\n    struct _bucket *old_buckets = hash->buckets;\n    hash->size *= 2;\n    hash->n_items = 0;\n    hash->buckets = (struct _bucket *)malloc(hash->size * sizeof(struct _bucket));\n    for (size_t i = 0; i < hash->size; i++)\n        hash->buckets[i].head = hash->buckets[i].tail = ((void *)0);\n    for (size_t i = 0; i < old_size; i++)\n    {\n        for (struct _bitem *bi = old_buckets[i].head; bi != ((void *)0); bi = bi->next)\n        {\n            hash_add(hash, bi->key, bi->value);\n        }\n    }\n    for (size_t i = 0; i < old_size; ++i)\n        empty_chain(old_buckets[i].head);\n    free(old_buckets);\n}",
+          "hash_remove": "void hash_remove(struct _hash *hash)\n{\n    for (size_t i = 0; i < hash->size; ++i)\n    {\n        empty_chain(hash->buckets[i].head);\n    }\n    free(hash->buckets);\n    free(hash);\n}",
+          "empty_chain": "void empty_chain(struct _bitem *bitem)\n{\n    struct _bitem *t_bitem = ((void *)0);\n    while (bitem != ((void *)0))\n    {\n        t_bitem = bitem;\n        bitem = bitem->next;\n        if (t_bitem->value)\n        {\n            free(t_bitem->key);\n            free(t_bitem->value);\n        }\n        free(t_bitem);\n    }\n}",
+          "hash_add": "void hash_add(struct _hash *hash, void *key, void *value)\n{\n    size_t bnum = hash->hash_f(key) % hash->size;\n    struct _bucket *bucket = &hash->buckets[bnum];\n    for (struct _bitem *bi = bucket->head; bi != ((void *)0); bi = bi->next)\n    {\n        if (hash->cmp_f(key, bi->key))\n        {\n            memcpy(bi->key, key, hash->key_size);\n            memcpy(bi->value, value, hash->item_size);\n            return;\n        }\n    }\n    struct _bitem *bitem = malloc(sizeof(struct _bitem));\n    bitem->key = key;\n    bitem->value = value;\n    bitem->next = ((void *)0);\n    bitem->key = malloc(hash->key_size);\n    memcpy(bitem->key, key, hash->key_size);\n    bitem->value = malloc(hash->item_size);\n    memcpy(bitem->value, value, hash->item_size);\n    if (bucket->tail == ((void *)0))\n    {\n        bucket->tail = bucket->head = bitem;\n    }\n    else\n    {\n        bucket->tail->next = bitem;\n        bucket->tail = bitem;\n    }\n    ++hash->n_items;\n    if ((((float)hash->n_items) / hash->size) > 0.75)\n    {\n        hash_resize(hash);\n    }\n}",
+          "hash_get": "void *hash_get(struct _hash *hash, void *key, void *item)\n{\n    struct _bucket bucket = hash->buckets[hash->hash_f(key) % hash->size];\n    for (struct _bitem *bi = bucket.head; bi != ((void *)0); bi = bi->next)\n    {\n        if (hash->cmp_f(key, bi->key))\n        {\n            memcpy(item, bi->value, hash->item_size);\n            return bi->value;\n        }\n    }\n    return ((void *)0);\n}",
+          "hash_delete": "void hash_delete(struct _hash *hash, void *key, void *item)\n{\n    struct _bucket *bucket = &hash->buckets[hash->hash_f(key) % hash->size];\n    struct _bitem *bi = bucket->head;\n    struct _bitem *bi_prev = ((void *)0);\n    struct _bitem *bi_next;\n    while (bi != ((void *)0))\n    {\n        bi_next = bi->next;\n        if (hash->cmp_f(key, bi->key))\n        {\n            if (bi_prev == ((void *)0))\n            {\n                bucket->head = bi_next;\n            }\n            else\n            {\n                bi_prev->next = bi_next;\n            }\n            if (bi_next == ((void *)0))\n            {\n                bucket->tail = bi_prev;\n            }\n            if (bi->value)\n                free(bi->value);\n            free(bi->key);\n            free(bi);\n            --hash->n_items;\n            break;\n        }\n        bi_prev = bi;\n        bi = bi_next;\n    }\n}"
+        },
+        "typedefs": {
+          "hash_func": "typedef size_t (*hash_func)(void *key);",
+          "cmp_func": "typedef int (*cmp_func)(void *key_a, void *key_b);"
+        }
+      }
+    },
+    "src/match.i": {
+      "relative_path": "src/match.i",
+      "original_file": "src/match.c",
+      "includes": [
+        "fst.h",
+        "queue.h"
+      ],
+      "declarations": {
+        "globals": {
+          "sr_types": "extern struct _sr sr_types[];",
+          "_fst_header": "static const uint32_t _fst_header = 0x66733031;"
+        },
+        "structs": {
+          "_sr": "struct _sr\n{\n    sr_sum sum;\n    sr_prod prod;\n    float zero;\n    float one;\n}",
+          "_bitset": "struct _bitset\n{\n    word_t *words;\n    int n_words;\n}",
+          "_queue": "struct _queue\n{\n    struct _qnode *head;\n    struct _qnode *tail;\n    size_t item_size;\n    size_t n_items;\n}",
+          "_qnode": "struct _qnode\n{\n    struct _qnode *next;\n    char item[1];\n}",
+          "_bitem": "struct _bitem\n{\n    void *key;\n    void *value;\n    struct _bitem *next;\n}",
+          "_bucket": "struct _bucket\n{\n    struct _bitem *head;\n    struct _bitem *tail;\n}",
+          "_hash": "struct _hash\n{\n    struct _bucket *buckets;\n    size_t item_size;\n    size_t key_size;\n    size_t size;\n    size_t n_items;\n    hash_func hash_f;\n    cmp_func cmp_f;\n}",
+          "_symt": "struct _symt\n{\n    size_t n_items;\n    size_t n_max;\n    char **sym;\n    struct _hash *rev;\n}",
+          "_fst": "struct _fst\n{\n    uint32_t start;\n    uint32_t n_states;\n    uint32_t n_max;\n    uint8_t sr_type;\n    uint8_t flags;\n    struct _state *states;\n}",
+          "_state": "struct _state\n{\n    uint32_t n_arcs;\n    uint32_t n_max;\n    float weight;\n    int final;\n    struct _arc *arcs;\n}",
+          "_arc": "struct _arc\n{\n    uint32_t state;\n    float weight;\n    uint32_t ilabel;\n    uint32_t olabel;\n}",
+          "_spair": "struct _spair\n{\n    uint32_t a;\n    uint32_t b;\n}",
+          "_striple": "struct _striple\n{\n    uint32_t a;\n    uint32_t b;\n    uint32_t c;\n}",
+          "_apair": "struct _apair\n{\n    uint32_t a;\n    uint32_t b;\n}",
+          "_arc_pair": "struct _arc_pair\n{\n    struct _arc a;\n    struct _arc b;\n}",
+          "_match_item": "struct _match_item\n{\n    struct _arc a;\n    struct _arc b;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "_match": "static int _match(struct _arc *a, struct _arc *b, uint32_t i, uint32_t j)\n{\n    uint32_t al = a[i].olabel;\n    if (al == 0)\n        if ((i != 0 && j != 0) || (i == 0 && j == 0))\n        {\n            return 0;\n        }\n    return 1;\n}",
+          "match_unsorted": "void match_unsorted(struct _arc *a, struct _arc *b, uint32_t M, uint32_t N, struct _queue *q)\n{\n    struct _match_item mi;\n    for (uint32_t i = 0; i < M; ++i)\n        for (uint32_t j = 0; j < N; ++j)\n            if (a[i].olabel == b[j].ilabel && _match(a, b, i, j))\n            {\n                mi.a = a[i];\n                mi.b = b[j];\n                queue_enque(q, &mi);\n            }\n}",
+          "match_half_sorted": "void match_half_sorted(struct _arc *a, struct _arc *b, uint32_t M, uint32_t N, struct _queue *q)\n{\n    uint32_t l, h, ll, hh;\n    uint32_t i, m;\n    struct _match_item mi;\n    for (i = 0; i < M; ++i)\n    {\n        l = 0;\n        h = N - 1;\n        while (l <= h)\n        {\n            m = (l + h) >> 1;\n            if (a[i].olabel > b[m].ilabel)\n                l = m + 1;\n            else if (a[i].olabel < b[m].ilabel)\n            {\n                if (m == 0)\n                    break;\n                h = m - 1;\n            }\n            else\n            {\n                ll = hh = m;\n                while ((ll > l) && (a[i].olabel == b[ll - 1].ilabel))\n                    --ll;\n                while ((hh < h) && (a[i].olabel == b[hh + 1].ilabel))\n                    ++hh;\n                while (ll <= hh)\n                {\n                    mi.a = a[i];\n                    mi.b = b[ll];\n                    if (_match(a, b, i, ll))\n                        queue_enque(q, &mi);\n                    ++ll;\n                }\n                break;\n            }\n        }\n    }\n}",
+          "match_half_sorted_rev": "void match_half_sorted_rev(struct _arc *a, struct _arc *b, uint32_t M, uint32_t N, struct _queue *q)\n{\n    uint32_t l, h, ll, hh;\n    uint32_t i, m;\n    struct _match_item mi;\n    for (i = 0; i < N; ++i)\n    {\n        l = 0;\n        h = M - 1;\n        while (l <= h)\n        {\n            m = (l + h) >> 1;\n            if (b[i].ilabel > a[m].olabel)\n                l = m + 1;\n            else if (b[i].ilabel < a[m].olabel)\n            {\n                if (m == 0)\n                    break;\n                h = m - 1;\n            }\n            else\n            {\n                ll = hh = m;\n                while ((ll > l) && (b[i].ilabel == a[ll - 1].olabel))\n                    --ll;\n                while ((hh < h) && (b[i].ilabel == a[hh + 1].olabel))\n                    ++hh;\n                while (ll <= hh)\n                {\n                    mi.a = a[ll];\n                    mi.b = b[i];\n                    if (_match(a, b, ll, i))\n                        queue_enque(q, &mi);\n                    ++ll;\n                }\n                break;\n            }\n        }\n    }\n}",
+          "match_full_sorted": "void match_full_sorted(struct _arc *a, struct _arc *b, uint32_t M, uint32_t N, struct _queue *q)\n{\n    uint32_t i = 0;\n    uint32_t j = 0;\n    uint32_t t;\n    struct _match_item mi;\n    while (i < M && j < N)\n    {\n        if (a[i].olabel < b[j].ilabel)\n            ++i;\n        else if (a[i].olabel > b[j].ilabel)\n            ++j;\n        else\n        {\n            for (t = j; a[i].olabel == b[t].ilabel; ++t)\n            {\n                mi.a = a[i];\n                mi.b = b[t];\n                if (_match(a, b, i, t))\n                    queue_enque(q, &mi);\n            }\n            ++i;\n        }\n    }\n}"
+        },
+        "typedefs": {
+          "sr_sum": "typedef float (*sr_sum)(const float a, const float b);",
+          "sr_prod": "typedef float (*sr_prod)(const float a, const float b);",
+          "word_t": "typedef uint32_t word_t;",
+          "hash_func": "typedef size_t (*hash_func)(void *key);",
+          "cmp_func": "typedef int (*cmp_func)(void *key_a, void *key_b);",
+          "token_t": "typedef char token_t[1024];"
+        }
+      }
+    },
+    "src/print.i": {
+      "relative_path": "src/print.i",
+      "original_file": "src/print.c",
+      "includes": [
+        "fst.h",
+        "queue.h",
+        "symt.h"
+      ],
+      "declarations": {
+        "globals": {
+          "sr_types": "extern struct _sr sr_types[];",
+          "_fst_header": "static const uint32_t _fst_header = 0x66733031;"
+        },
+        "structs": {
+          "_sr": "struct _sr\n{\n    sr_sum sum;\n    sr_prod prod;\n    float zero;\n    float one;\n}",
+          "_bitset": "struct _bitset\n{\n    word_t *words;\n    int n_words;\n}",
+          "_queue": "struct _queue\n{\n    struct _qnode *head;\n    struct _qnode *tail;\n    size_t item_size;\n    size_t n_items;\n}",
+          "_qnode": "struct _qnode\n{\n    struct _qnode *next;\n    char item[1];\n}",
+          "_bitem": "struct _bitem\n{\n    void *key;\n    void *value;\n    struct _bitem *next;\n}",
+          "_bucket": "struct _bucket\n{\n    struct _bitem *head;\n    struct _bitem *tail;\n}",
+          "_hash": "struct _hash\n{\n    struct _bucket *buckets;\n    size_t item_size;\n    size_t key_size;\n    size_t size;\n    size_t n_items;\n    hash_func hash_f;\n    cmp_func cmp_f;\n}",
+          "_symt": "struct _symt\n{\n    size_t n_items;\n    size_t n_max;\n    char **sym;\n    struct _hash *rev;\n}",
+          "_fst": "struct _fst\n{\n    uint32_t start;\n    uint32_t n_states;\n    uint32_t n_max;\n    uint8_t sr_type;\n    uint8_t flags;\n    struct _state *states;\n}",
+          "_state": "struct _state\n{\n    uint32_t n_arcs;\n    uint32_t n_max;\n    float weight;\n    int final;\n    struct _arc *arcs;\n}",
+          "_arc": "struct _arc\n{\n    uint32_t state;\n    float weight;\n    uint32_t ilabel;\n    uint32_t olabel;\n}",
+          "_spair": "struct _spair\n{\n    uint32_t a;\n    uint32_t b;\n}",
+          "_striple": "struct _striple\n{\n    uint32_t a;\n    uint32_t b;\n    uint32_t c;\n}",
+          "_apair": "struct _apair\n{\n    uint32_t a;\n    uint32_t b;\n}",
+          "_arc_pair": "struct _arc_pair\n{\n    struct _arc a;\n    struct _arc b;\n}",
+          "_match_item": "struct _match_item\n{\n    struct _arc a;\n    struct _arc b;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "fst_print": "void fst_print(const struct _fst *fst)\n{\n    struct _state state;\n    struct _arc arc;\n    uint32_t s;\n    uint32_t a;\n    struct _queue *finals = queue_create(sizeof(uint32_t));\n    for (s = 0; s < fst->n_states; ++s)\n    {\n        state = fst->states[s];\n        for (a = 0; a < state.n_arcs; ++a)\n        {\n            arc = state.arcs[a];\n            printf(\"%\"\n                   \"u\"\n                   \"\\t%\"\n                   \"u\"\n                   \"\\t%\"\n                   \"u\"\n                   \"\\t%\"\n                   \"u\"\n                   \"\\t%.5f\\n\",\n                   s, arc.state, arc.ilabel, arc.olabel, arc.weight);\n        }\n        if (state.final == 1)\n        {\n            queue_enque(finals, &s);\n        }\n    }\n    while (queue_deque(finals, &s) != ((void *)0))\n    {\n        state = fst->states[s];\n        printf(\"%\"\n               \"u\"\n               \"\\t%f\\n\",\n               s, state.weight);\n    }\n    queue_remove(finals);\n}",
+          "trn": "static char *trn(struct _symt *st, size_t id, char *token)\n{\n    sprintf(token, \"%zu\", id);\n    return token;\n}",
+          "trt": "static char *trt(struct _symt *st, size_t id, char *token)\n{\n    char *t = symt_get(st, id);\n    if (t == ((void *)0))\n    {\n        token = ((void *)0);\n        fprintf(stderr, \"Unknown token: %s\\n\", token);\n    }\n    else\n    {\n        strcpy(token, t);\n    }\n    return token;\n}",
+          "fst_print_sym": "void fst_print_sym(const struct _fst *fst, struct _symt *ist, struct _symt *ost, struct _symt *sst)\n{\n    struct _state state;\n    struct _arc arc;\n    token_t sa, sb, li, lo;\n    rtrans_f strans, itrans, otrans;\n    uint32_t s;\n    uint32_t a;\n    itrans = (ist == ((void *)0) ? trn : trt);\n    otrans = (ost == ((void *)0) ? trn : trt);\n    strans = (sst == ((void *)0) ? trn : trt);\n    struct _queue *finals = queue_create(sizeof(uint32_t));\n    for (s = 0; s < fst->n_states; ++s)\n    {\n        state = fst->states[s];\n        for (a = 0; a < state.n_arcs; ++a)\n        {\n            arc = state.arcs[a];\n            strans(sst, s, sa);\n            strans(sst, arc.state, sb);\n            itrans(ist, arc.ilabel, li);\n            otrans(ost, arc.olabel, lo);\n            if (sa == ((void *)0) || sb == ((void *)0) || li == ((void *)0) || lo == ((void *)0))\n            {\n                fprintf(stderr, \"Invalid symbol\\n\");\n                exit(1);\n            }\n            printf(\"%s\\t%s\\t%s\\t%s\\t%.5f\\n\", sa, sb, li, lo, arc.weight);\n        }\n        if (state.final == 1)\n        {\n            queue_enque(finals, &s);\n        }\n    }\n    while (queue_deque(finals, &s) != ((void *)0))\n    {\n        state = fst->states[s];\n        strans(sst, s, sa);\n        if (sa == ((void *)0))\n        {\n            fprintf(stderr, \"Invalid symbol\\n\");\n            exit(1);\n        }\n        printf(\"%s\\t%f\\n\", sa, state.weight);\n    }\n    queue_remove(finals);\n}"
+        },
+        "typedefs": {
+          "sr_sum": "typedef float (*sr_sum)(const float a, const float b);",
+          "sr_prod": "typedef float (*sr_prod)(const float a, const float b);",
+          "word_t": "typedef uint32_t word_t;",
+          "hash_func": "typedef size_t (*hash_func)(void *key);",
+          "cmp_func": "typedef int (*cmp_func)(void *key_a, void *key_b);",
+          "token_t": "typedef char token_t[1024];",
+          "rtrans_f": "typedef char *(*rtrans_f)(struct _symt *st, size_t id, char *token);"
+        }
+      }
+    }
+  }
+}

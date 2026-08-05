@@ -1,0 +1,21 @@
+{
+  "project_name": "file2str",
+  "files": {
+    "file2str.i": {
+      "relative_path": "file2str.i",
+      "original_file": "file2str.c",
+      "includes": [],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "file2strl": "char *file2strl(const char *path, unsigned int *file_len_out)\n{\n    FILE *file;\n    int e;\n    file = fopen(path, \"rb\");\n    if (!file)\n    {\n        fprintf(stderr, \"Unable to open file %s\\n\", path);\n        return ((void *)0);\n    }\n    e = fseek(file, 0, 2);\n    if (-1 == e)\n    {\n        fprintf(stderr, \"Unable to seek file %s\\n\", path);\n        fclose(file);\n        return ((void *)0);\n    }\n    long file_len = ftell(file);\n    if (-1 == file_len)\n    {\n        fprintf(stderr, \"Unable to ftell() file %s\\n\", path);\n        fclose(file);\n        return ((void *)0);\n    }\n    e = fseek(file, 0, 0);\n    if (-1 == e)\n    {\n        fprintf(stderr, \"Unable to seek file %s\\n\", path);\n        fclose(file);\n        return ((void *)0);\n    }\n    char *contents = malloc(file_len + 1);\n    if (!contents)\n    {\n        fprintf(stderr, \"Memory error!\\n\");\n        fclose(file);\n        return ((void *)0);\n    }\n    unsigned long bytes_read = fread(contents, file_len, 1, file);\n    if (bytes_read == 0 && ferror(file))\n    {\n        fprintf(stderr, \"Read error\");\n        free(contents);\n        fclose(file);\n        return ((void *)0);\n    }\n    fclose(file);\n    contents[file_len] = '\\0';\n    if (file_len_out)\n        *file_len_out = file_len + 1;\n    return contents;\n}",
+          "file2str": "char *file2str(const char *path)\n{\n    return file2strl(path, ((void *)0));\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

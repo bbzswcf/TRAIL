@@ -1,0 +1,27 @@
+{
+  "project_name": "rect_pack_h",
+  "files": {
+    "CMakeFiles/3.28.3/CompilerIdC/CMakeCCompilerId.i": {
+      "relative_path": "CMakeFiles/3.28.3/CompilerIdC/CMakeCCompilerId.i",
+      "original_file": "CMakeFiles/3.28.3/CompilerIdC/CMakeCCompilerId.c",
+      "includes": [],
+      "declarations": {
+        "globals": {
+          "info_compiler": "char const *info_compiler = \"INFO\"\n                            \":\"\n                            \"compiler[\"\n                            \"GNU\"\n                            \"]\";",
+          "info_version": "char const info_version[] = {'I',\n                             'N',\n                             'F',\n                             'O',\n                             ':',\n                             'c',\n                             'o',\n                             'm',\n                             'p',\n                             'i',\n                             'l',\n                             'e',\n                             'r',\n                             '_',\n                             'v',\n                             'e',\n                             'r',\n                             's',\n                             'i',\n                             'o',\n                             'n',\n                             '[',\n                             ('0' + (((13) / 10000000) % 10)),\n                             ('0' + (((13) / 1000000) % 10)),\n                             ('0' + (((13) / 100000) % 10)),\n                             ('0' + (((13) / 10000) % 10)),\n                             ('0' + (((13) / 1000) % 10)),\n                             ('0' + (((13) / 100) % 10)),\n                             ('0' + (((13) / 10) % 10)),\n                             ('0' + ((13) % 10)),\n                             '.',\n                             ('0' + (((3) / 10000000) % 10)),\n                             ('0' + (((3) / 1000000) % 10)),\n                             ('0' + (((3) / 100000) % 10)),\n                             ('0' + (((3) / 10000) % 10)),\n                             ('0' + (((3) / 1000) % 10)),\n                             ('0' + (((3) / 100) % 10)),\n                             ('0' + (((3) / 10) % 10)),\n                             ('0' + ((3) % 10)),\n                             '.',\n                             ('0' + (((0) / 10000000) % 10)),\n                             ('0' + (((0) / 1000000) % 10)),\n                             ('0' + (((0) / 100000) % 10)),\n                             ('0' + (((0) / 10000) % 10)),\n                             ('0' + (((0) / 1000) % 10)),\n                             ('0' + (((0) / 100) % 10)),\n                             ('0' + (((0) / 10) % 10)),\n                             ('0' + ((0) % 10)),\n                             ']',\n                             '\\0'};",
+          "info_platform": "char const *info_platform = \"INFO\"\n                            \":\"\n                            \"platform[\"\n                            \"Linux\"\n                            \"]\";",
+          "info_arch": "char const *info_arch = \"INFO\"\n                        \":\"\n                        \"arch[\"\n                        \"]\";",
+          "info_language_standard_default": "const char *info_language_standard_default = \"INFO\"\n                                             \":\"\n                                             \"standard_default[\"\n                                             \"17\"\n                                             \"]\";",
+          "info_language_extensions_default": "const char *info_language_extensions_default = \"INFO\"\n                                               \":\"\n                                               \"extensions_default[\"\n                                               \"ON\"\n                                               \"]\";"
+        },
+        "structs": {},
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "main": "int main(int argc, char *argv[])\n{\n    int require = 0;\n    require += info_compiler[argc];\n    require += info_platform[argc];\n    require += info_arch[argc];\n    require += info_version[argc];\n    require += info_language_standard_default[argc];\n    require += info_language_extensions_default[argc];\n    (void)argv;\n    return require;\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

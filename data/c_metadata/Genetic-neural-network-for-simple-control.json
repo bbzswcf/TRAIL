@@ -1,0 +1,346 @@
+{
+  "project_name": "Genetic-neural-network-for-simple-control",
+  "files": {
+    "src/toolbox/general/general_math.i": {
+      "relative_path": "src/toolbox/general/general_math.i",
+      "original_file": "src/toolbox/general/general_math.c",
+      "includes": [
+        "general/general_math.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "createRandomFloat": "float createRandomFloat(float min, float max)\n{\n    float random = ((float)rand()) / (float)2147483647;\n    float diff = max - min;\n    float r = random * diff;\n    return min + r;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/toolbox/general/matrix_math.i": {
+      "relative_path": "src/toolbox/general/matrix_math.i",
+      "original_file": "src/toolbox/general/matrix_math.c",
+      "includes": [
+        "general/matrix_math.h",
+        "genetic/population.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "InputPop": "typedef struct InputPop\n{\n    int cols;\n    int rows;\n    float **S;\n} InputPop;",
+          "Pop": "typedef struct Pop\n{\n    float **pop;\n    float **S;\n    int cols;\n    int rows;\n} Pop;",
+          "Matrix": "typedef struct Matrix\n{\n    float **matrix;\n    int *sizes;\n} Matrix;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "matrixDelete": "void matrixDelete(struct Matrix *matrix)\n{\n    if (matrix)\n    {\n        for (int i = 0; i < matrix->sizes[0]; i++)\n        {\n            free(matrix->matrix[i]);\n        }\n        free(matrix->matrix);\n        free(matrix->sizes);\n        free(matrix);\n    }\n}",
+          "matrixDeleteOnlyData": "void matrixDeleteOnlyData(struct Matrix *matrix)\n{\n    if (matrix)\n    {\n        for (int i = 0; i < matrix->sizes[0]; i++)\n        {\n            free(matrix->matrix[i]);\n        }\n        free(matrix->matrix);\n        free(matrix->sizes);\n        matrix->matrix = ((void *)0);\n        matrix->sizes = ((void *)0);\n    }\n}",
+          "createMatrix": "void createMatrix(struct Matrix *matrix, int *sizes)\n{\n    matrix->matrix = (float **)malloc(sizes[0] * sizeof(float *));\n    for (int i = 0; i < sizes[0]; i++)\n    {\n        matrix->matrix[i] = (float *)malloc(sizes[1] * sizeof(float));\n    }\n    matrix->sizes = (int *)malloc(2 * sizeof(int));\n    matrix->sizes[0] = sizes[0];\n    matrix->sizes[1] = sizes[1];\n    free(sizes);\n}",
+          "createMatrixFromPointer": "void createMatrixFromPointer(struct Matrix *output, float *input, int *size)\n{\n    createMatrix(output, size);\n    int globalIndex = 0;\n    for (int i = 0; i < output->sizes[0]; i++)\n    {\n        for (int y = 0; y < output->sizes[1]; y++)\n        {\n            output->matrix[i][y] = input[globalIndex];\n            globalIndex++;\n        }\n    }\n}",
+          "matrixMultiply": "void matrixMultiply(struct Matrix *A, struct Matrix *B, struct Matrix *output)\n{\n    if (A->sizes[1] != B->sizes[0])\n    {\n        fprintf(stderr, \"Error: Sizes of matrixes are incorect\\n\");\n        exit(1);\n    }\n    int *sizes = (int *)malloc(2 * sizeof(int));\n    sizes[0] = A->sizes[0];\n    sizes[1] = B->sizes[1];\n    createMatrix(output, sizes);\n    for (int i = 0; i < B->sizes[1]; i++)\n    {\n        for (int y = 0; y < A->sizes[0]; y++)\n        {\n            output->matrix[y][i] = 0;\n            for (int x = 0; x < A->sizes[1]; x++)\n            {\n                output->matrix[y][i] += A->matrix[y][x] * B->matrix[x][i];\n            }\n        }\n    }\n}",
+          "fullyCopyMatrix": "void fullyCopyMatrix(struct Matrix *input, struct Matrix *output)\n{\n    int *size = (int *)malloc(2 * sizeof(int));\n    size[0] = input->sizes[0];\n    size[1] = input->sizes[1];\n    createMatrix(output, size);\n    for (int i = 0; i < output->sizes[0]; i++)\n    {\n        memcpy(output->matrix[i], input->matrix[i], output->sizes[1] * sizeof(float));\n    }\n}",
+          "matrixSubstAdd": "void matrixSubstAdd(struct Matrix *A, struct Matrix *B, struct Matrix *output, int type)\n{\n    int *sizes = (int *)malloc(2 * sizeof(int));\n    sizes[0] = A->sizes[0];\n    sizes[1] = B->sizes[1];\n    createMatrix(output, sizes);\n    for (int i = 0; i < output->sizes[0]; i++)\n    {\n        for (int y = 0; y < output->sizes[1]; y++)\n        {\n            if (type == 0)\n            {\n                output->matrix[i][y] = A->matrix[i][y] - B->matrix[i][y];\n            }\n            else\n            {\n                output->matrix[i][y] = A->matrix[i][y] + B->matrix[i][y];\n            }\n        }\n    }\n}",
+          "matrixAllValuesFormula": "void matrixAllValuesFormula(struct Matrix *matrix, float (*func_ptr)(float))\n{\n    for (int i = 0; i < matrix->sizes[0]; i++)\n    {\n        for (int y = 0; y < matrix->sizes[1]; y++)\n        {\n            matrix->matrix[i][y] = func_ptr(matrix->matrix[i][y]);\n        }\n    }\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/toolbox/general/pid_controller.i": {
+      "relative_path": "src/toolbox/general/pid_controller.i",
+      "original_file": "src/toolbox/general/pid_controller.c",
+      "includes": [
+        "general/pid_controller.h",
+        "general/signal_designer.h",
+        "general/systems_builder.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "Signal": "typedef struct Signal\n{\n    float *signal;\n    float dt;\n    int length;\n} Signal;",
+          "PID": "typedef struct PID\n{\n    float Kp;\n    float Ki;\n    float Kd;\n    float tauI;\n    float tauD;\n    float prevError;\n    float proportiError;\n    float integralError;\n    float differenError;\n    struct Signal *signal;\n    float (*func_system)(float *);\n    struct Signal *output;\n    float *dataSystem;\n    int sizeDataSystem;\n    float limMaxInt;\n    float limMinInt;\n    float limMax;\n    float limMin;\n    float fit;\n    int steadyRiseCheck;\n    int maxCounter;\n} PID;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "createNewPidController": "void createNewPidController(struct PID *pid)\n{\n    pid->Kp = 0.0;\n    pid->Ki = 0.0;\n    pid->Kd = 0.0;\n    pid->tauD = 1.0;\n    pid->tauI = 1.0;\n    pid->signal = (struct Signal *)malloc(sizeof(struct Signal));\n    cliSignalSelector(pid->signal);\n    int size = selectSystem(&pid->func_system);\n    pid->dataSystem = (float *)malloc(size * sizeof(float));\n    for (int i = 0; i < size; i++)\n    {\n        pid->dataSystem[i] = 0.0;\n    }\n    pid->sizeDataSystem = size;\n    pid->output = (struct Signal *)malloc(sizeof(struct Signal));\n    pid->output->length = pid->signal->length;\n    pid->output->dt = pid->signal->dt;\n    pid->output->signal = (float *)malloc(pid->signal->length * sizeof(float));\n    pid->prevError = 0.0;\n    pid->integralError = 0.0;\n}",
+          "deletePid": "void deletePid(struct PID *pid)\n{\n    deleteSignal(pid->signal);\n    deleteSignal(pid->output);\n    free(pid->dataSystem);\n    free(pid);\n}",
+          "resetOutputMemoryPid": "static void resetOutputMemoryPid(struct PID *pid)\n{\n    for (int i = 0; i < pid->signal->length; i++)\n    {\n        pid->output->signal[i] = 0.0;\n    }\n    for (int i = 0; i < pid->sizeDataSystem; i++)\n    {\n        pid->dataSystem[i] = 0.0;\n    }\n    pid->dataSystem[1] = pid->signal->dt;\n    pid->proportiError = 0.0;\n    pid->integralError = 0.0;\n    pid->differenError = 0.0;\n    pid->prevError = 0.0;\n    pid->steadyRiseCheck = 1;\n    pid->maxCounter = 0;\n}",
+          "makeSimulationOfSignal": "void makeSimulationOfSignal(struct PID *pid, FILE *csvFile, int csv)\n{\n    resetOutputMemoryPid(pid);\n    pid->fit = 0.0;\n    float error;\n    if (csv == 1)\n    {\n        fprintf(csvFile, \"%f,%f,%f,%f,%f\\n\", pid->proportiError, pid->integralError, pid->differenError,\n                pid->output->signal[0], pid->signal->signal[0]);\n    }\n    for (int i = 2; i < pid->signal->length; i++)\n    {\n        error = pid->signal->signal[i] - pid->output->signal[i - 1];\n        pid->proportiError = pid->Kp * error;\n        pid->integralError = pid->integralError + 0.5f * pid->Ki * (error - pid->prevError) * pid->signal->dt;\n        pid->differenError = -(2.0f * pid->Kd * (pid->output->signal[i - 1] - pid->output->signal[i - 2]) +\n                               (2.0f * pid->tauD - pid->signal->dt) * pid->differenError) /\n                             (2.0f * pid->tauD + pid->signal->dt);\n        if (pid->integralError > pid->limMaxInt)\n        {\n            pid->integralError = pid->limMaxInt;\n        }\n        else if (pid->integralError < pid->limMinInt)\n        {\n            pid->integralError = pid->limMinInt;\n        }\n        pid->dataSystem[0] = pid->proportiError + pid->integralError + pid->differenError;\n        pid->output->signal[i] = pid->func_system(pid->dataSystem);\n        if (pid->output->signal[i] > pid->limMax)\n        {\n            pid->output->signal[i] = pid->limMax;\n            pid->maxCounter++;\n        }\n        else if (pid->output->signal[i] < pid->limMin)\n        {\n            pid->output->signal[i] = pid->limMin;\n            pid->maxCounter++;\n        }\n        if (csv == 1)\n        {\n            fprintf(csvFile, \"%f,%f,%f,%f,%f\\n\", pid->proportiError, pid->integralError, pid->differenError,\n                    pid->output->signal[i], pid->signal->signal[i]);\n        }\n        pid->prevError = error;\n        float diff = pid->signal->signal[i] - pid->output->signal[i];\n        pid->fit += diff > 0 ? diff : diff * (-1);\n        if (pid->output->signal[i - 1] > pid->output->signal[i])\n        {\n            pid->steadyRiseCheck = 0;\n        }\n    }\n    if (pid->steadyRiseCheck == 1)\n    {\n        pid->fit = 3.40282346638528859811704183484516925e+38F;\n    }\n    else if (pid->maxCounter > pid->signal->length * 1 / 100)\n    {\n        pid->fit = 3.40282346638528859811704183484516925e+38F;\n    }\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/toolbox/general/sort.i": {
+      "relative_path": "src/toolbox/general/sort.i",
+      "original_file": "src/toolbox/general/sort.c",
+      "includes": [
+        "general/sort.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "quickSort": "void quickSort(float *fit, int *input, int length)\n{\n    int index = length / 2;\n    int indexMore = 0;\n    int indexLess = 0;\n    int *arrayMore = (int *)malloc(length * sizeof(int));\n    int *arrayLess = (int *)malloc(length * sizeof(int));\n    for (int i = 0; i < length; i++)\n    {\n        if (i != index)\n        {\n            if (fit[input[i]] >= fit[input[index]])\n            {\n                arrayMore[indexMore] = input[i];\n                indexMore++;\n            }\n            else if (fit[input[i]] < fit[input[index]])\n            {\n                arrayLess[indexLess] = input[i];\n                indexLess++;\n            }\n        }\n    }\n    arrayMore = (int *)realloc(arrayMore, indexMore * sizeof(int));\n    arrayLess = (int *)realloc(arrayLess, indexLess * sizeof(int));\n    if (indexMore > 1)\n    {\n        quickSort(fit, arrayMore, indexMore);\n    }\n    if (indexLess > 1)\n    {\n        quickSort(fit, arrayLess, indexLess);\n    }\n    int midle = input[index];\n    int indexGlobal = 0;\n    for (int i = 0; i < indexLess; i++)\n    {\n        input[indexGlobal] = arrayLess[i];\n        indexGlobal++;\n    }\n    input[indexGlobal] = midle;\n    indexGlobal++;\n    for (int i = 0; i < indexMore; i++)\n    {\n        input[indexGlobal] = arrayMore[i];\n        indexGlobal++;\n    }\n    free(arrayLess);\n    free(arrayMore);\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/toolbox/general/systems_builder.i": {
+      "relative_path": "src/toolbox/general/systems_builder.i",
+      "original_file": "src/toolbox/general/systems_builder.c",
+      "includes": [
+        "general/systems_builder.h",
+        "general/pid_controller.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "Signal": "typedef struct Signal\n{\n    float *signal;\n    float dt;\n    int length;\n} Signal;",
+          "PID": "typedef struct PID\n{\n    float Kp;\n    float Ki;\n    float Kd;\n    float tauI;\n    float tauD;\n    float prevError;\n    float proportiError;\n    float integralError;\n    float differenError;\n    struct Signal *signal;\n    float (*func_system)(float *);\n    struct Signal *output;\n    float *dataSystem;\n    int sizeDataSystem;\n    float limMaxInt;\n    float limMinInt;\n    float limMax;\n    float limMin;\n    float fit;\n    int steadyRiseCheck;\n    int maxCounter;\n} PID;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "linear": "float linear(float *data)\n{\n    return data[0];\n}",
+          "complexYDot": "float complexYDot(float *data)\n{\n    data[2] = data[2] + data[0] * data[1];\n    return data[2];\n}",
+          "complexYDddot": "float complexYDddot(float *data)\n{\n    data[5] = data[0] - 2 * data[2] - 3 * data[3] - 4 * data[4];\n    data[2] = data[2] + data[5] * data[1];\n    data[3] = data[3] + data[2] * data[1];\n    data[4] = data[4] + data[3] * data[1];\n    return data[4];\n}",
+          "selectSystem": "int selectSystem(float (**func_ptr)(float *))\n{\n    printf(\"Please select the system:\\n\");\n    printf(\"1 - linear\\n\");\n    printf(\"2 - complexYDddot\\n\");\n    printf(\"3 - complexYDot\\n\");\n    printf(\"Select: \");\n    int userChoice;\n    scanf(\"%d\", &userChoice);\n    if (userChoice == 1)\n    {\n        *func_ptr = linear;\n        return 2;\n    }\n    else if (userChoice == 2)\n    {\n        *func_ptr = complexYDddot;\n        return 6;\n    }\n    else if (userChoice == 3)\n    {\n        *func_ptr = complexYDot;\n        return 4;\n    }\n    else\n    {\n        exit(0);\n    }\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/toolbox/general/signal_designer.i": {
+      "relative_path": "src/toolbox/general/signal_designer.i",
+      "original_file": "src/toolbox/general/signal_designer.c",
+      "includes": [
+        "general/signal_designer.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "Signal": "typedef struct Signal\n{\n    float *signal;\n    float dt;\n    int length;\n} Signal;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "selectStepSignal": "static void selectStepSignal(struct Signal *signal)\n{\n    signal->length = 1000;\n    signal->dt = 0.01;\n    ;\n    signal->signal = (float *)malloc(signal->length * sizeof(float));\n    int globalIndex = 0;\n    for (float i = 0.0; i < 0.3; i += signal->dt)\n    {\n        signal->signal[globalIndex] = 0.0;\n        globalIndex++;\n    }\n    for (float i = 0.3 + signal->dt; i < 10.0; i += signal->dt)\n    {\n        signal->signal[globalIndex] = 1.0;\n        globalIndex++;\n    }\n    signal->length = globalIndex;\n}",
+          "selectCustomASignal": "static void selectCustomASignal(struct Signal *signal)\n{\n    signal->length = 1002;\n    signal->dt = 0.01;\n    ;\n    signal->signal = (float *)malloc(signal->length * sizeof(float));\n    int globalIndex = 0;\n    for (float i = 0.0; i < 1.0; i += signal->dt)\n    {\n        signal->signal[globalIndex] = 0.0;\n        globalIndex++;\n    }\n    for (float i = 1.0; i < 3.0; i += signal->dt)\n    {\n        signal->signal[globalIndex] = 30.0;\n        globalIndex++;\n    }\n    for (float i = 3.0; i < 5.0; i += signal->dt)\n    {\n        signal->signal[globalIndex] = 15.0;\n        globalIndex++;\n    }\n    for (float i = 5.0; i < 8.0; i += signal->dt)\n    {\n        signal->signal[globalIndex] = 5.0;\n        globalIndex++;\n    }\n    for (float i = 8.0; i < 9.0; i += signal->dt)\n    {\n        signal->signal[globalIndex] = 25.0;\n        globalIndex++;\n    }\n    for (float i = 9.0; i < 10.0; i += signal->dt)\n    {\n        signal->signal[globalIndex] = 0.0;\n        globalIndex++;\n    }\n    signal->length = globalIndex;\n}",
+          "deleteSignal": "void deleteSignal(struct Signal *signal)\n{\n    free(signal->signal);\n    free(signal);\n}",
+          "cliSignalSelector": "void cliSignalSelector(struct Signal *signal)\n{\n    printf(\"Please select the Signal:\\n\");\n    printf(\"1 - step\\n\");\n    printf(\"2 - customa\\n\");\n    printf(\"Select: \");\n    int userChoice;\n    scanf(\"%d\", &userChoice);\n    if (userChoice == 1)\n    {\n        selectStepSignal(signal);\n    }\n    else if (userChoice == 2)\n    {\n        selectCustomASignal(signal);\n    }\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/toolbox/neural/activation_fnc.i": {
+      "relative_path": "src/toolbox/neural/activation_fnc.i",
+      "original_file": "src/toolbox/neural/activation_fnc.c",
+      "includes": [
+        "neural/activation_fnc.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "tangenth": "float tangenth(float x)\n{\n    return tanh(5 * x);\n}",
+          "sigmoid": "float sigmoid(float x)\n{\n    return 1.0 / (1.0 + exp(-x));\n}",
+          "selectTangActivationFunction": "void selectTangActivationFunction(float (**func_ptr)(float))\n{\n    *func_ptr = tangenth;\n}",
+          "selectSigmActivationFunction": "void selectSigmActivationFunction(float (**func_ptr)(float))\n{\n    *func_ptr = sigmoid;\n}",
+          "selectActivationFunction": "void selectActivationFunction(float (**func_ptr)(float))\n{\n    printf(\"Please select the AF:\\n1 - tanh\\n2 - sigmoid\\nSelect: \");\n    int userChoice;\n    scanf(\"%d\", &userChoice);\n    if (userChoice == 1)\n    {\n        *func_ptr = tangenth;\n    }\n    else if (userChoice == 2)\n    {\n        *func_ptr = sigmoid;\n    }\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/toolbox/neural/neural_network.i": {
+      "relative_path": "src/toolbox/neural/neural_network.i",
+      "original_file": "src/toolbox/neural/neural_network.c",
+      "includes": [
+        "neural/neural_network.h",
+        "genetic/population.h",
+        "general/sort.h",
+        "general/matrix_math.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "InputPop": "typedef struct InputPop\n{\n    int cols;\n    int rows;\n    float **S;\n} InputPop;",
+          "Pop": "typedef struct Pop\n{\n    float **pop;\n    float **S;\n    int cols;\n    int rows;\n} Pop;",
+          "Matrix": "typedef struct Matrix\n{\n    float **matrix;\n    int *sizes;\n} Matrix;",
+          "NN": "typedef struct NN\n{\n    struct Matrix **AW;\n    struct Matrix **BW;\n    int *neuronsSize;\n    int layerNumber;\n    int countOfValues;\n    float **normalizationMatrix;\n    float **denormalizationMatrix;\n    float (*func_ptr)(float);\n    int *layerType;\n    int **sdNeuronsTypes;\n    struct Matrix **SDMemory;\n} NN;",
+          "NNInput": "typedef struct NNInput\n{\n    int *neuronsSize;\n    int layerNumber;\n    float **normalizationMatrix;\n    float **denormalizationMatrix;\n    int *layerType;\n    int sdNumber;\n} NNInput;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "clearNNInput": "static void clearNNInput(struct NNInput *input)\n{\n    free(input->neuronsSize);\n    for (int i = 0; i < 2; i++)\n    {\n        free(input->normalizationMatrix[i]);\n        free(input->denormalizationMatrix[i]);\n    }\n    free(input->normalizationMatrix);\n    free(input->denormalizationMatrix);\n    free(input->layerType);\n    free(input);\n}",
+          "createNeuralNetwork": "void createNeuralNetwork(struct NNInput *input, struct NN *neuralNetwork)\n{\n    neuralNetwork->layerNumber = input->layerNumber;\n    neuralNetwork->neuronsSize = (int *)malloc(input->layerNumber * sizeof(int));\n    memcpy(neuralNetwork->neuronsSize, input->neuronsSize, neuralNetwork->layerNumber * sizeof(int));\n    neuralNetwork->layerType = (int *)malloc(neuralNetwork->layerNumber * sizeof(int));\n    memcpy(neuralNetwork->layerType, input->layerType, neuralNetwork->layerNumber * sizeof(int));\n    neuralNetwork->sdNeuronsTypes = (int **)malloc(input->sdNumber * sizeof(int *));\n    neuralNetwork->SDMemory = (struct Matrix **)malloc(input->sdNumber * sizeof(struct Matrix *));\n    int globalIndexSD = 0;\n    for (int i = 0; i < neuralNetwork->layerNumber; i++)\n    {\n        if (neuralNetwork->layerType[i] == 1)\n        {\n            neuralNetwork->sdNeuronsTypes[globalIndexSD] = (int *)malloc(neuralNetwork->neuronsSize[i] * sizeof(int));\n            for (int j = 0; j < neuralNetwork->neuronsSize[i] / 2; j++)\n            {\n                neuralNetwork->sdNeuronsTypes[globalIndexSD][j] = 0;\n            }\n            int midIndexSlice = neuralNetwork->neuronsSize[i] / 2 +\n                                (neuralNetwork->neuronsSize[i] - neuralNetwork->neuronsSize[i] / 2) / 2;\n            for (int j = neuralNetwork->neuronsSize[i] / 2; j < midIndexSlice; j++)\n            {\n                neuralNetwork->sdNeuronsTypes[globalIndexSD][j] = 1;\n            }\n            for (int j = midIndexSlice; j < neuralNetwork->neuronsSize[i]; j++)\n            {\n                neuralNetwork->sdNeuronsTypes[globalIndexSD][j] = 2;\n            }\n            neuralNetwork->SDMemory[globalIndexSD] = (struct Matrix *)malloc(sizeof(struct Matrix));\n            int *sizesSDMatrix = (int *)malloc(2 * sizeof(int));\n            sizesSDMatrix[0] = neuralNetwork->neuronsSize[i];\n            sizesSDMatrix[1] = 1;\n            createMatrix(neuralNetwork->SDMemory[globalIndexSD], sizesSDMatrix);\n            for (int j = 0; j < neuralNetwork->neuronsSize[i]; j++)\n            {\n                neuralNetwork->SDMemory[globalIndexSD]->matrix[j][0] = .0;\n            }\n            globalIndexSD++;\n        }\n    }\n    neuralNetwork->normalizationMatrix = (float **)malloc(2 * sizeof(float *));\n    neuralNetwork->denormalizationMatrix = (float **)malloc(2 * sizeof(float *));\n    for (int i = 0; i < 2; i++)\n    {\n        neuralNetwork->normalizationMatrix[i] = (float *)malloc(neuralNetwork->neuronsSize[0] * sizeof(float));\n        neuralNetwork->denormalizationMatrix[i] =\n            (float *)malloc(neuralNetwork->neuronsSize[neuralNetwork->layerNumber - 1] * sizeof(float));\n        memcpy(neuralNetwork->normalizationMatrix[i], input->normalizationMatrix[i],\n               neuralNetwork->neuronsSize[0] * sizeof(float));\n        memcpy(neuralNetwork->denormalizationMatrix[i], input->denormalizationMatrix[i],\n               neuralNetwork->neuronsSize[neuralNetwork->layerNumber - 1] * sizeof(float));\n    }\n    selectActivationFunction(&neuralNetwork->func_ptr);\n    clearNNInput(input);\n    neuralNetwork->AW = (struct Matrix **)malloc((neuralNetwork->layerNumber - 1) * sizeof(struct Matrix *));\n    neuralNetwork->BW = (struct Matrix **)malloc((neuralNetwork->layerNumber - 1) * sizeof(struct Matrix *));\n    int layerIndex = 0;\n    neuralNetwork->countOfValues = 0;\n    for (int i = 0; i < neuralNetwork->layerNumber - 1; i++)\n    {\n        neuralNetwork->AW[i] = (struct Matrix *)malloc(sizeof(struct Matrix));\n        neuralNetwork->BW[i] = (struct Matrix *)malloc(sizeof(struct Matrix));\n        int *sizesAW = (int *)malloc(2 * sizeof(int));\n        int *sizesBW = (int *)malloc(2 * sizeof(int));\n        sizesAW[0] = neuralNetwork->neuronsSize[layerIndex + 1];\n        sizesAW[1] = neuralNetwork->neuronsSize[layerIndex];\n        sizesBW[0] = neuralNetwork->neuronsSize[layerIndex + 1];\n        sizesBW[1] = 1;\n        neuralNetwork->countOfValues +=\n            neuralNetwork->neuronsSize[layerIndex + 1] * neuralNetwork->neuronsSize[layerIndex] +\n            neuralNetwork->neuronsSize[layerIndex + 1];\n        createMatrix(neuralNetwork->AW[i], sizesAW);\n        createMatrix(neuralNetwork->BW[i], sizesBW);\n        layerIndex += 1;\n    }\n    neuralNetwork->countOfValues -= neuralNetwork->neuronsSize[layerIndex];\n    int indexBWLast = neuralNetwork->layerNumber - 2;\n    for (int i = 0; i < neuralNetwork->BW[indexBWLast]->sizes[0]; i++)\n    {\n        for (int j = 0; j < neuralNetwork->BW[indexBWLast]->sizes[0]; j++)\n        {\n            neuralNetwork->BW[indexBWLast]->matrix[i][j] = 0.0;\n        }\n    }\n}",
+          "clearNeuralNetwork": "void clearNeuralNetwork(struct NN *neuralNetwork)\n{\n    for (int i = 0; i < neuralNetwork->layerNumber - 1; i++)\n    {\n        matrixDelete(neuralNetwork->AW[i]);\n        matrixDelete(neuralNetwork->BW[i]);\n    }\n    free(neuralNetwork->AW);\n    free(neuralNetwork->BW);\n    for (int i = 0; i < 2; i++)\n    {\n        free(neuralNetwork->normalizationMatrix[i]);\n        free(neuralNetwork->denormalizationMatrix[i]);\n    }\n    free(neuralNetwork->normalizationMatrix);\n    free(neuralNetwork->denormalizationMatrix);\n    free(neuralNetwork->neuronsSize);\n    int indexSD = 0;\n    for (int i = 0; i < neuralNetwork->layerNumber; i++)\n    {\n        if (neuralNetwork->layerType[i] == 1)\n        {\n            free(neuralNetwork->sdNeuronsTypes[indexSD]);\n            matrixDelete(neuralNetwork->SDMemory[indexSD]);\n            indexSD++;\n        }\n    }\n    free(neuralNetwork->sdNeuronsTypes);\n    free(neuralNetwork->SDMemory);\n    free(neuralNetwork->layerType);\n    free(neuralNetwork);\n}",
+          "fillMatrixesNN": "void fillMatrixesNN(struct NN *neuralNetwork, float *population)\n{\n    int globalIndex = 0;\n    for (int i = 0; i < neuralNetwork->layerNumber - 1; i++)\n    {\n        for (int x = 0; x < neuralNetwork->AW[i]->sizes[0]; x++)\n        {\n            for (int y = 0; y < neuralNetwork->AW[i]->sizes[1]; y++)\n            {\n                neuralNetwork->AW[i]->matrix[x][y] = population[globalIndex];\n                globalIndex++;\n            }\n        }\n        if (i < neuralNetwork->layerNumber - 2)\n        {\n            for (int x = 0; x < neuralNetwork->BW[i]->sizes[0]; x++)\n            {\n                for (int y = 0; y < neuralNetwork->BW[i]->sizes[1]; y++)\n                {\n                    neuralNetwork->BW[i]->matrix[x][y] = population[globalIndex];\n                    globalIndex++;\n                }\n            }\n        }\n    }\n}",
+          "clearSDMemory": "void clearSDMemory(struct NN *neuralNetwork)\n{\n    int globalIndex = 0;\n    for (int i = 0; i < neuralNetwork->layerNumber; i++)\n    {\n        if (neuralNetwork->layerType[i] == 1)\n        {\n            for (int j = 0; j < neuralNetwork->neuronsSize[i]; j++)\n            {\n                neuralNetwork->SDMemory[globalIndex]->matrix[j][0] = .0;\n            }\n            globalIndex++;\n        }\n    }\n}",
+          "deNormalizationProcess": "void deNormalizationProcess(struct NN *neuralNetwork, struct Matrix *input, int way)\n{\n    float rMin, rMax, tMin, tMax;\n    for (int i = 0; i < input->sizes[0]; i++)\n    {\n        if (way == 0)\n        {\n            rMin = neuralNetwork->normalizationMatrix[1][i];\n            rMax = neuralNetwork->normalizationMatrix[0][i];\n            tMin = -1.0;\n            tMax = 1.0;\n        }\n        else if (way == 1)\n        {\n            rMin = -1.0;\n            rMax = 1.0;\n            tMin = neuralNetwork->denormalizationMatrix[1][i];\n            tMax = neuralNetwork->denormalizationMatrix[0][i];\n        }\n        input->matrix[i][0] = ((input->matrix[i][0] - rMin) / (rMax - rMin)) * (tMax - tMin) + tMin;\n        if (way == 0)\n        {\n            if (input->matrix[i][0] > 1.0)\n            {\n                input->matrix[i][0] = 1.0;\n            }\n            else if (input->matrix[i][0] < -1.0)\n            {\n                input->matrix[i][0] = -1.0;\n            }\n        }\n        else if (way == 1)\n        {\n            if (input->matrix[i][0] > neuralNetwork->denormalizationMatrix[0][i])\n            {\n                input->matrix[i][0] = neuralNetwork->denormalizationMatrix[0][i];\n            }\n            else if (input->matrix[i][0] < neuralNetwork->denormalizationMatrix[1][i])\n            {\n                input->matrix[i][0] = neuralNetwork->denormalizationMatrix[1][i];\n            }\n        }\n    }\n}",
+          "makeSDLayerAction": "static void makeSDLayerAction(struct NN *neuralNetwork, struct Matrix *input, int sdIndex, int layerIndex)\n{\n    float *DSDMemory = (float *)malloc(sizeof(float));\n    int dNeuronsCount = 0;\n    for (int i = 0; i < neuralNetwork->neuronsSize[layerIndex]; i++)\n    {\n        if (neuralNetwork->sdNeuronsTypes[sdIndex][i] == 2)\n        {\n            dNeuronsCount++;\n            DSDMemory = (float *)realloc(DSDMemory, dNeuronsCount * sizeof(float));\n            DSDMemory[dNeuronsCount - 1] = (-1) * input->matrix[i][0];\n        }\n    }\n    int type = 1;\n    struct Matrix *output = (struct Matrix *)malloc(sizeof(struct Matrix));\n    matrixSubstAdd(input, neuralNetwork->SDMemory[sdIndex], output, type);\n    int indexD = 0;\n    for (int i = 0; i < neuralNetwork->neuronsSize[layerIndex]; i++)\n    {\n        if (neuralNetwork->sdNeuronsTypes[sdIndex][i] == 2)\n        {\n            neuralNetwork->SDMemory[sdIndex]->matrix[i][0] = DSDMemory[indexD];\n        }\n    }\n    for (int i = 0; i < neuralNetwork->neuronsSize[layerIndex]; i++)\n    {\n        if (neuralNetwork->sdNeuronsTypes[sdIndex][i] == 1)\n        {\n            neuralNetwork->SDMemory[sdIndex]->matrix[i][0] = output->matrix[i][0];\n        }\n    }\n    free(DSDMemory);\n    matrixDeleteOnlyData(input);\n    fullyCopyMatrix(output, input);\n    matrixDelete(output);\n}",
+          "oneCalculation": "void oneCalculation(struct NN *neuralNetwork, struct Matrix *input, struct Matrix *output)\n{\n    int sdIndex = 0;\n    int layerIndex;\n    deNormalizationProcess(neuralNetwork, input, 0);\n    for (int i = 0; i < neuralNetwork->layerNumber - 1; i++)\n    {\n        matrixMultiply(neuralNetwork->AW[i], input, output);\n        matrixDeleteOnlyData(input);\n        int type = 0;\n        matrixSubstAdd(output, neuralNetwork->BW[i], input, type);\n        matrixDeleteOnlyData(output);\n        matrixAllValuesFormula(input, neuralNetwork->func_ptr);\n        if (neuralNetwork->layerType[i + 1] == 1)\n        {\n            layerIndex = i + 1;\n            makeSDLayerAction(neuralNetwork, input, sdIndex, layerIndex);\n            sdIndex++;\n        }\n    }\n    fullyCopyMatrix(input, output);\n    matrixDelete(input);\n    deNormalizationProcess(neuralNetwork, output, 1);\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/toolbox/neural/input_toolbox.i": {
+      "relative_path": "src/toolbox/neural/input_toolbox.i",
+      "original_file": "src/toolbox/neural/input_toolbox.c",
+      "includes": [
+        "neural/input_toolbox.h",
+        "neural/model_system.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "InputPop": "typedef struct InputPop\n{\n    int cols;\n    int rows;\n    float **S;\n} InputPop;",
+          "Pop": "typedef struct Pop\n{\n    float **pop;\n    float **S;\n    int cols;\n    int rows;\n} Pop;",
+          "Matrix": "typedef struct Matrix\n{\n    float **matrix;\n    int *sizes;\n} Matrix;",
+          "NN": "typedef struct NN\n{\n    struct Matrix **AW;\n    struct Matrix **BW;\n    int *neuronsSize;\n    int layerNumber;\n    int countOfValues;\n    float **normalizationMatrix;\n    float **denormalizationMatrix;\n    float (*func_ptr)(float);\n    int *layerType;\n    int **sdNeuronsTypes;\n    struct Matrix **SDMemory;\n} NN;",
+          "NNInput": "typedef struct NNInput\n{\n    int *neuronsSize;\n    int layerNumber;\n    float **normalizationMatrix;\n    float **denormalizationMatrix;\n    int *layerType;\n    int sdNumber;\n} NNInput;",
+          "Signal": "typedef struct Signal\n{\n    float *signal;\n    float dt;\n    int length;\n} Signal;",
+          "SystemNN": "typedef struct SystemNN\n{\n    struct NN *neuralNetwork;\n    struct Signal *signal;\n    float (*func_system)(float *);\n    struct Signal *output;\n    float *dataSystem;\n    int sizeDataSystem;\n    float (*input_sys)(float *);\n    float *inputData;\n    int *inputDataSize;\n    int *inputTypes;\n    float maxSys;\n    float minSys;\n    float fit;\n    int steadyRiseCheck;\n    int maxCounter;\n} SystemNN;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "typeOne": "void typeOne(float *data)\n{\n    data[4] = (data[1] - data[9]) / data[0];\n    data[5] += data[1];\n    data[9] = data[1];\n    data[8] = (data[2] - data[10]) / data[0];\n    data[10] = data[2];\n    data[6] = (data[3] - data[11]) / data[0];\n    data[7] = (data[6] - data[12]) / data[0];\n    data[11] = data[3];\n    data[12] = data[6];\n}",
+          "typeTwo": "void typeTwo(float *data)\n{\n}",
+          "makeInputDataSystem": "static void makeInputDataSystem(struct SystemNN *systemNN, int size, int full)\n{\n    systemNN->inputData = (float *)malloc(full * sizeof(float));\n    for (int i = 0; i < full; i++)\n    {\n        systemNN->inputData[i] = 0.0;\n    }\n    systemNN->inputDataSize = (int *)malloc(3 * sizeof(int));\n    systemNN->inputDataSize[0] = full;\n    systemNN->inputDataSize[1] = 1;\n    systemNN->inputDataSize[2] = size + 1;\n    systemNN->inputTypes = (int *)malloc(size * sizeof(int));\n    systemNN->inputTypes[0] = 0;\n    systemNN->inputTypes[1] = 1;\n    systemNN->inputTypes[2] = 2;\n    systemNN->inputTypes[3] = 4;\n    systemNN->inputTypes[4] = 5;\n    systemNN->inputTypes[5] = 9;\n    systemNN->inputTypes[6] = 10;\n    systemNN->inputTypes[7] = 6;\n}",
+          "makeInputDataSystemTwo": "static void makeInputDataSystemTwo(struct SystemNN *systemNN, int size, int full)\n{\n    systemNN->inputData = (float *)malloc(full * sizeof(float));\n    for (int i = 0; i < full; i++)\n    {\n        systemNN->inputData[i] = 0.0;\n    }\n    systemNN->inputDataSize = (int *)malloc(3 * sizeof(int));\n    systemNN->inputDataSize[0] = full;\n    systemNN->inputDataSize[1] = 1;\n    systemNN->inputDataSize[2] = size + 1;\n    systemNN->inputTypes = (int *)malloc(size * sizeof(int));\n    systemNN->inputTypes[0] = 0;\n    systemNN->inputTypes[1] = 1;\n    systemNN->inputTypes[2] = 2;\n}",
+          "selectInputNNFunction": "void selectInputNNFunction(void (**func_ptr)(float *), struct SystemNN *systemNN)\n{\n    printf(\"Please select the AF:\\n1 - typeOne\\n\");\n    printf(\"2 - typeTwo (SD)\\n\");\n    printf(\"Select: \");\n    int userChoice;\n    scanf(\"%d\", &userChoice);\n    if (userChoice == 1)\n    {\n        *func_ptr = typeOne;\n        makeInputDataSystem(systemNN, 8, 13);\n    }\n    else if (userChoice == 2)\n    {\n        *func_ptr = typeTwo;\n        makeInputDataSystemTwo(systemNN, 3, 4);\n    }\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/toolbox/neural/model_system.i": {
+      "relative_path": "src/toolbox/neural/model_system.i",
+      "original_file": "src/toolbox/neural/model_system.c",
+      "includes": [
+        "neural/model_system.h",
+        "neural/neural_network.h",
+        "general/signal_designer.h",
+        "general/matrix_math.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "InputPop": "typedef struct InputPop\n{\n    int cols;\n    int rows;\n    float **S;\n} InputPop;",
+          "Pop": "typedef struct Pop\n{\n    float **pop;\n    float **S;\n    int cols;\n    int rows;\n} Pop;",
+          "Matrix": "typedef struct Matrix\n{\n    float **matrix;\n    int *sizes;\n} Matrix;",
+          "NN": "typedef struct NN\n{\n    struct Matrix **AW;\n    struct Matrix **BW;\n    int *neuronsSize;\n    int layerNumber;\n    int countOfValues;\n    float **normalizationMatrix;\n    float **denormalizationMatrix;\n    float (*func_ptr)(float);\n    int *layerType;\n    int **sdNeuronsTypes;\n    struct Matrix **SDMemory;\n} NN;",
+          "NNInput": "typedef struct NNInput\n{\n    int *neuronsSize;\n    int layerNumber;\n    float **normalizationMatrix;\n    float **denormalizationMatrix;\n    int *layerType;\n    int sdNumber;\n} NNInput;",
+          "Signal": "typedef struct Signal\n{\n    float *signal;\n    float dt;\n    int length;\n} Signal;",
+          "SystemNN": "typedef struct SystemNN\n{\n    struct NN *neuralNetwork;\n    struct Signal *signal;\n    float (*func_system)(float *);\n    struct Signal *output;\n    float *dataSystem;\n    int sizeDataSystem;\n    float (*input_sys)(float *);\n    float *inputData;\n    int *inputDataSize;\n    int *inputTypes;\n    float maxSys;\n    float minSys;\n    float fit;\n    int steadyRiseCheck;\n    int maxCounter;\n} SystemNN;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "createNNSystem": "void createNNSystem(struct SystemNN *systemNN, struct NNInput *input)\n{\n    selectInputNNFunction(&systemNN->input_sys, systemNN);\n    input->neuronsSize[0] = systemNN->inputDataSize[2] - 1;\n    input->normalizationMatrix = (float **)malloc(2 * sizeof(float *));\n    input->denormalizationMatrix = (float **)malloc(2 * sizeof(float *));\n    input->normalizationMatrix[0] = (float *)malloc(input->neuronsSize[0] * sizeof(float));\n    input->normalizationMatrix[1] = (float *)malloc(input->neuronsSize[0] * sizeof(float));\n    input->denormalizationMatrix[0] = (float *)malloc(sizeof(float));\n    input->denormalizationMatrix[1] = (float *)malloc(sizeof(float));\n    systemNN->neuralNetwork = (struct NN *)malloc(sizeof(struct NN));\n    createNeuralNetwork(input, systemNN->neuralNetwork);\n    systemNN->signal = (struct Signal *)malloc(sizeof(struct Signal));\n    cliSignalSelector(systemNN->signal);\n    int size = selectSystem(&systemNN->func_system);\n    systemNN->dataSystem = (float *)malloc(size * sizeof(float));\n    for (int i = 0; i < size; i++)\n    {\n        systemNN->dataSystem[i] = 0.0;\n    }\n    systemNN->sizeDataSystem = size;\n    systemNN->output = (struct Signal *)malloc(sizeof(struct Signal));\n    systemNN->output->length = systemNN->signal->length;\n    systemNN->output->dt = systemNN->signal->dt;\n    systemNN->output->signal = (float *)malloc(systemNN->signal->length * sizeof(float));\n}",
+          "clearNNSystem": "void clearNNSystem(struct SystemNN *systemNN)\n{\n    clearNeuralNetwork(systemNN->neuralNetwork);\n    deleteSignal(systemNN->signal);\n    deleteSignal(systemNN->output);\n    free(systemNN->dataSystem);\n    free(systemNN->inputData);\n    free(systemNN->inputDataSize);\n    free(systemNN);\n}",
+          "cleanNNSystem": "static void cleanNNSystem(struct SystemNN *systemNN)\n{\n    for (int i = 0; i < systemNN->signal->length; i++)\n    {\n        systemNN->output->signal[i] = 0.0;\n    }\n    for (int i = 0; i < systemNN->sizeDataSystem; i++)\n    {\n        systemNN->dataSystem[i] = 0.0;\n    }\n    systemNN->dataSystem[1] = systemNN->signal->dt;\n    for (int i = 0; i < systemNN->inputDataSize[0]; i++)\n    {\n        systemNN->inputData[i] = 0.0;\n    }\n    systemNN->inputData[0] = systemNN->signal->dt;\n    systemNN->steadyRiseCheck = 0;\n    systemNN->maxCounter = 0;\n    systemNN->fit = 0.0;\n}",
+          "getMaxMinSignalValues": "static void getMaxMinSignalValues(struct Signal *signal, float *max, float *min)\n{\n    *max = 0.0;\n    *min = 0.0;\n    for (int i = 0; i < signal->length; i++)\n    {\n        if (signal->signal[i] > *max)\n        {\n            *max = signal->signal[i];\n        }\n        else if (signal->signal[i] < *min)\n        {\n            *min = signal->signal[i];\n        }\n    }\n}",
+          "findUOneRound": "static void findUOneRound(struct SystemNN *systemNN, float *forValues, float *Data)\n{\n    float analyzedValue, maxY, maxDDY, maxE, maxDY;\n    float finValue, sysOutput, dy, ddy, iy, preY, preDY;\n    float du, ddu, iu, preU, preDU, min, penalty;\n    float de, dde, ie, preE, preDE, maxDE, maxDDE, sum;\n    int count;\n    float maxSig, minSig;\n    min = 3.40282346638528859811704183484516925e+38F;\n    getMaxMinSignalValues(systemNN->signal, &maxSig, &minSig);\n    for (float curValue = forValues[0]; curValue < forValues[1]; curValue += forValues[2])\n    {\n        maxY = 0;\n        maxDY = 0;\n        maxDDY = 0;\n        maxE = 0;\n        maxDE = 0;\n        maxDDE = 0;\n        count = 0;\n        preY = 0;\n        preDY = 0;\n        iy = 0;\n        preU = 0;\n        preDU = 0;\n        iu = 0;\n        preE = 0;\n        preDE = 0;\n        ie = 0;\n        penalty = 0;\n        sum = 0;\n        for (int j = 0; j < systemNN->sizeDataSystem; j++)\n        {\n            systemNN->dataSystem[j] = 0.0;\n        }\n        systemNN->dataSystem[1] = systemNN->signal->dt;\n        for (float j = 0.0; j < systemNN->signal->length; j += systemNN->signal->dt)\n        {\n            if (j < 1.0)\n            {\n                systemNN->dataSystem[0] = 0;\n            }\n            else\n            {\n                systemNN->dataSystem[0] = curValue;\n            }\n            sysOutput = systemNN->func_system(systemNN->dataSystem);\n            if (sysOutput > systemNN->maxSys)\n            {\n                penalty = 50000;\n            }\n            else if (sysOutput < systemNN->minSys)\n            {\n                penalty = 50000;\n            }\n            dy = (sysOutput - preY) / systemNN->output->dt;\n            ddy = (dy - preDY) / systemNN->output->dt;\n            de = (maxSig - sysOutput - preE) / systemNN->output->dt;\n            dde = (de - preDE) / systemNN->output->dt;\n            preY = sysOutput;\n            preDY = dy;\n            preE = maxSig - sysOutput;\n            preDE = de;\n            if (sysOutput > maxY)\n            {\n                maxY = sysOutput;\n            }\n            if (preE > maxE)\n            {\n                maxE = preE;\n            }\n            if (dy > maxDY)\n            {\n                maxDY = dy;\n            }\n            if (ddy > maxDDY)\n            {\n                maxDDY = ddy;\n            }\n            if (de > maxDE)\n            {\n                maxDE = de;\n            }\n            if (dde > maxDDE)\n            {\n                maxDDE = dde;\n            }\n            iy += sysOutput;\n            iu += curValue;\n            ie += preE;\n            if (j > systemNN->signal->length - 1.0)\n            {\n                sum += sysOutput;\n                count++;\n            }\n        }\n        analyzedValue = maxSig - (sum / count) + penalty;\n        if (analyzedValue < 0)\n        {\n            analyzedValue *= (-1);\n        }\n        if (iy < 0)\n        {\n            iy *= (-1);\n        }\n        if (iu < 0)\n        {\n            iu *= (-1);\n        }\n        if (ie < 0)\n        {\n            ie *= (-1);\n        }\n        if (analyzedValue < min)\n        {\n            min = analyzedValue;\n            Data[0] = maxE;\n            Data[1] = curValue;\n            Data[2] = maxY;\n            Data[3] = maxDE;\n            Data[4] = maxDDE;\n            Data[5] = ie;\n            Data[6] = curValue / systemNN->output->dt;\n            Data[7] = Data[7] / systemNN->output->dt;\n            Data[8] = iu;\n            Data[9] = maxDY;\n            Data[10] = maxDDY;\n            Data[11] = iy;\n        }\n    }\n}",
+          "findUForSystemAndSignal": "static void findUForSystemAndSignal(struct SystemNN *systemNN, float *Data)\n{\n    float forValueOne[] = {0.0, 10000.0, 1000.0};\n    findUOneRound(systemNN, &forValueOne, Data);\n    float forValueTwo[] = {Data[1] - 100.0, Data[1] + 100.0, 10.0};\n    findUOneRound(systemNN, &forValueTwo, Data);\n    float forValueThree[] = {Data[1] - 10.0, Data[1] + 10.0, 1.0};\n    findUOneRound(systemNN, &forValueThree, Data);\n}",
+          "makeDerivation": "static float makeDerivation(float *x, float *x_t, float *dt)\n{\n    return (*x - *x_t) / *dt;\n}",
+          "createDeNormalization": "void createDeNormalization(struct SystemNN *systemNN)\n{\n    float **normalization = (float **)malloc(2 * sizeof(float *));\n    normalization[0] = (float *)malloc(12 * sizeof(float));\n    normalization[1] = (float *)malloc(12 * sizeof(float));\n    float *Data = (float *)malloc(12 * sizeof(float));\n    findUForSystemAndSignal(systemNN, Data);\n    normalization[0][0] = Data[0];\n    normalization[1][0] = Data[0] * (-1);\n    printf(\"E - %f\\n\", Data[0]);\n    normalization[0][1] = Data[1];\n    normalization[1][1] = Data[1] * (-1);\n    printf(\"U - %f\\n\", Data[1]);\n    normalization[0][2] = Data[2];\n    normalization[1][2] = Data[2] * (-1);\n    printf(\"Y - %f\\n\", Data[2]);\n    normalization[0][3] = Data[3];\n    normalization[1][3] = Data[3] * (-1);\n    printf(\"dE - %f\\n\", Data[3]);\n    normalization[0][4] = Data[4];\n    normalization[1][4] = Data[4] * (-1);\n    printf(\"dE2 - %f\\n\", Data[4]);\n    normalization[0][5] = Data[5];\n    normalization[1][5] = Data[5] * (-1);\n    printf(\"iE - %f\\n\", Data[5]);\n    normalization[0][6] = Data[6];\n    normalization[1][6] = Data[6] * (-1);\n    printf(\"dU - %f\\n\", Data[6]);\n    normalization[0][7] = Data[7];\n    normalization[1][7] = Data[7] * (-1);\n    printf(\"dU2 - %f\\n\", Data[7]);\n    normalization[0][8] = Data[8];\n    normalization[1][8] = Data[8] * (-1);\n    printf(\"iU - %f\\n\", Data[8]);\n    normalization[0][9] = Data[9];\n    normalization[1][9] = Data[9] * (-1);\n    printf(\"dY - %f\\n\", Data[9]);\n    normalization[0][10] = Data[10];\n    normalization[1][10] = Data[10] * (-1);\n    printf(\"dY2 - %f\\n\", Data[10]);\n    normalization[0][11] = Data[11];\n    normalization[1][11] = Data[11] * (-1);\n    printf(\"iY - %f\\n\", Data[11]);\n    normalization[0][1] *= 10.0;\n    normalization[1][1] *= 10.0;\n    for (int i = 0; i < systemNN->inputDataSize[2] - 1; i++)\n    {\n        systemNN->neuralNetwork->normalizationMatrix[0][i] = normalization[0][systemNN->inputTypes[i]];\n        systemNN->neuralNetwork->normalizationMatrix[1][i] = normalization[1][systemNN->inputTypes[i]];\n        printf(\"%d - MAX: %f MIN: %f\\n\", i, systemNN->neuralNetwork->normalizationMatrix[0][i],\n               systemNN->neuralNetwork->normalizationMatrix[1][i]);\n    }\n    systemNN->neuralNetwork->denormalizationMatrix[0][0] = normalization[0][1];\n    systemNN->neuralNetwork->denormalizationMatrix[1][0] = normalization[1][1];\n    free(normalization[0]);\n    free(normalization[1]);\n    free(normalization);\n    free(Data);\n    free(systemNN->inputTypes);\n}",
+          "makeSimulationOfSignalNN": "void makeSimulationOfSignalNN(struct SystemNN *systemNN, FILE *csvFile, int csv)\n{\n    cleanNNSystem(systemNN);\n    clearSDMemory(systemNN->neuralNetwork);\n    float error, diff;\n    float neuralOutput = 0.0;\n    float systemOutput = 0.0;\n    int matrixIndex;\n    float max = 0.0;\n    for (int i = 1; i < systemNN->signal->length; i++)\n    {\n        error = systemNN->signal->signal[i] - systemNN->output->signal[i - 1];\n        systemNN->inputData[1] = error;\n        systemNN->inputData[2] = neuralOutput;\n        systemNN->inputData[3] = systemOutput;\n        systemNN->input_sys(systemNN->inputData);\n        struct Matrix *inputMatrix = (struct Matrix *)malloc(sizeof(struct Matrix));\n        struct Matrix *outputMatrix = (struct Matrix *)malloc(sizeof(struct Matrix));\n        int *inputSize = (int *)malloc(2 * sizeof(int));\n        inputSize[0] = systemNN->neuralNetwork->neuronsSize[0];\n        inputSize[1] = 1;\n        createMatrix(inputMatrix, inputSize);\n        matrixIndex = 0;\n        for (int j = systemNN->inputDataSize[1]; j < systemNN->inputDataSize[2]; j++)\n        {\n            inputMatrix->matrix[matrixIndex][0] = systemNN->inputData[j];\n            matrixIndex++;\n        }\n        oneCalculation(systemNN->neuralNetwork, inputMatrix, outputMatrix);\n        if (outputMatrix->matrix[0][0] > max)\n        {\n            max = outputMatrix->matrix[0][0];\n        }\n        systemNN->dataSystem[0] = outputMatrix->matrix[0][0];\n        neuralOutput = systemNN->dataSystem[0];\n        systemNN->output->signal[i] = systemNN->func_system(systemNN->dataSystem);\n        if (systemNN->output->signal[i] > systemNN->maxSys)\n        {\n            systemNN->output->signal[i] = systemNN->maxSys;\n            systemNN->maxCounter++;\n        }\n        else if (systemNN->output->signal[i] < systemNN->minSys)\n        {\n            systemNN->output->signal[i] = systemNN->minSys;\n            systemNN->maxCounter++;\n        }\n        systemOutput = systemNN->output->signal[i];\n        if (csv == 1)\n        {\n            fprintf(csvFile, \"%f,%f,%f,%f\\n\", systemNN->output->signal[i], systemNN->signal->signal[i],\n                    outputMatrix->matrix[0][0], systemNN->output->signal[i]);\n        }\n        diff = fabs(systemNN->signal->signal[i] - systemNN->output->signal[i]);\n        systemNN->fit += diff;\n        if (systemNN->output->signal[i - 1] > systemNN->output->signal[i])\n        {\n            systemNN->steadyRiseCheck++;\n        }\n        matrixDelete(outputMatrix);\n    }\n    if (csv == 1)\n    {\n        printf(\"%f\\n\", max);\n    }\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/toolbox/genetic/population.i": {
+      "relative_path": "src/toolbox/genetic/population.i",
+      "original_file": "src/toolbox/genetic/population.c",
+      "includes": [
+        "genetic/population.h",
+        "general/general_math.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "InputPop": "typedef struct InputPop\n{\n    int cols;\n    int rows;\n    float **S;\n} InputPop;",
+          "Pop": "typedef struct Pop\n{\n    float **pop;\n    float **S;\n    int cols;\n    int rows;\n} Pop;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "clearInputPop": "static void clearInputPop(struct InputPop *input)\n{\n    if (input)\n    {\n        free(input->S[0]);\n        free(input->S[1]);\n        free(input->S);\n        free(input);\n    }\n}",
+          "createInputPop": "void createInputPop(struct InputPop *inputPop, float *max, float *min, int *size)\n{\n    inputPop->cols = size[1];\n    inputPop->rows = size[0];\n    inputPop->S = (float **)malloc(2 * sizeof(float *));\n    inputPop->S[0] = (float *)malloc(inputPop->cols * sizeof(float));\n    inputPop->S[1] = (float *)malloc(inputPop->cols * sizeof(float));\n    memcpy(inputPop->S[0], max, inputPop->cols * sizeof(float));\n    memcpy(inputPop->S[1], min, inputPop->cols * sizeof(float));\n}",
+          "alocatePopulation": "static void alocatePopulation(struct InputPop *input, struct Pop *population)\n{\n    population->cols = input->cols;\n    population->rows = input->rows;\n    population->pop = (float **)malloc(population->rows * sizeof(float *));\n    for (int i = 0; i < population->rows; i++)\n    {\n        population->pop[i] = (float *)malloc(population->cols * sizeof(float));\n    }\n    population->S = (float **)malloc(2 * sizeof(float *));\n    population->S[0] = (float *)malloc(population->cols * sizeof(float));\n    population->S[1] = (float *)malloc(population->cols * sizeof(float));\n    memcpy(population->S[0], input->S[0], population->cols * sizeof(float));\n    memcpy(population->S[1], input->S[1], population->cols * sizeof(float));\n    clearInputPop(input);\n}",
+          "clearPopulation": "void clearPopulation(struct Pop *population)\n{\n    if (population)\n    {\n        for (int i = 0; i < population->rows; i++)\n        {\n            free(population->pop[i]);\n        }\n        free(population->pop);\n        free(population->S[0]);\n        free(population->S[1]);\n        free(population->S);\n        free(population);\n    }\n}",
+          "createStructure": "void createStructure(struct InputPop *input, struct Pop *population)\n{\n    alocatePopulation(input, population);\n    generateRandomPopulation(population);\n}",
+          "generateRandomPopulation": "void generateRandomPopulation(struct Pop *population)\n{\n    float newValue;\n    for (int y = 0; y < population->rows; y++)\n    {\n        for (int i = 0; i < population->cols; i++)\n        {\n            newValue = createRandomFloat(population->S[1][i], population->S[0][i]);\n            population->pop[y][i] = newValue;\n        }\n    }\n}",
+          "placePartOfPop": "void placePartOfPop(struct Pop *pop, struct Pop *source, int *indexes)\n{\n    int globalIndex = 0;\n    for (int i = indexes[0]; i < indexes[1]; i++)\n    {\n        memcpy(pop->pop[i], source->pop[globalIndex], source->cols * sizeof(float));\n        globalIndex++;\n    }\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/toolbox/genetic/fit_functions.i": {
+      "relative_path": "src/toolbox/genetic/fit_functions.i",
+      "original_file": "src/toolbox/genetic/fit_functions.c",
+      "includes": [
+        "genetic/fit_functions.h",
+        "genetic/population.h",
+        "general/pid_controller.h",
+        "general/signal_designer.h",
+        "neural/model_system.h",
+        "neural/neural_network.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "InputPop": "typedef struct InputPop\n{\n    int cols;\n    int rows;\n    float **S;\n} InputPop;",
+          "Pop": "typedef struct Pop\n{\n    float **pop;\n    float **S;\n    int cols;\n    int rows;\n} Pop;",
+          "Signal": "typedef struct Signal\n{\n    float *signal;\n    float dt;\n    int length;\n} Signal;",
+          "PID": "typedef struct PID\n{\n    float Kp;\n    float Ki;\n    float Kd;\n    float tauI;\n    float tauD;\n    float prevError;\n    float proportiError;\n    float integralError;\n    float differenError;\n    struct Signal *signal;\n    float (*func_system)(float *);\n    struct Signal *output;\n    float *dataSystem;\n    int sizeDataSystem;\n    float limMaxInt;\n    float limMinInt;\n    float limMax;\n    float limMin;\n    float fit;\n    int steadyRiseCheck;\n    int maxCounter;\n} PID;",
+          "Matrix": "typedef struct Matrix\n{\n    float **matrix;\n    int *sizes;\n} Matrix;",
+          "NN": "typedef struct NN\n{\n    struct Matrix **AW;\n    struct Matrix **BW;\n    int *neuronsSize;\n    int layerNumber;\n    int countOfValues;\n    float **normalizationMatrix;\n    float **denormalizationMatrix;\n    float (*func_ptr)(float);\n    int *layerType;\n    int **sdNeuronsTypes;\n    struct Matrix **SDMemory;\n} NN;",
+          "NNInput": "typedef struct NNInput\n{\n    int *neuronsSize;\n    int layerNumber;\n    float **normalizationMatrix;\n    float **denormalizationMatrix;\n    int *layerType;\n    int sdNumber;\n} NNInput;",
+          "SystemNN": "typedef struct SystemNN\n{\n    struct NN *neuralNetwork;\n    struct Signal *signal;\n    float (*func_system)(float *);\n    struct Signal *output;\n    float *dataSystem;\n    int sizeDataSystem;\n    float (*input_sys)(float *);\n    float *inputData;\n    int *inputDataSize;\n    int *inputTypes;\n    float maxSys;\n    float minSys;\n    float fit;\n    int steadyRiseCheck;\n    int maxCounter;\n} SystemNN;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "pidFitFunction": "void pidFitFunction(struct Pop *population, float *fit, struct PID *pid)\n{\n    int csv = 0;\n    FILE *trash;\n    for (int i = 0; i < population->rows; i++)\n    {\n        for (int j = 0; j < pid->sizeDataSystem; j++)\n        {\n            pid->dataSystem[j] = 0.0;\n        }\n        pid->Kp = population->pop[i][0];\n        pid->Ki = population->pop[i][1];\n        pid->Kd = population->pop[i][2];\n        pid->tauD = population->pop[i][3];\n        makeSimulationOfSignal(pid, trash, csv);\n        fit[i] = pid->fit;\n    }\n}",
+          "nnFitFunction": "void nnFitFunction(struct Pop *population, float *fit, struct SystemNN *systemNN)\n{\n    FILE *trash;\n    for (int i = 0; i < population->rows; i++)\n    {\n        for (int j = 0; j < systemNN->sizeDataSystem; j++)\n        {\n            systemNN->dataSystem[j] = 0.0;\n        }\n        fillMatrixesNN(systemNN->neuralNetwork, population->pop[i]);\n        makeSimulationOfSignalNN(systemNN, trash, 0);\n        fit[i] = systemNN->fit;\n    }\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/toolbox/genetic/genetic_operations.i": {
+      "relative_path": "src/toolbox/genetic/genetic_operations.i",
+      "original_file": "src/toolbox/genetic/genetic_operations.c",
+      "includes": [
+        "genetic/genetic_operations.h",
+        "genetic/population.h",
+        "general/sort.h",
+        "general/general_math.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "InputPop": "typedef struct InputPop\n{\n    int cols;\n    int rows;\n    float **S;\n} InputPop;",
+          "Pop": "typedef struct Pop\n{\n    float **pop;\n    float **S;\n    int cols;\n    int rows;\n} Pop;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "create_input_pop_custom": "static void create_input_pop_custom(struct InputPop *inputPop, int rows, struct Pop *population)\n{\n    inputPop->cols = population->cols;\n    inputPop->rows = rows;\n    inputPop->S = (float **)malloc(2 * sizeof(float *));\n    inputPop->S[0] = (float *)malloc(inputPop->cols * sizeof(float));\n    inputPop->S[1] = (float *)malloc(inputPop->cols * sizeof(float));\n    memcpy(inputPop->S[0], population->S[0], inputPop->cols * sizeof(float));\n    memcpy(inputPop->S[1], population->S[1], inputPop->cols * sizeof(float));\n}",
+          "selbest": "void selbest(float *fit, int fitLength, struct Pop *population, struct Pop *newPopulation, int *selects,\n             int selectsLength, int way)\n{\n    int rows = 0;\n    for (int i = 0; i < selectsLength; i++)\n    {\n        rows += selects[i];\n    }\n    int *result = (int *)malloc(fitLength * sizeof(int));\n    for (int i = 0; i < fitLength; i++)\n    {\n        result[i] = i;\n    }\n    quickSort(fit, result, fitLength);\n    int resultIndex = 0;\n    if (way == 0)\n    {\n        resultIndex = fitLength - 1;\n    }\n    else if (way == 1)\n    {\n        resultIndex = 0;\n    }\n    else\n    {\n        fprintf(stderr, \"Error: way should be 0 or 1\\n\");\n        exit(1);\n    }\n    struct InputPop *inputPop = (struct InputPop *)malloc(sizeof(struct InputPop));\n    create_input_pop_custom(inputPop, rows, population);\n    createStructure(inputPop, newPopulation);\n    int globalIndex = 0;\n    for (int i = 0; i < selectsLength; i++)\n    {\n        int num = selects[i];\n        for (int y = 0; y < num; y++)\n        {\n            memcpy(newPopulation->pop[globalIndex], population->pop[result[resultIndex]],\n                   newPopulation->cols * sizeof(float));\n            globalIndex++;\n        }\n        if (way == 0)\n        {\n            resultIndex--;\n        }\n        else\n        {\n            resultIndex++;\n        }\n    }\n    free(result);\n}",
+          "selrand": "void selrand(struct Pop *population, struct Pop *newPopulation, int rows)\n{\n    struct InputPop *inputPop = (struct InputPop *)malloc(sizeof(struct InputPop));\n    create_input_pop_custom(inputPop, rows, population);\n    createStructure(inputPop, newPopulation);\n    int index;\n    for (int i = 0; i < rows; i++)\n    {\n        index = rand() % population->rows;\n        memcpy(newPopulation->pop[i], population->pop[index], population->cols * sizeof(float));\n    }\n}",
+          "selturn": "void selturn(struct Pop *population, float *fit, struct Pop *newPopulation, int rows)\n{\n    struct InputPop *inputPop = (struct InputPop *)malloc(sizeof(struct InputPop));\n    create_input_pop_custom(inputPop, rows, population);\n    createStructure(inputPop, newPopulation);\n    for (int i = 0; i < rows; i++)\n    {\n        int j = rand() % population->rows;\n        int k = rand() % population->rows;\n        if (j == k)\n        {\n            memcpy(newPopulation->pop[i], population->pop[j], population->cols * sizeof(float));\n        }\n        else if (fit[j] <= fit[k])\n        {\n            memcpy(newPopulation->pop[i], population->pop[j], population->cols * sizeof(float));\n        }\n        else\n        {\n            memcpy(newPopulation->pop[i], population->pop[k], population->cols * sizeof(float));\n        }\n    }\n}",
+          "crosov": "void crosov(struct Pop *population, int *selects, int selectsLength)\n{\n    if (selectsLength % 2 != 0)\n    {\n        selects = (int *)realloc(selects, (selectsLength + 1) * sizeof(int));\n        selects[selectsLength] = population->cols;\n        selectsLength++;\n    }\n    int start, end, globalIndex;\n    float *additionaSaving = (float *)malloc(sizeof(float));\n    for (int index = 0; index < population->rows - 1; index += 2)\n    {\n        for (int i = 0; i < selectsLength; i += 2)\n        {\n            start = selects[i];\n            end = selects[i + 1];\n            additionaSaving = (float *)realloc(additionaSaving, (end - start) * sizeof(float));\n            globalIndex = 0;\n            for (int x = start; x < end; x++)\n            {\n                additionaSaving[globalIndex] = population->pop[index][x];\n                globalIndex++;\n            }\n            globalIndex = 0;\n            for (int x = start; x < end; x++)\n            {\n                population->pop[index][x] = population->pop[index + 1][x];\n                population->pop[index + 1][x] = additionaSaving[globalIndex];\n                globalIndex++;\n            }\n        }\n    }\n    free(additionaSaving);\n    free(selects);\n}",
+          "mutx": "void mutx(struct Pop *population, float chance)\n{\n    float randomFloat;\n    for (int x = 0; x < population->rows; x++)\n    {\n        for (int y = 0; y < population->cols; y++)\n        {\n            randomFloat = (float)rand() / 2147483647;\n            if (randomFloat < chance)\n            {\n                randomFloat = createRandomFloat(population->S[1][y], population->S[0][y]);\n                population->pop[x][y] = randomFloat;\n            }\n        }\n    }\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "project_name": "hydra",
+  "files": {
+    "src/hydra.i": {
+      "relative_path": "src/hydra.i",
+      "original_file": "src/hydra.c",
+      "includes": [
+        "hydra.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "Command": "typedef struct Command\n{\n    char key;\n    char *name;\n    char *command;\n    struct Command *children;\n    struct Command *next;\n} Command;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "NewCommand": "Command *NewCommand(char key, char *name, char *command)\n{\n    Command *cmd = (Command *)calloc(1, sizeof(Command));\n    cmd->key = key;\n    cmd->name = name;\n    cmd->command = command;\n    return cmd;\n}",
+          "CommandRun": "int CommandRun(Command *c)\n{\n    if (c != ((void *)0) && c->command != ((void *)0))\n        return fprintf(stdout, \"%s\", c->command);\n    return 0;\n}",
+          "CommandAddChild": "void CommandAddChild(Command *c, Command *child)\n{\n    if (c->children == ((void *)0))\n    {\n        c->children = child;\n        return;\n    }\n    if (c->children->key > child->key)\n    {\n        child->next = c->children;\n        c->children = child;\n        return;\n    }\n    Command *lastChild = c->children;\n    while (lastChild->next != ((void *)0) && lastChild->next->key <= child->key)\n    {\n        lastChild = lastChild->next;\n    }\n    child->next = lastChild->next;\n    lastChild->next = child;\n}",
+          "FindCommand": "Command *FindCommand(Command *c, char key)\n{\n    Command *child = c->children;\n    while (child != ((void *)0) && child->key != key)\n        child = child->next;\n    return child;\n}",
+          "TreeAddCommand": "void TreeAddCommand(Command *tree, char *keys, char *name, char *command)\n{\n    Command *c = FindCommand(tree, *keys);\n    if (*(keys + 1) == 0)\n    {\n        if (c == ((void *)0))\n        {\n            CommandAddChild(tree, NewCommand(*keys, name, command));\n        }\n        else\n        {\n            c->name = name;\n            c->command = command;\n        }\n        return;\n    }\n    if (c == ((void *)0))\n    {\n        c = NewCommand(*keys, \"unnamed\", 0);\n        CommandAddChild(tree, c);\n    }\n    TreeAddCommand(c, keys + 1, name, command);\n}",
+          "PrintCommand": "int PrintCommand(Command *c)\n{\n    struct winsize terminal;\n    ioctl(2, 0x5413, &terminal);\n    int width = terminal.ws_col;\n    int lines = 0;\n    if (c->name)\n    {\n        fprintf(stderr, \"%s%s:%s\\n\", \"\\033[0;34m\", c->name, \"\\033[0m\");\n        lines++;\n    }\n    int maxLineWidth = 0;\n    Command *child = c->children;\n    while (child)\n    {\n        int lineWidth = strlen(child->name);\n        if (lineWidth > maxLineWidth)\n            maxLineWidth = lineWidth;\n        child = child->next;\n    }\n    maxLineWidth += 5;\n    if (maxLineWidth > width)\n        maxLineWidth = width;\n    int itemsPerRow = width / (maxLineWidth + 5);\n    child = c->children;\n    int currentItem = 0;\n    while (child)\n    {\n        currentItem++;\n        if (child->children != 0)\n        {\n            fprintf(stderr, \"%s%c%s %s➔%s %s+%-*s%s\", \"\\033[0;33m\", child->key, \"\\033[0m\", \"\\033[0;35m\", \"\\033[0m\",\n                    \"\\033[0;34m\", maxLineWidth, child->name, \"\\033[0m\");\n        }\n        else\n        {\n            fprintf(stderr, \"%s%c%s %s➔%s  %-*s\", \"\\033[0;33m\", child->key, \"\\033[0m\", \"\\033[0;35m\", \"\\033[0m\",\n                    maxLineWidth, child->name);\n        }\n        if (currentItem % itemsPerRow == 0)\n        {\n            fprintf(stderr, \"\\n\");\n            lines++;\n        }\n        child = child->next;\n    }\n    fprintf(stderr, \"\\n\");\n    lines++;\n    return lines;\n}",
+          "getch": "char getch(void)\n{\n    struct termios old = {0};\n    if (tcgetattr(0, &old) < 0)\n        perror(\"tcsetattr()\");\n    tcflag_t oldflags = old.c_lflag;\n    old.c_lflag &= ~0000002;\n    old.c_lflag &= ~0000010;\n    old.c_cc[6] = 1;\n    old.c_cc[5] = 0;\n    if (tcsetattr(0, 0, &old) < 0)\n        perror(\"tcsetattr ICANON\");\n    char buf = 0;\n    if (read(0, &buf, 1) < 0)\n        perror(\"read()\");\n    old.c_lflag = oldflags;\n    if (tcsetattr(0, 1, &old) < 0)\n        perror(\"tcsetattr ~ICANON\");\n    return (buf);\n}",
+          "ReadFile": "char *ReadFile(char *file)\n{\n    FILE *f = fopen(file, \"r\");\n    if (f == ((void *)0))\n    {\n        perror(\"Failed to open file\");\n        exit(1);\n    }\n    fseek(f, 0, 2);\n    long fileSize = ftell(f);\n    rewind(f);\n    char *content = (char *)calloc(fileSize + 1, sizeof(char));\n    fread(content, fileSize, 1, f);\n    fclose(f);\n    return content;\n}",
+          "ReadField": "char *ReadField(char **file, char *field)\n{\n    char *key = *file;\n    while (**file != ',' && **file != '\\n' && **file != 0)\n        (*file)++;\n    if (**file != ',')\n    {\n        fprintf(stderr, \"Found incorrect end after %s, found: %c\", field, **file);\n        exit(1);\n    }\n    **file = 0;\n    (*file)++;\n    return key;\n}",
+          "ReadUntilEOL": "char *ReadUntilEOL(char **file)\n{\n    char *s = *file;\n    while (**file != '\\n' && **file != 0)\n        (*file)++;\n    if (**file == '\\n')\n    {\n        **file = 0;\n        (*file)++;\n    }\n    return s;\n}",
+          "ReadLine": "void ReadLine(Command *c, char **file)\n{\n    char *key = ReadField(file, \"key\");\n    char *name = ReadField(file, \"name\");\n    char *command = ReadUntilEOL(file);\n    TreeAddCommand(c, key, name, command);\n}",
+          "ClearLines": "void ClearLines(int count)\n{\n    setbuf(stdout, ((void *)0));\n    for (int i = 0; i < count; i++)\n        fprintf(stderr, \"\\033[A\\r\\33[2K\");\n}",
+          "LoadFile": "void LoadFile(Command *c, char *file)\n{\n    char *content = ReadFile(file);\n    while (*content != 0)\n        ReadLine(c, &content);\n}",
+          "Start": "void Start(Command *c)\n{\n    while (c != ((void *)0) && c->children != ((void *)0))\n    {\n        int lastPrintedLines = PrintCommand(c);\n        c = FindCommand(c, getch());\n        ClearLines(lastPrintedLines);\n        if (CommandRun(c) > 0)\n        {\n            return;\n        };\n    }\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

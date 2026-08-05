@@ -1,0 +1,113 @@
+{
+  "project_name": "quadtree",
+  "files": {
+    "src/point.i": {
+      "relative_path": "src/point.i",
+      "original_file": "src/point.c",
+      "includes": [
+        "quadtree.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "quadtree_point_t": "typedef struct quadtree_point\n{\n    double x;\n    double y;\n} quadtree_point_t;",
+          "quadtree_bounds_t": "typedef struct quadtree_bounds\n{\n    quadtree_point_t *nw;\n    quadtree_point_t *se;\n    double width;\n    double height;\n} quadtree_bounds_t;",
+          "quadtree_node_t": "typedef struct quadtree_node\n{\n    struct quadtree_node *ne;\n    struct quadtree_node *nw;\n    struct quadtree_node *se;\n    struct quadtree_node *sw;\n    quadtree_bounds_t *bounds;\n    quadtree_point_t *point;\n    void *key;\n} quadtree_node_t;",
+          "quadtree_t": "typedef struct quadtree\n{\n    quadtree_node_t *root;\n    void (*key_free)(void *key);\n    unsigned int length;\n} quadtree_t;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "quadtree_point_new": "quadtree_point_t *quadtree_point_new(double x, double y)\n{\n    quadtree_point_t *point;\n    if (!(point = malloc(sizeof(*point))))\n        return ((void *)0);\n    point->x = x;\n    point->y = y;\n    return point;\n}",
+          "quadtree_point_free": "void quadtree_point_free(quadtree_point_t *point)\n{\n    free(point);\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/quadtree.i": {
+      "relative_path": "src/quadtree.i",
+      "original_file": "src/quadtree.c",
+      "includes": [
+        "quadtree.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "quadtree_point_t": "typedef struct quadtree_point\n{\n    double x;\n    double y;\n} quadtree_point_t;",
+          "quadtree_bounds_t": "typedef struct quadtree_bounds\n{\n    quadtree_point_t *nw;\n    quadtree_point_t *se;\n    double width;\n    double height;\n} quadtree_bounds_t;",
+          "quadtree_node_t": "typedef struct quadtree_node\n{\n    struct quadtree_node *ne;\n    struct quadtree_node *nw;\n    struct quadtree_node *se;\n    struct quadtree_node *sw;\n    quadtree_bounds_t *bounds;\n    quadtree_point_t *point;\n    void *key;\n} quadtree_node_t;",
+          "quadtree_t": "typedef struct quadtree\n{\n    quadtree_node_t *root;\n    void (*key_free)(void *key);\n    unsigned int length;\n} quadtree_t;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "node_contains_": "static int node_contains_(quadtree_node_t *outer, quadtree_point_t *it)\n{\n    return outer->bounds != ((void *)0) && outer->bounds->nw->x <= it->x && outer->bounds->nw->y >= it->y &&\n           outer->bounds->se->x >= it->x && outer->bounds->se->y <= it->y;\n}",
+          "elision_": "static void elision_(void *key)\n{\n}",
+          "reset_node_": "static void reset_node_(quadtree_t *tree, quadtree_node_t *node)\n{\n    if (tree->key_free != ((void *)0))\n    {\n        quadtree_node_reset(node, tree->key_free);\n    }\n    else\n    {\n        quadtree_node_reset(node, elision_);\n    }\n}",
+          "get_quadrant_": "static quadtree_node_t *get_quadrant_(quadtree_node_t *root, quadtree_point_t *point)\n{\n    if (node_contains_(root->nw, point))\n        return root->nw;\n    if (node_contains_(root->ne, point))\n        return root->ne;\n    if (node_contains_(root->sw, point))\n        return root->sw;\n    if (node_contains_(root->se, point))\n        return root->se;\n    return ((void *)0);\n}",
+          "split_node_": "static int split_node_(quadtree_t *tree, quadtree_node_t *node)\n{\n    quadtree_node_t *nw;\n    quadtree_node_t *ne;\n    quadtree_node_t *sw;\n    quadtree_node_t *se;\n    quadtree_point_t *old;\n    void *key;\n    double x = node->bounds->nw->x;\n    double y = node->bounds->nw->y;\n    double hw = node->bounds->width / 2;\n    double hh = node->bounds->height / 2;\n    if (!(nw = quadtree_node_with_bounds(x, y - hh, x + hw, y)))\n        return 0;\n    if (!(ne = quadtree_node_with_bounds(x + hw, y - hh, x + hw * 2, y)))\n        return 0;\n    if (!(sw = quadtree_node_with_bounds(x, y - hh * 2, x + hw, y - hh)))\n        return 0;\n    if (!(se = quadtree_node_with_bounds(x + hw, y - hh * 2, x + hw * 2, y - hh)))\n        return 0;\n    node->nw = nw;\n    node->ne = ne;\n    node->sw = sw;\n    node->se = se;\n    old = node->point;\n    key = node->key;\n    node->point = ((void *)0);\n    node->key = ((void *)0);\n    return insert_(tree, node, old, key);\n}",
+          "find_": "static quadtree_point_t *find_(quadtree_node_t *node, double x, double y)\n{\n    if (!node)\n    {\n        return ((void *)0);\n    }\n    if (quadtree_node_isleaf(node))\n    {\n        if (node->point->x == x && node->point->y == y)\n            return node->point;\n    }\n    else if (quadtree_node_ispointer(node))\n    {\n        quadtree_point_t test;\n        test.x = x;\n        test.y = y;\n        return find_(get_quadrant_(node, &test), x, y);\n    }\n    return ((void *)0);\n}",
+          "insert_": "static int insert_(quadtree_t *tree, quadtree_node_t *root, quadtree_point_t *point, void *key)\n{\n    if (quadtree_node_isempty(root))\n    {\n        root->point = point;\n        root->key = key;\n        return 1;\n    }\n    else if (quadtree_node_isleaf(root))\n    {\n        if (root->point->x == point->x && root->point->y == point->y)\n        {\n            reset_node_(tree, root);\n            root->point = point;\n            root->key = key;\n            return 2;\n        }\n        else\n        {\n            if (!split_node_(tree, root))\n            {\n                return 0;\n            }\n            return insert_(tree, root, point, key);\n        }\n    }\n    else if (quadtree_node_ispointer(root))\n    {\n        quadtree_node_t *quadrant = get_quadrant_(root, point);\n        return quadrant == ((void *)0) ? 0 : insert_(tree, quadrant, point, key);\n    }\n    return 0;\n}",
+          "quadtree_new": "quadtree_t *quadtree_new(double minx, double miny, double maxx, double maxy)\n{\n    quadtree_t *tree;\n    if (!(tree = malloc(sizeof(*tree))))\n        return ((void *)0);\n    tree->root = quadtree_node_with_bounds(minx, miny, maxx, maxy);\n    if (!(tree->root))\n        return ((void *)0);\n    tree->key_free = ((void *)0);\n    tree->length = 0;\n    return tree;\n}",
+          "quadtree_insert": "int quadtree_insert(quadtree_t *tree, double x, double y, void *key)\n{\n    quadtree_point_t *point;\n    int insert_status;\n    if (!(point = quadtree_point_new(x, y)))\n        return 0;\n    if (!node_contains_(tree->root, point))\n    {\n        quadtree_point_free(point);\n        return 0;\n    }\n    if (!(insert_status = insert_(tree, tree->root, point, key)))\n    {\n        quadtree_point_free(point);\n        return 0;\n    }\n    if (insert_status == 1)\n        tree->length++;\n    return insert_status;\n}",
+          "quadtree_search": "quadtree_point_t *quadtree_search(quadtree_t *tree, double x, double y)\n{\n    return find_(tree->root, x, y);\n}",
+          "quadtree_free": "void quadtree_free(quadtree_t *tree)\n{\n    if (tree->key_free != ((void *)0))\n    {\n        quadtree_node_free(tree->root, tree->key_free);\n    }\n    else\n    {\n        quadtree_node_free(tree->root, elision_);\n    }\n    free(tree);\n}",
+          "quadtree_walk": "void quadtree_walk(quadtree_node_t *root, void (*descent)(quadtree_node_t *node), void (*ascent)(quadtree_node_t *node))\n{\n    (*descent)(root);\n    if (root->nw != ((void *)0))\n        quadtree_walk(root->nw, descent, ascent);\n    if (root->ne != ((void *)0))\n        quadtree_walk(root->ne, descent, ascent);\n    if (root->sw != ((void *)0))\n        quadtree_walk(root->sw, descent, ascent);\n    if (root->se != ((void *)0))\n        quadtree_walk(root->se, descent, ascent);\n    (*ascent)(root);\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/bounds.i": {
+      "relative_path": "src/bounds.i",
+      "original_file": "src/bounds.c",
+      "includes": [
+        "quadtree.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "quadtree_point_t": "typedef struct quadtree_point\n{\n    double x;\n    double y;\n} quadtree_point_t;",
+          "quadtree_bounds_t": "typedef struct quadtree_bounds\n{\n    quadtree_point_t *nw;\n    quadtree_point_t *se;\n    double width;\n    double height;\n} quadtree_bounds_t;",
+          "quadtree_node_t": "typedef struct quadtree_node\n{\n    struct quadtree_node *ne;\n    struct quadtree_node *nw;\n    struct quadtree_node *se;\n    struct quadtree_node *sw;\n    quadtree_bounds_t *bounds;\n    quadtree_point_t *point;\n    void *key;\n} quadtree_node_t;",
+          "quadtree_t": "typedef struct quadtree\n{\n    quadtree_node_t *root;\n    void (*key_free)(void *key);\n    unsigned int length;\n} quadtree_t;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "quadtree_bounds_extend": "void quadtree_bounds_extend(quadtree_bounds_t *bounds, double x, double y)\n{\n    bounds->nw->x = fmin(x, bounds->nw->x);\n    bounds->nw->y = fmax(y, bounds->nw->y);\n    bounds->se->x = fmax(x, bounds->se->x);\n    bounds->se->y = fmin(y, bounds->se->y);\n    bounds->width = fabs(bounds->nw->x - bounds->se->x);\n    bounds->height = fabs(bounds->nw->y - bounds->se->y);\n}",
+          "quadtree_bounds_free": "void quadtree_bounds_free(quadtree_bounds_t *bounds)\n{\n    quadtree_point_free(bounds->nw);\n    quadtree_point_free(bounds->se);\n    free(bounds);\n}",
+          "quadtree_bounds_new": "quadtree_bounds_t *quadtree_bounds_new(void)\n{\n    quadtree_bounds_t *bounds;\n    if ((bounds = malloc(sizeof(*bounds))) == ((void *)0))\n        return ((void *)0);\n    bounds->nw = quadtree_point_new((__builtin_inff()), -(__builtin_inff()));\n    bounds->se = quadtree_point_new(-(__builtin_inff()), (__builtin_inff()));\n    bounds->width = 0;\n    bounds->height = 0;\n    return bounds;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/node.i": {
+      "relative_path": "src/node.i",
+      "original_file": "src/node.c",
+      "includes": [
+        "quadtree.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "quadtree_point_t": "typedef struct quadtree_point\n{\n    double x;\n    double y;\n} quadtree_point_t;",
+          "quadtree_bounds_t": "typedef struct quadtree_bounds\n{\n    quadtree_point_t *nw;\n    quadtree_point_t *se;\n    double width;\n    double height;\n} quadtree_bounds_t;",
+          "quadtree_node_t": "typedef struct quadtree_node\n{\n    struct quadtree_node *ne;\n    struct quadtree_node *nw;\n    struct quadtree_node *se;\n    struct quadtree_node *sw;\n    quadtree_bounds_t *bounds;\n    quadtree_point_t *point;\n    void *key;\n} quadtree_node_t;",
+          "quadtree_t": "typedef struct quadtree\n{\n    quadtree_node_t *root;\n    void (*key_free)(void *key);\n    unsigned int length;\n} quadtree_t;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "quadtree_node_ispointer": "int quadtree_node_ispointer(quadtree_node_t *node)\n{\n    return node->nw != ((void *)0) && node->ne != ((void *)0) && node->sw != ((void *)0) && node->se != ((void *)0) &&\n           !quadtree_node_isleaf(node);\n}",
+          "quadtree_node_isempty": "int quadtree_node_isempty(quadtree_node_t *node)\n{\n    return node->nw == ((void *)0) && node->ne == ((void *)0) && node->sw == ((void *)0) && node->se == ((void *)0) &&\n           !quadtree_node_isleaf(node);\n}",
+          "quadtree_node_isleaf": "int quadtree_node_isleaf(quadtree_node_t *node)\n{\n    return node->point != ((void *)0);\n}",
+          "quadtree_node_reset": "void quadtree_node_reset(quadtree_node_t *node, void (*key_free)(void *))\n{\n    quadtree_point_free(node->point);\n    (*key_free)(node->key);\n}",
+          "quadtree_node_new": "quadtree_node_t *quadtree_node_new(void)\n{\n    quadtree_node_t *node;\n    if (!(node = malloc(sizeof(*node))))\n        return ((void *)0);\n    node->ne = ((void *)0);\n    node->nw = ((void *)0);\n    node->se = ((void *)0);\n    node->sw = ((void *)0);\n    node->point = ((void *)0);\n    node->bounds = ((void *)0);\n    node->key = ((void *)0);\n    return node;\n}",
+          "quadtree_node_with_bounds": "quadtree_node_t *quadtree_node_with_bounds(double minx, double miny, double maxx, double maxy)\n{\n    quadtree_node_t *node;\n    if (!(node = quadtree_node_new()))\n        return ((void *)0);\n    if (!(node->bounds = quadtree_bounds_new()))\n        return ((void *)0);\n    quadtree_bounds_extend(node->bounds, maxx, maxy);\n    quadtree_bounds_extend(node->bounds, minx, miny);\n    return node;\n}",
+          "quadtree_node_free": "void quadtree_node_free(quadtree_node_t *node, void (*key_free)(void *))\n{\n    if (node->nw != ((void *)0))\n        quadtree_node_free(node->nw, key_free);\n    if (node->ne != ((void *)0))\n        quadtree_node_free(node->ne, key_free);\n    if (node->sw != ((void *)0))\n        quadtree_node_free(node->sw, key_free);\n    if (node->se != ((void *)0))\n        quadtree_node_free(node->se, key_free);\n    quadtree_bounds_free(node->bounds);\n    quadtree_node_reset(node, key_free);\n    free(node);\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "project_name": "libwecan",
+  "files": {
+    "src/libwecan.i": {
+      "relative_path": "src/libwecan.i",
+      "original_file": "src/libwecan.c",
+      "includes": [
+        "libwecan.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "compute_indexes": "static void compute_indexes(const uint16_t startbit, const uint8_t len, uint8_t endianness, uint16_t *offset_lsb,\n                            uint16_t *byte_idx_lsb, uint16_t *byte_idx_msb)\n{\n    int i = 0;\n    uint16_t msb = 0;\n    uint16_t lsb = 0;\n    uint16_t current_bit_nr = 0;\n    if (endianness == 5)\n    {\n        msb = startbit;\n        current_bit_nr = startbit;\n        for (i = 0; i < len - 1; i++)\n        {\n            if (current_bit_nr % 8 == 0)\n            {\n                current_bit_nr = current_bit_nr + 15;\n            }\n            else\n            {\n                current_bit_nr--;\n            }\n        }\n        lsb = current_bit_nr;\n        *byte_idx_lsb = lsb / 8;\n        *byte_idx_msb = msb / 8;\n        *offset_lsb = lsb % 8;\n    }\n    else\n    {\n        lsb = startbit;\n        msb = lsb + len - 1;\n        *byte_idx_msb = msb / 8;\n        *byte_idx_lsb = lsb / 8;\n        *offset_lsb = lsb % 8;\n    }\n}",
+          "frame_to_local": "static uint64_t frame_to_local(const uint8_t *frame, uint16_t byte_idx_lsb, uint16_t byte_idx_msb, uint8_t endianness)\n{\n    int i = 0;\n    uint64_t target = 0;\n    uint8_t *dest = ((void *)0);\n    target = frame[byte_idx_lsb];\n    dest = (uint8_t *)&target;\n    if (endianness == 5)\n    {\n        for (i = byte_idx_lsb - 1; i >= byte_idx_msb; i--)\n        {\n            dest++;\n            *dest = frame[i];\n        }\n    }\n    else\n    {\n        for (i = byte_idx_lsb + 1; i <= byte_idx_msb; i++)\n        {\n            dest++;\n            *dest = frame[i];\n        }\n    }\n    return target;\n}",
+          "extract": "uint64_t extract(const uint8_t *frame, const uint16_t startbit, const uint8_t len, uint8_t signedness,\n                 uint8_t endianness)\n{\n    uint16_t byte_idx_msb = 0;\n    uint16_t byte_idx_lsb = 0;\n    uint16_t offset_lsb = 0;\n    uint64_t target = 0;\n    uint64_t mask = 0;\n    uint64_t sign_ext_mask = 0;\n    compute_indexes(startbit, len, endianness, &offset_lsb, &byte_idx_lsb, &byte_idx_msb);\n    target = frame_to_local(frame, byte_idx_lsb, byte_idx_msb, endianness);\n    target = target >> offset_lsb;\n    mask = ((uint64_t)1 << len) - 1;\n    target = target & mask;\n    if (signedness == 3)\n    {\n        if (((uint64_t)1 << (len - 1)) & target)\n        {\n            sign_ext_mask = ~mask;\n            target = target | sign_ext_mask;\n        }\n    }\n    return target;\n}",
+          "insert": "void insert(uint8_t *frame, uint16_t startbit, uint8_t len, uint64_t can_value, uint8_t endianness)\n{\n    int i = 0;\n    uint8_t *src = ((void *)0);\n    uint16_t byte_idx_msb = 0;\n    uint16_t byte_idx_lsb = 0;\n    uint16_t offset_lsb = 0;\n    uint64_t target = 0;\n    uint64_t mask = 0;\n    uint64_t erase_mask = 0;\n    compute_indexes(startbit, len, endianness, &offset_lsb, &byte_idx_lsb, &byte_idx_msb);\n    target = frame_to_local(frame, byte_idx_lsb, byte_idx_msb, endianness);\n    mask = ((uint64_t)1 << len) - 1;\n    erase_mask = ~(mask << offset_lsb);\n    target = (target & erase_mask) | (can_value << offset_lsb);\n    src = (uint8_t *)&target;\n    if (endianness == 5)\n    {\n        for (i = byte_idx_lsb; i >= byte_idx_msb; i--)\n        {\n            frame[i] = *src;\n            src++;\n        }\n    }\n    else\n    {\n        for (i = byte_idx_lsb; i <= byte_idx_msb; i++)\n        {\n            frame[i] = *src;\n            src++;\n        }\n    }\n}",
+          "encode_uint64_t": "void encode_uint64_t(uint8_t *frame, uint64_t phy_value, uint16_t startbit, uint8_t len, uint8_t endianness,\n                     double factor, double offset)\n{\n    uint64_t can_value = 0;\n    can_value = (uint64_t)((phy_value - offset) / factor);\n    insert(frame, startbit, len, can_value, endianness);\n}",
+          "encode_int64_t": "void encode_int64_t(uint8_t *frame, int64_t phy_value, uint16_t startbit, uint8_t len, uint8_t endianness,\n                    double factor, double offset)\n{\n    uint64_t can_value = 0;\n    can_value = (int64_t)((phy_value - offset) / factor);\n    insert(frame, startbit, len, can_value, endianness);\n}",
+          "encode_double": "void encode_double(uint8_t *frame, double phy_value, uint16_t startbit, uint8_t len, uint8_t endianness, double factor,\n                   double offset)\n{\n    uint64_t can_value = 0;\n    can_value = (int64_t)((phy_value - offset) / factor);\n    insert(frame, startbit, len, can_value, endianness);\n}",
+          "encode_float": "void encode_float(uint8_t *frame, float phy_value, uint16_t startbit, uint8_t len, uint8_t endianness, double factor,\n                  double offset)\n{\n    uint64_t can_value = 0;\n    can_value = (int64_t)((phy_value - offset) / factor);\n    insert(frame, startbit, len, can_value, endianness);\n}",
+          "decode_uint64_t": "uint64_t decode_uint64_t(uint8_t *frame, uint16_t startbit, uint8_t len, uint8_t endianness, double factor,\n                         double offset)\n{\n    uint64_t can_value = 0;\n    can_value = extract(frame, startbit, len, 2, endianness);\n    return (uint64_t)((can_value * factor) + offset);\n}",
+          "decode_int64_t": "int64_t decode_int64_t(uint8_t *frame, uint16_t startbit, uint8_t len, uint8_t endianness, double factor, double offset)\n{\n    int64_t can_value = 0;\n    can_value = (int64_t)extract(frame, startbit, len, 3, endianness);\n    return (int64_t)((can_value * factor) + offset);\n}",
+          "decode_double": "double decode_double(uint8_t *frame, uint16_t startbit, uint8_t len, uint8_t endianness, double factor, double offset)\n{\n    int64_t can_value = 0;\n    can_value = (int64_t)extract(frame, startbit, len, 3, endianness);\n    return (double)((can_value * factor) + offset);\n}",
+          "decode_float": "float decode_float(uint8_t *frame, uint16_t startbit, uint8_t len, uint8_t endianness, double factor, double offset)\n{\n    int64_t can_value = 0;\n    can_value = (int64_t)extract(frame, startbit, len, 3, endianness);\n    return (float)((can_value * factor) + offset);\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

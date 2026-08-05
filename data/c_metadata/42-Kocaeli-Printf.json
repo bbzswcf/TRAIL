@@ -1,0 +1,29 @@
+{
+  "project_name": "42-Kocaeli-Printf",
+  "files": {
+    "src/ft_printf.i": {
+      "relative_path": "src/ft_printf.i",
+      "original_file": "src/ft_printf.c",
+      "includes": [
+        "ft_printf.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "format": "static int format(va_list *args, char c, int *len)\n{\n    if (c == 'c')\n        return (writechar(__builtin_va_arg(*args, int), len));\n    if (c == 's')\n        return (writestring(__builtin_va_arg(*args, char *), len));\n    if (c == 'd' || c == 'i')\n        return (writeint(__builtin_va_arg(*args, int), len));\n    if (c == 'u')\n        return (writeuint(__builtin_va_arg(*args, unsigned int), len));\n    if (c == 'p')\n        return (writepoint(__builtin_va_arg(*args, void *), len));\n    if (c == 'x' || c == 'X')\n        return (writehex(__builtin_va_arg(*args, unsigned int), c, len));\n    if (c == '%')\n        return (writechar('%', len));\n    return (-1);\n}",
+          "ft_printf": "int ft_printf(const char *s, ...)\n{\n    va_list args;\n    int len;\n    if (2 == 2 && !s)\n        return (-1);\n    len = 0;\n    __builtin_va_start(args, s);\n    while (*s)\n    {\n        if (*s == '%')\n        {\n            if (format(&args, *++s, &len) == -1)\n                return (__builtin_va_end(args), -1);\n        }\n        else if (writechar(*s, &len) == -1)\n            return (__builtin_va_end(args), -1);\n        s++;\n    }\n    return (__builtin_va_end(args), len);\n}",
+          "writeint": "int writeint(int n, int *len)\n{\n    char arr[10];\n    int i;\n    i = 0;\n    if (!n)\n        return (writechar('0', len));\n    if (n == -2147483648)\n        return (writestring(\"-2147483648\", len));\n    if (n < 0)\n    {\n        if (writechar('-', len) == -1)\n            return (-1);\n        n = -n;\n    }\n    while (n)\n    {\n        arr[i++] = \"0123456789\"[n % 10];\n        n /= 10;\n    }\n    while (i--)\n        if (writechar(arr[i], len) == -1)\n            return (-1);\n    return (1);\n}",
+          "writeuint": "int writeuint(unsigned long n, int *len)\n{\n    int arr[16];\n    int i;\n    i = 0;\n    if (!n)\n        return (writechar('0', len));\n    while (n)\n    {\n        arr[i++] = \"0123456789\"[n % 10];\n        n /= 10;\n    }\n    while (i--)\n        if (writechar(arr[i], len) == -1)\n            return (-1);\n    return (1);\n}",
+          "writehex": "int writehex(unsigned long n, char c, int *len)\n{\n    char arr[16];\n    int i;\n    char *hex;\n    i = 0;\n    if (!n)\n        arr[i++] = '0';\n    if (c == 'x')\n        hex = \"0123456789abcdef\";\n    else\n        hex = \"0123456789ABCDEF\";\n    while (n)\n    {\n        arr[i++] = hex[n % 16];\n        n /= 16;\n    }\n    while (i--)\n        if (writechar(arr[i], len) == -1)\n            return (-1);\n    return (1);\n}",
+          "writepoint": "int writepoint(void *ptr, int *len)\n{\n    char arr[32];\n    int i;\n    unsigned long long nb;\n    if (2 == 2 && !ptr)\n        return (writestring(\"(nil)\", len));\n    i = 0;\n    nb = (unsigned long long)ptr;\n    if (writestring(\"0x\", len) == -1)\n        return (-1);\n    if (!nb)\n        return (writechar('0', len));\n    while (nb)\n    {\n        arr[i++] = \"0123456789abcdef\"[nb % 16];\n        nb /= 16;\n    }\n    while (i--)\n        if (writechar(arr[i], len) == -1)\n            return (-1);\n    return (1);\n}",
+          "writechar": "int writechar(char c, int *len)\n{\n    return ((*len)++, write(1, &c, 1));\n}",
+          "writestring": "int writestring(char *s, int *len)\n{\n    if (!s)\n        s = \"(null)\";\n    while (*s)\n        if (writechar(*s++, len) == -1)\n            return (-1);\n    return (1);\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

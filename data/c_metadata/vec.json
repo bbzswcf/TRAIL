@@ -1,0 +1,36 @@
+{
+  "project_name": "vec",
+  "files": {
+    "src/vec.i": {
+      "relative_path": "src/vec.i",
+      "original_file": "src/vec.c",
+      "includes": [
+        "vec.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "vec_void_t": "typedef struct\n{\n    void **data;\n    int length, capacity;\n} vec_void_t;",
+          "vec_str_t": "typedef struct\n{\n    char **data;\n    int length, capacity;\n} vec_str_t;",
+          "vec_int_t": "typedef struct\n{\n    int *data;\n    int length, capacity;\n} vec_int_t;",
+          "vec_char_t": "typedef struct\n{\n    char *data;\n    int length, capacity;\n} vec_char_t;",
+          "vec_float_t": "typedef struct\n{\n    float *data;\n    int length, capacity;\n} vec_float_t;",
+          "vec_double_t": "typedef struct\n{\n    double *data;\n    int length, capacity;\n} vec_double_t;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "vec_expand_": "int vec_expand_(char **data, int *length, int *capacity, int memsz)\n{\n    if (*length + 1 > *capacity)\n    {\n        void *ptr;\n        int n = (*capacity == 0) ? 1 : *capacity << 1;\n        ptr = realloc(*data, n * memsz);\n        if (ptr == ((void *)0))\n            return -1;\n        *data = ptr;\n        *capacity = n;\n    }\n    return 0;\n}",
+          "vec_reserve_": "int vec_reserve_(char **data, int *length, int *capacity, int memsz, int n)\n{\n    (void)length;\n    if (n > *capacity)\n    {\n        void *ptr = realloc(*data, n * memsz);\n        if (ptr == ((void *)0))\n            return -1;\n        *data = ptr;\n        *capacity = n;\n    }\n    return 0;\n}",
+          "vec_reserve_po2_": "int vec_reserve_po2_(char **data, int *length, int *capacity, int memsz, int n)\n{\n    int n2 = 1;\n    if (n == 0)\n        return 0;\n    while (n2 < n)\n        n2 <<= 1;\n    return vec_reserve_(data, length, capacity, memsz, n2);\n}",
+          "vec_compact_": "int vec_compact_(char **data, int *length, int *capacity, int memsz)\n{\n    if (*length == 0)\n    {\n        free(*data);\n        *data = ((void *)0);\n        *capacity = 0;\n        return 0;\n    }\n    else\n    {\n        void *ptr;\n        int n = *length;\n        ptr = realloc(*data, n * memsz);\n        if (ptr == ((void *)0))\n            return -1;\n        *capacity = n;\n        *data = ptr;\n    }\n    return 0;\n}",
+          "vec_insert_": "int vec_insert_(char **data, int *length, int *capacity, int memsz, int idx)\n{\n    int err = vec_expand_(data, length, capacity, memsz);\n    if (err)\n        return err;\n    memmove(*data + (idx + 1) * memsz, *data + idx * memsz, (*length - idx) * memsz);\n    return 0;\n}",
+          "vec_splice_": "void vec_splice_(char **data, int *length, int *capacity, int memsz, int start, int count)\n{\n    (void)capacity;\n    memmove(*data + start * memsz, *data + (start + count) * memsz, (*length - start - count) * memsz);\n}",
+          "vec_swapsplice_": "void vec_swapsplice_(char **data, int *length, int *capacity, int memsz, int start, int count)\n{\n    (void)capacity;\n    memmove(*data + start * memsz, *data + (*length - count) * memsz, count * memsz);\n}",
+          "vec_swap_": "void vec_swap_(char **data, int *length, int *capacity, int memsz, int idx1, int idx2)\n{\n    unsigned char *a, *b, tmp;\n    int count;\n    (void)length;\n    (void)capacity;\n    if (idx1 == idx2)\n        return;\n    a = (unsigned char *)*data + idx1 * memsz;\n    b = (unsigned char *)*data + idx2 * memsz;\n    count = memsz;\n    while (count--)\n    {\n        tmp = *a;\n        *a = *b;\n        *b = tmp;\n        a++, b++;\n    }\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

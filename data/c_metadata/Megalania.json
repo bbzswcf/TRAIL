@@ -1,0 +1,546 @@
+{
+  "project_name": "Megalania",
+  "files": {
+    "src/range_encoder.i": {
+      "relative_path": "src/range_encoder.i",
+      "original_file": "src/range_encoder.c",
+      "includes": [
+        "range_encoder.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "EncoderInterface": "typedef struct EncoderInterface_struct EncoderInterface;",
+          "EncoderInterface_struct": "struct EncoderInterface_struct\n{\n    void (*encode_bit)(EncoderInterface *enc, _Bool bit, uint16_t prob);\n    void (*encode_direct_bits)(EncoderInterface *enc, unsigned bits, unsigned num_bits);\n    void *private_data;\n}",
+          "OutputInterface": "typedef struct OutputInterface_struct OutputInterface;",
+          "OutputInterface_struct": "struct OutputInterface_struct\n{\n    _Bool (*write)(OutputInterface *enc, const void *data, size_t data_size);\n    void *private_data;\n}",
+          "RangeEncoderData": "typedef struct\n{\n    OutputInterface *output;\n    uint64_t low;\n    uint32_t range;\n    uint8_t cache;\n    uint64_t cache_size;\n} RangeEncoderData;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "range_encoder_shift_low": "static void range_encoder_shift_low(EncoderInterface *enc)\n{\n    RangeEncoderData *data = (RangeEncoderData *)enc->private_data;\n    OutputInterface *output = data->output;\n    uint32_t high_bytes = data->low >> 32;\n    uint32_t low_bytes = data->low & 0xFFFFFFFF;\n    if (low_bytes < 0xFF000000 || high_bytes != 0)\n    {\n        uint8_t temp = data->cache;\n        do\n        {\n            uint8_t out_byte = temp + (high_bytes & 0xFF);\n            if (!(*output->write)(output, &out_byte, 1))\n            {\n                fprintf(stderr, \"could not write: %02x\\n\", out_byte);\n            }\n            temp = 0xFF;\n        } while (--data->cache_size != 0);\n        data->cache = (data->low >> 24) & 0xFF;\n    }\n    data->cache_size++;\n    data->low = low_bytes << 8;\n}",
+          "range_encoder_flush_data": "static void range_encoder_flush_data(EncoderInterface *enc)\n{\n    for (int i = 0; i < 5; i++)\n    {\n        range_encoder_shift_low(enc);\n    }\n}",
+          "range_encoder_encode_bit": "static void range_encoder_encode_bit(EncoderInterface *enc, _Bool bit, uint16_t prob)\n{\n    RangeEncoderData *data = (RangeEncoderData *)enc->private_data;\n    uint32_t new_bound = (data->range >> 11) * prob;\n    if (bit)\n    {\n        data->low += new_bound;\n        data->range -= new_bound;\n    }\n    else\n    {\n        data->range = new_bound;\n    }\n    while ((data->range & 0xFF000000) == 0)\n    {\n        data->range <<= 8;\n        range_encoder_shift_low(enc);\n    }\n}",
+          "range_encoder_encode_direct_bits": "static void range_encoder_encode_direct_bits(EncoderInterface *enc, unsigned bits, unsigned num_bits)\n{\n    RangeEncoderData *data = (RangeEncoderData *)enc->private_data;\n    do\n    {\n        _Bool bit = bits & (1 << (num_bits - 1));\n        data->range >>= 1;\n        if (bit)\n        {\n            data->low += data->range;\n        }\n        if ((data->range & 0xFF000000) == 0)\n        {\n            data->range <<= 8;\n            range_encoder_shift_low(enc);\n        }\n    } while (--num_bits);\n}",
+          "range_encoder_new": "void range_encoder_new(EncoderInterface *enc, OutputInterface *output)\n{\n    RangeEncoderData *data = malloc(sizeof(RangeEncoderData));\n    data->output = output;\n    data->low = 0;\n    data->range = 0xFFFFFFFF;\n    data->cache = 0;\n    data->cache_size = 1;\n    enc->encode_bit = range_encoder_encode_bit;\n    enc->encode_direct_bits = range_encoder_encode_direct_bits;\n    enc->private_data = (void *)data;\n}",
+          "range_encoder_free": "void range_encoder_free(EncoderInterface *enc)\n{\n    range_encoder_flush_data(enc);\n    free(enc->private_data);\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/packet_slab_neighbour.i": {
+      "relative_path": "src/packet_slab_neighbour.i",
+      "original_file": "src/packet_slab_neighbour.c",
+      "includes": [
+        "packet_slab_neighbour.h",
+        "lzma_state.h",
+        "lzma_packet_encoder.h",
+        "perplexity_encoder.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "LZMAPacket": "typedef struct\n{\n    uint8_t type;\n    uint32_t dist;\n    uint16_t len;\n} LZMAPacket;",
+          "PacketSlab": "typedef struct PacketSlab_struct PacketSlab;",
+          "LengthProbabilityModel": "typedef struct\n{\n    uint16_t choice_1;\n    uint16_t choice_2;\n    uint16_t low_coder[1 << 4][1 << 3];\n    uint16_t mid_coder[1 << 4][1 << 3];\n    uint16_t high_coder[1 << 8];\n} LengthProbabilityModel;",
+          "DistanceProbabilityModel": "typedef struct\n{\n    uint16_t pos_slot_coder[4][1 << 6];\n    uint16_t align_coder[1 << 4];\n    uint16_t pos_coder[1 + (1 << (14 >> 1)) - 14];\n} DistanceProbabilityModel;",
+          "ContextStateProbabilityModel": "typedef struct\n{\n    uint16_t is_match[12 << 4];\n    uint16_t is_rep[12];\n    uint16_t is_rep_g0[12];\n    uint16_t is_rep_g1[12];\n    uint16_t is_rep_g2[12];\n    uint16_t is_rep0_long[12 << 4];\n} ContextStateProbabilityModel;",
+          "LZMAProbabilityModel": "typedef struct\n{\n    uint16_t lit[0x300];\n    LengthProbabilityModel len;\n    LengthProbabilityModel rep_len;\n    DistanceProbabilityModel dist;\n    ContextStateProbabilityModel ctx_state;\n} LZMAProbabilityModel;",
+          "LZMAProperties": "typedef struct\n{\n    uint8_t lc;\n    uint8_t lp;\n    uint8_t pb;\n} LZMAProperties;",
+          "LZMAState": "typedef struct\n{\n    const uint8_t *data;\n    size_t data_size;\n    LZMAProperties properties;\n    uint8_t ctx_state;\n    uint32_t dists[4];\n    LZMAProbabilityModel probs;\n    size_t position;\n} LZMAState;",
+          "PacketSlabUndo": "typedef struct\n{\n    size_t position;\n    LZMAPacket old_packet;\n} PacketSlabUndo;",
+          "PacketSlabUndoHeap": "typedef struct PacketSlabUndoHeap_struct PacketSlabUndoHeap;",
+          "PacketSlabUndoStack": "typedef struct\n{\n    size_t total_count;\n    size_t count;\n    PacketSlabUndo stack[16];\n    PacketSlabUndoHeap *last;\n} PacketSlabUndoStack;",
+          "PacketEnumerator": "typedef struct PacketEnumerator_struct PacketEnumerator;",
+          "TopKPacketFinder": "typedef struct TopKPacketFinder_struct TopKPacketFinder;",
+          "PacketSlabNeighbour": "typedef struct\n{\n    LZMAState init_state;\n    PacketSlab *slab;\n    uint64_t perplexity;\n    PacketSlabUndoStack undo_stack;\n} PacketSlabNeighbour;",
+          "EncoderInterface": "typedef struct EncoderInterface_struct EncoderInterface;",
+          "EncoderInterface_struct": "struct EncoderInterface_struct\n{\n    void (*encode_bit)(EncoderInterface *enc, _Bool bit, uint16_t prob);\n    void (*encode_direct_bits)(EncoderInterface *enc, unsigned bits, unsigned num_bits);\n    void *private_data;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "packet_slab_neighbour_new": "void packet_slab_neighbour_new(PacketSlabNeighbour *neighbour, PacketSlab *slab, LZMAState init_state)\n{\n    neighbour->init_state = init_state;\n    neighbour->slab = slab;\n    neighbour->perplexity = 0;\n    packet_slab_undo_stack_new(&neighbour->undo_stack);\n}",
+          "packet_slab_neighbour_free": "void packet_slab_neighbour_free(PacketSlabNeighbour *neighbour)\n{\n    packet_slab_undo_stack_free(&neighbour->undo_stack);\n}",
+          "encode_to_packet_number": "static void encode_to_packet_number(LZMAState *lzma_state, EncoderInterface *enc, LZMAPacket *packets, size_t target)\n{\n    size_t count = 0;\n    while (lzma_state->position < lzma_state->data_size)\n    {\n        if (count == target)\n        {\n            break;\n        }\n        count++;\n        lzma_encode_packet(lzma_state, enc, packets[lzma_state->position]);\n    }\n}",
+          "save_packet_at_position": "static void save_packet_at_position(PacketSlabNeighbour *neighbour, LZMAPacket packet, size_t position)\n{\n    PacketSlabUndo undo = {.position = position, .old_packet = packet};\n    packet_slab_undo_stack_insert(&neighbour->undo_stack, undo);\n}",
+          "max": "size_t max(size_t a, size_t b)\n{\n    return a > b ? a : b;\n}",
+          "min": "size_t min(size_t a, size_t b)\n{\n    return a < b ? a : b;\n}",
+          "rand_max_dist": "static size_t rand_max_dist(size_t count, size_t num)\n{\n    size_t rnd = rand() % count;\n    while (--num != 0)\n    {\n        rnd = max(rnd, rand() % count);\n    }\n    return rnd;\n}",
+          "pick_random_next_packet_from_top_k": "static _Bool pick_random_next_packet_from_top_k(const LZMAState *lzma_state, TopKPacketFinder *packet_finder,\n                                                LZMAPacket *packets, _Bool best)\n{\n    LZMAPacket *next_packet = &packets[lzma_state->position];\n    top_k_packet_finder_find(packet_finder, lzma_state, packets);\n    size_t count = top_k_packet_finder_count(packet_finder);\n    if (count == 0)\n    {\n        return 0;\n    }\n    size_t choice = rand_max_dist(count, 8);\n    if (rand() % 8 == 0 || best)\n        choice = count - 1;\n    while (top_k_packet_finder_pop(packet_finder, next_packet))\n    {\n        if (choice-- == 0)\n        {\n            return 1;\n        }\n    }\n    return 1;\n}",
+          "validate_long_rep_packet": "static _Bool validate_long_rep_packet(const LZMAState *lzma_state, LZMAPacket packet)\n{\n    ((void)sizeof((packet.type == 4) ? 1 : 0), __extension__({\n         if (packet.type == 4)\n             ;\n         else\n             __assert_fail(\"packet.type == LONG_REP\",\n                           \"/home/bbzs/code/reporeflectrust/data/project/CBench/Megalania/src/packet_slab_neighbour.c\",\n                           76, __extension__ __PRETTY_FUNCTION__);\n     }));\n    const uint8_t *rep_start = &lzma_state->data[lzma_state->position - lzma_state->dists[packet.dist] - 1];\n    const uint8_t *current = &lzma_state->data[lzma_state->position];\n    return memcmp(rep_start, current, packet.len) == 0;\n}",
+          "repair_remaining_packets": "static void repair_remaining_packets(PacketSlabNeighbour *neighbour, LZMAState *lzma_state, EncoderInterface *enc,\n                                     TopKPacketFinder *packet_finder, LZMAPacket *packets)\n{\n    size_t count = 0;\n    while (lzma_state->position < lzma_state->data_size)\n    {\n        count++;\n        LZMAPacket *packet = &packets[lzma_state->position];\n        LZMAPacket old_packet = *packet;\n        if (packet->type == 3 || packet->type == 1)\n        {\n            if (lzma_state->data[lzma_state->position] ==\n                lzma_state->data[lzma_state->position - lzma_state->dists[0] - 1])\n            {\n                if (count < 4)\n                {\n                    *packet = short_rep_packet();\n                }\n            }\n            else\n            {\n                *packet = literal_packet();\n            }\n        }\n        if (packet->type == 4)\n        {\n            unsigned dist_index = 0;\n            while (!validate_long_rep_packet(lzma_state, *packet) && dist_index < 4)\n            {\n                packet->dist = dist_index;\n                dist_index++;\n            }\n            if (!validate_long_rep_packet(lzma_state, *packet))\n            {\n                pick_random_next_packet_from_top_k(lzma_state, packet_finder, packets, rand() % 4 == 0);\n            }\n        }\n        if (!lzma_packet_cmp(&old_packet, packet))\n        {\n            save_packet_at_position(neighbour, old_packet, lzma_state->position);\n        }\n        lzma_encode_packet(lzma_state, enc, *packet);\n    }\n}",
+          "mutate_next_packet": "static _Bool mutate_next_packet(PacketSlabNeighbour *neighbour, const LZMAState *lzma_state,\n                                TopKPacketFinder *packet_finder, LZMAPacket *packets)\n{\n    LZMAPacket *first_packet = &packets[lzma_state->position];\n    if (lzma_state->position + 1 < lzma_state->data_size && rand() % 2 == 0)\n    {\n        LZMAPacket *second_packet = &packets[lzma_state->position + 1];\n        if ((first_packet->type == 4 || first_packet->type == 2) && first_packet->len > 2)\n        {\n            save_packet_at_position(neighbour, *first_packet, lzma_state->position);\n            save_packet_at_position(neighbour, *second_packet, lzma_state->position + 1);\n            *second_packet = *first_packet;\n            second_packet->len--;\n            *first_packet = literal_packet();\n            return 1;\n        }\n        else if (first_packet->type == 1 || first_packet->type == 3)\n        {\n            if (second_packet->type == 2 || second_packet->type == 4)\n            {\n                size_t rep_start = lzma_state->position - second_packet->dist;\n                if (second_packet->type == 4)\n                {\n                    rep_start = lzma_state->position - lzma_state->dists[second_packet->dist];\n                }\n                if (second_packet->len < 273 && rep_start > 0 &&\n                    lzma_state->data[lzma_state->position] == lzma_state->data[rep_start - 1])\n                {\n                    save_packet_at_position(neighbour, *first_packet, lzma_state->position);\n                    *first_packet = *second_packet;\n                    first_packet->len++;\n                    return 1;\n                }\n            }\n        }\n    }\n    save_packet_at_position(neighbour, packets[lzma_state->position], lzma_state->position);\n    if (pick_random_next_packet_from_top_k(lzma_state, packet_finder, packets, 0))\n    {\n        return 1;\n    }\n    return 0;\n}",
+          "packet_slab_neighbour_generate": "_Bool packet_slab_neighbour_generate(PacketSlabNeighbour *neighbour, TopKPacketFinder *packet_finder)\n{\n    LZMAPacket *packets = packet_slab_packets(neighbour->slab);\n    LZMAState lzma_state = neighbour->init_state;\n    EncoderInterface enc;\n    perplexity_encoder_new(&enc, &neighbour->perplexity);\n    size_t packet_count = packet_slab_count(neighbour->slab);\n    size_t mutation_target = rand() % packet_count;\n    encode_to_packet_number(&lzma_state, &enc, packets, mutation_target);\n    if (!mutate_next_packet(neighbour, &lzma_state, packet_finder, packets))\n    {\n        return 0;\n    }\n    lzma_encode_packet(&lzma_state, &enc, packets[lzma_state.position]);\n    repair_remaining_packets(neighbour, &lzma_state, &enc, packet_finder, packets);\n    return 1;\n}",
+          "packet_slab_neighbour_undo": "void packet_slab_neighbour_undo(PacketSlabNeighbour *neighbour)\n{\n    packet_slab_undo_stack_apply(&neighbour->undo_stack, neighbour->slab);\n}",
+          "packet_slab_neighbour_undo_count": "size_t packet_slab_neighbour_undo_count(const PacketSlabNeighbour *neighbour)\n{\n    return packet_slab_undo_stack_count(&neighbour->undo_stack);\n}"
+        },
+        "typedefs": {
+          "PacketEnumeratorCallback": "typedef void (*PacketEnumeratorCallback)(void *user_data, const LZMAState *state, LZMAPacket packet);"
+        }
+      }
+    },
+    "src/file_output.i": {
+      "relative_path": "src/file_output.i",
+      "original_file": "src/file_output.c",
+      "includes": [
+        "file_output.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "OutputInterface": "typedef struct OutputInterface_struct OutputInterface;",
+          "OutputInterface_struct": "struct OutputInterface_struct\n{\n    _Bool (*write)(OutputInterface *enc, const void *data, size_t data_size);\n    void *private_data;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "file_write": "static _Bool file_write(OutputInterface *output, const void *data, size_t data_size)\n{\n    FILE *file = (FILE *)output->private_data;\n    return fwrite(data, data_size, 1, file) == 1;\n}",
+          "file_output_new": "void file_output_new(OutputInterface *output, FILE *file)\n{\n    output->write = file_write;\n    output->private_data = file;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/lzma_packet_encoder.i": {
+      "relative_path": "src/lzma_packet_encoder.i",
+      "original_file": "src/lzma_packet_encoder.c",
+      "includes": [
+        "lzma_packet_encoder.h",
+        "probability_model.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "LengthProbabilityModel": "typedef struct\n{\n    uint16_t choice_1;\n    uint16_t choice_2;\n    uint16_t low_coder[1 << 4][1 << 3];\n    uint16_t mid_coder[1 << 4][1 << 3];\n    uint16_t high_coder[1 << 8];\n} LengthProbabilityModel;",
+          "DistanceProbabilityModel": "typedef struct\n{\n    uint16_t pos_slot_coder[4][1 << 6];\n    uint16_t align_coder[1 << 4];\n    uint16_t pos_coder[1 + (1 << (14 >> 1)) - 14];\n} DistanceProbabilityModel;",
+          "ContextStateProbabilityModel": "typedef struct\n{\n    uint16_t is_match[12 << 4];\n    uint16_t is_rep[12];\n    uint16_t is_rep_g0[12];\n    uint16_t is_rep_g1[12];\n    uint16_t is_rep_g2[12];\n    uint16_t is_rep0_long[12 << 4];\n} ContextStateProbabilityModel;",
+          "LZMAProbabilityModel": "typedef struct\n{\n    uint16_t lit[0x300];\n    LengthProbabilityModel len;\n    LengthProbabilityModel rep_len;\n    DistanceProbabilityModel dist;\n    ContextStateProbabilityModel ctx_state;\n} LZMAProbabilityModel;",
+          "LZMAProperties": "typedef struct\n{\n    uint8_t lc;\n    uint8_t lp;\n    uint8_t pb;\n} LZMAProperties;",
+          "LZMAState": "typedef struct\n{\n    const uint8_t *data;\n    size_t data_size;\n    LZMAProperties properties;\n    uint8_t ctx_state;\n    uint32_t dists[4];\n    LZMAProbabilityModel probs;\n    size_t position;\n} LZMAState;",
+          "LZMAPacket": "typedef struct\n{\n    uint8_t type;\n    uint32_t dist;\n    uint16_t len;\n} LZMAPacket;",
+          "EncoderInterface": "typedef struct EncoderInterface_struct EncoderInterface;",
+          "EncoderInterface_struct": "struct EncoderInterface_struct\n{\n    void (*encode_bit)(EncoderInterface *enc, _Bool bit, uint16_t prob);\n    void (*encode_direct_bits)(EncoderInterface *enc, unsigned bits, unsigned num_bits);\n    void *private_data;\n}",
+          "LZMAPacketHeader": "typedef struct\n{\n    _Bool match;\n    _Bool rep;\n    _Bool b3;\n    _Bool b4;\n    _Bool b5;\n} LZMAPacketHeader;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "lzma_encode_packet_header": "static void lzma_encode_packet_header(LZMAState *lzma_state, EncoderInterface *enc, LZMAPacketHeader *head)\n{\n    ContextStateProbabilityModel *ctx_probs = &lzma_state->probs.ctx_state;\n    unsigned ctx_pos_bits = 0;\n    unsigned ctx_state = lzma_state->ctx_state;\n    unsigned ctx_pos_state = (ctx_state << 4) + ctx_pos_bits;\n    encode_bit(head->match, &ctx_probs->is_match[ctx_pos_state], enc);\n    if (!head->match)\n    {\n        return;\n    }\n    encode_bit(head->rep, &ctx_probs->is_rep[ctx_state], enc);\n    if (!head->rep)\n    {\n        return;\n    }\n    encode_bit(head->b3, &ctx_probs->is_rep_g0[ctx_state], enc);\n    if (head->b3)\n    {\n        encode_bit(head->b4, &ctx_probs->is_rep_g1[ctx_state], enc);\n        if (head->b4)\n        {\n            encode_bit(head->b5, &ctx_probs->is_rep_g2[ctx_state], enc);\n        }\n    }\n    else\n    {\n        encode_bit(head->b4, &ctx_probs->is_rep0_long[ctx_pos_state], enc);\n    }\n}",
+          "lzma_encode_length": "static void lzma_encode_length(LengthProbabilityModel *probs, EncoderInterface *enc, unsigned len)\n{\n    unsigned ctx_pos_bits = 0;\n    ((void)sizeof((len >= 2) ? 1 : 0), __extension__({\n         if (len >= 2)\n             ;\n         else\n             __assert_fail(\"len >= 2\",\n                           \"/home/bbzs/code/reporeflectrust/data/project/CBench/Megalania/src/lzma_packet_encoder.c\",\n                           45, __extension__ __PRETTY_FUNCTION__);\n     }));\n    len -= 2;\n    if (len < (1 << 3))\n    {\n        encode_bit(0, &probs->choice_1, enc);\n        encode_bit_tree(len, probs->low_coder[ctx_pos_bits], 3, enc);\n    }\n    else\n    {\n        len -= (1 << 3);\n        encode_bit(1, &probs->choice_1, enc);\n        if (len < (1 << 3))\n        {\n            encode_bit(0, &probs->choice_2, enc);\n            encode_bit_tree(len, probs->mid_coder[ctx_pos_bits], 3, enc);\n        }\n        else\n        {\n            len -= (1 << 3);\n            encode_bit(1, &probs->choice_2, enc);\n            encode_bit_tree(len, probs->high_coder, 8, enc);\n        }\n    }\n}",
+          "get_msb32": "static inline unsigned get_msb32(register unsigned val)\n{\n    return 32 - __builtin_clz(val);\n}",
+          "lzma_encode_distance": "static void lzma_encode_distance(LZMAState *lzma_state, EncoderInterface *enc, unsigned dist, unsigned len)\n{\n    unsigned len_ctx = len - 2;\n    if (len_ctx >= 4)\n    {\n        len_ctx = 4 - 1;\n    }\n    DistanceProbabilityModel *probs = &lzma_state->probs.dist;\n    if (dist < 4)\n    {\n        encode_bit_tree(dist, probs->pos_slot_coder[len_ctx], 6, enc);\n        return;\n    }\n    unsigned num_low_bits = get_msb32(dist) - 2;\n    unsigned low_bits = dist & ((1 << num_low_bits) - 1);\n    unsigned high_bits = dist >> num_low_bits;\n    unsigned pos_slot = num_low_bits * 2 + high_bits;\n    encode_bit_tree(pos_slot, probs->pos_slot_coder[len_ctx], 6, enc);\n    if (pos_slot < 14)\n    {\n        unsigned pos_coder_ctx = (high_bits << num_low_bits) - pos_slot;\n        encode_bit_tree_reverse(low_bits, probs->pos_coder + pos_coder_ctx, num_low_bits, enc);\n        return;\n    }\n    unsigned num_direct_bits = num_low_bits - 4;\n    num_low_bits = 4;\n    unsigned direct_bits = low_bits >> 4;\n    low_bits = low_bits & ((1 << num_low_bits) - 1);\n    encode_direct_bits(direct_bits, num_direct_bits, enc);\n    encode_bit_tree_reverse(low_bits, probs->align_coder, num_low_bits, enc);\n}",
+          "lzma_encode_literal": "static void lzma_encode_literal(LZMAState *lzma_state, EncoderInterface *enc)\n{\n    LZMAPacketHeader head = {.match = 0};\n    lzma_encode_packet_header(lzma_state, enc, &head);\n    LZMAProbabilityModel *probs = &lzma_state->probs;\n    unsigned symbol = 1;\n    unsigned lit_ctx = 0;\n    uint16_t *lit_probs = &probs->lit[0x300 * lit_ctx];\n    uint8_t lit = lzma_state->data[lzma_state->position];\n    _Bool matched = lzma_state->ctx_state >= 7;\n    uint8_t match_byte = 0;\n    if (matched)\n    {\n        match_byte = lzma_state->data[lzma_state->position - lzma_state->dists[0] - 1];\n    }\n    for (int i = 7; i >= 0; i--)\n    {\n        _Bool bit = (lit >> i) & 1;\n        unsigned context = symbol;\n        if (matched)\n        {\n            int match_bit = (match_byte >> i) & 1;\n            context += ((1 + match_bit) << 8);\n            matched = (match_bit == bit);\n        }\n        encode_bit(bit, &lit_probs[context], enc);\n        symbol = (symbol << 1) | bit;\n    }\n}",
+          "lzma_encode_match": "static void lzma_encode_match(LZMAState *lzma_state, EncoderInterface *enc, unsigned dist, unsigned len)\n{\n    LZMAPacketHeader head = {.match = 1, .rep = 0};\n    lzma_encode_packet_header(lzma_state, enc, &head);\n    lzma_state_push_distance(lzma_state, dist);\n    lzma_encode_length(&lzma_state->probs.len, enc, len);\n    lzma_encode_distance(lzma_state, enc, dist, len);\n}",
+          "lzma_encode_short_rep": "static void lzma_encode_short_rep(LZMAState *lzma_state, EncoderInterface *enc)\n{\n    LZMAPacketHeader head = {.match = 1, .rep = 1, .b3 = 0, .b4 = 0};\n    lzma_encode_packet_header(lzma_state, enc, &head);\n}",
+          "lzma_encode_long_rep": "static void lzma_encode_long_rep(LZMAState *lzma_state, EncoderInterface *enc, unsigned dist_index, unsigned len)\n{\n    LZMAPacketHeader head = {\n        .match = 1, .rep = 1, .b3 = (dist_index != 0), .b4 = (dist_index != 1), .b5 = (dist_index != 2)};\n    lzma_encode_packet_header(lzma_state, enc, &head);\n    lzma_state_promote_distance_at(lzma_state, dist_index);\n    lzma_encode_length(&lzma_state->probs.rep_len, enc, len);\n}",
+          "lzma_encode_packet": "void lzma_encode_packet(LZMAState *lzma_state, EncoderInterface *enc, LZMAPacket packet)\n{\n    unsigned type = packet.type;\n    unsigned len = packet.len;\n    unsigned dist = packet.dist;\n    switch (type)\n    {\n    case 1:\n        lzma_encode_literal(lzma_state, enc);\n        break;\n    case 2:\n        lzma_encode_match(lzma_state, enc, dist, len);\n        break;\n    case 3:\n        lzma_encode_short_rep(lzma_state, enc);\n        break;\n    case 4:\n        lzma_encode_long_rep(lzma_state, enc, dist, len);\n        break;\n    case 0:\n    default:\n        ((void)sizeof((0) ? 1 : 0), __extension__({\n             if (0)\n                 ;\n             else\n                 __assert_fail(\n                     \"false\", \"/home/bbzs/code/reporeflectrust/data/project/CBench/Megalania/src/lzma_packet_encoder.c\",\n                     189, __extension__ __PRETTY_FUNCTION__);\n         }));\n        break;\n    }\n    lzma_state_update_ctx_state(lzma_state, type);\n    lzma_state->position += len;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/lzma_packet.i": {
+      "relative_path": "src/lzma_packet.i",
+      "original_file": "src/lzma_packet.c",
+      "includes": [
+        "lzma_packet.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "LZMAPacket": "typedef struct\n{\n    uint8_t type;\n    uint32_t dist;\n    uint16_t len;\n} LZMAPacket;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "lzma_packet_cmp": "_Bool lzma_packet_cmp(const LZMAPacket *a, const LZMAPacket *b)\n{\n    return a->type == b->type && a->len == b->len && a->dist == b->dist;\n}",
+          "literal_packet": "LZMAPacket literal_packet()\n{\n    LZMAPacket packet = {.type = 1, .dist = 0, .len = 1};\n    return packet;\n}",
+          "match_packet": "LZMAPacket match_packet(unsigned dist, unsigned len)\n{\n    LZMAPacket packet = {.type = 2, .dist = dist, .len = len};\n    return packet;\n}",
+          "short_rep_packet": "LZMAPacket short_rep_packet()\n{\n    LZMAPacket packet = {.type = 3, .dist = 0, .len = 1};\n    return packet;\n}",
+          "long_rep_packet": "LZMAPacket long_rep_packet(unsigned dist_index, unsigned len)\n{\n    LZMAPacket packet = {.type = 4, .dist = dist_index, .len = len};\n    return packet;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/memory_mapper.i": {
+      "relative_path": "src/memory_mapper.i",
+      "original_file": "src/memory_mapper.c",
+      "includes": [
+        "memory_mapper.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "map_file": "int map_file(const char *filename, const uint8_t **data, size_t *data_size)\n{\n    int fd = open(filename, 00);\n    if (fd < 0)\n    {\n        fprintf(stderr, \"could not open %s\\n\", filename);\n        return -1;\n    }\n    struct stat buf;\n    if (fstat(fd, &buf) < 0)\n    {\n        fprintf(stderr, \"could not stat %s\\n\", filename);\n        return -1;\n    }\n    void *map = mmap(0, buf.st_size, 0x1, 0x02, fd, 0);\n    if (map == ((void *)-1))\n    {\n        fprintf(stderr, \"could not mmap %s\\n\", filename);\n        return -1;\n    }\n    if (close(fd) < 0)\n    {\n        fprintf(stderr, \"could not close fd %d\\n\", fd);\n        return -1;\n    }\n    *data_size = buf.st_size;\n    *data = (uint8_t *)map;\n    return 0;\n}",
+          "map_anonymous": "int map_anonymous(size_t data_size, uint8_t **data)\n{\n    void *map = mmap(0, data_size, 0x1 | 0x2, 0x01 | 0x20, 0, 0);\n    if (map == ((void *)-1))\n    {\n        fprintf(stderr, \"could map anonymous memory of size %ld\\n\", data_size);\n        return -1;\n    }\n    *data = (uint8_t *)map;\n    return 0;\n}",
+          "unmap": "int unmap(const uint8_t *data, size_t data_size)\n{\n    if (munmap((void *)data, data_size) < 0)\n    {\n        fprintf(stderr, \"could not munmap data\\n\");\n        return -1;\n    }\n    return 0;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/packet_enumerator.i": {
+      "relative_path": "src/packet_enumerator.i",
+      "original_file": "src/packet_enumerator.c",
+      "includes": [
+        "packet_enumerator.h",
+        "substring_enumerator.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "LengthProbabilityModel": "typedef struct\n{\n    uint16_t choice_1;\n    uint16_t choice_2;\n    uint16_t low_coder[1 << 4][1 << 3];\n    uint16_t mid_coder[1 << 4][1 << 3];\n    uint16_t high_coder[1 << 8];\n} LengthProbabilityModel;",
+          "DistanceProbabilityModel": "typedef struct\n{\n    uint16_t pos_slot_coder[4][1 << 6];\n    uint16_t align_coder[1 << 4];\n    uint16_t pos_coder[1 + (1 << (14 >> 1)) - 14];\n} DistanceProbabilityModel;",
+          "ContextStateProbabilityModel": "typedef struct\n{\n    uint16_t is_match[12 << 4];\n    uint16_t is_rep[12];\n    uint16_t is_rep_g0[12];\n    uint16_t is_rep_g1[12];\n    uint16_t is_rep_g2[12];\n    uint16_t is_rep0_long[12 << 4];\n} ContextStateProbabilityModel;",
+          "LZMAProbabilityModel": "typedef struct\n{\n    uint16_t lit[0x300];\n    LengthProbabilityModel len;\n    LengthProbabilityModel rep_len;\n    DistanceProbabilityModel dist;\n    ContextStateProbabilityModel ctx_state;\n} LZMAProbabilityModel;",
+          "LZMAProperties": "typedef struct\n{\n    uint8_t lc;\n    uint8_t lp;\n    uint8_t pb;\n} LZMAProperties;",
+          "LZMAState": "typedef struct\n{\n    const uint8_t *data;\n    size_t data_size;\n    LZMAProperties properties;\n    uint8_t ctx_state;\n    uint32_t dists[4];\n    LZMAProbabilityModel probs;\n    size_t position;\n} LZMAState;",
+          "LZMAPacket": "typedef struct\n{\n    uint8_t type;\n    uint32_t dist;\n    uint16_t len;\n} LZMAPacket;",
+          "PacketEnumerator": "typedef struct PacketEnumerator_struct PacketEnumerator;",
+          "SubstringEnumerator": "typedef struct SubstringEnumerator_struct SubstringEnumerator;",
+          "PacketEnumerator_struct": "struct PacketEnumerator_struct\n{\n    const uint8_t *data;\n    size_t data_size;\n    SubstringEnumerator *substring_enumerator;\n}",
+          "PacketEnumeratorSubstringCallbackData": "typedef struct\n{\n    const LZMAState *lzma_state;\n    PacketEnumeratorCallback callback;\n    void *user_data;\n} PacketEnumeratorSubstringCallbackData;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "packet_enumerator_memory_usage": "size_t packet_enumerator_memory_usage(size_t data_size)\n{\n    return sizeof(PacketEnumerator) + substring_enumerator_memory_usage(data_size);\n}",
+          "packet_enumerator_new": "PacketEnumerator *packet_enumerator_new(const uint8_t *data, size_t data_size)\n{\n    PacketEnumerator *enumerator = malloc(sizeof(PacketEnumerator));\n    enumerator->data = data;\n    enumerator->data_size = data_size;\n    enumerator->substring_enumerator = substring_enumerator_new(data, data_size, 2, 273);\n    return enumerator;\n}",
+          "packet_enumerator_free": "void packet_enumerator_free(PacketEnumerator *enumerator)\n{\n    substring_enumerator_free(enumerator->substring_enumerator);\n    free(enumerator);\n}",
+          "packet_enumerator_substring_callback": "static void packet_enumerator_substring_callback(void *user_data, size_t offset, size_t length)\n{\n    PacketEnumeratorSubstringCallbackData *data = (PacketEnumeratorSubstringCallbackData *)user_data;\n    const LZMAState *lzma_state = data->lzma_state;\n    PacketEnumeratorCallback callback = data->callback;\n    void *callback_user_data = data->user_data;\n    unsigned dist = lzma_state->position - offset - 1;\n    (*callback)(callback_user_data, lzma_state, match_packet(dist, length));\n    for (int i = 0; i < 4; i++)\n    {\n        if (dist == lzma_state->dists[i])\n        {\n            (*callback)(callback_user_data, lzma_state, long_rep_packet(i, length));\n        }\n    }\n}",
+          "packet_enumerator_for_each": "void packet_enumerator_for_each(const PacketEnumerator *enumerator, const LZMAState *lzma_state,\n                                PacketEnumeratorCallback callback, void *user_data)\n{\n    ((void)sizeof((enumerator->data == lzma_state->data) ? 1 : 0), __extension__({\n         if (enumerator->data == lzma_state->data)\n             ;\n         else\n             __assert_fail(\"enumerator->data == lzma_state->data\",\n                           \"/home/bbzs/code/reporeflectrust/data/project/CBench/Megalania/src/packet_enumerator.c\", 58,\n                           __extension__ __PRETTY_FUNCTION__);\n     }));\n    (*callback)(user_data, lzma_state, literal_packet());\n    if (lzma_state->position > 0)\n    {\n        size_t rep0_position = lzma_state->position - lzma_state->dists[0] - 1;\n        if (enumerator->data[lzma_state->position] == enumerator->data[rep0_position])\n        {\n            (*callback)(user_data, lzma_state, short_rep_packet());\n        }\n    }\n    PacketEnumeratorSubstringCallbackData data = {\n        .lzma_state = lzma_state, .callback = callback, .user_data = user_data};\n    substring_enumerator_for_each(enumerator->substring_enumerator, lzma_state->position,\n                                  packet_enumerator_substring_callback, &data);\n}"
+        },
+        "typedefs": {
+          "PacketEnumeratorCallback": "typedef void (*PacketEnumeratorCallback)(void *user_data, const LZMAState *state, LZMAPacket packet);",
+          "SubstringEnumeratorCallback": "typedef void (*SubstringEnumeratorCallback)(void *user_data, size_t offset, size_t length);"
+        }
+      }
+    },
+    "src/probability_model.i": {
+      "relative_path": "src/probability_model.i",
+      "original_file": "src/probability_model.c",
+      "includes": [
+        "probability_model.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "EncoderInterface": "typedef struct EncoderInterface_struct EncoderInterface;",
+          "EncoderInterface_struct": "struct EncoderInterface_struct\n{\n    void (*encode_bit)(EncoderInterface *enc, _Bool bit, uint16_t prob);\n    void (*encode_direct_bits)(EncoderInterface *enc, unsigned bits, unsigned num_bits);\n    void *private_data;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "encode_bit": "void encode_bit(_Bool bit, uint16_t *prob, EncoderInterface *enc)\n{\n    (*enc->encode_bit)(enc, bit, *prob);\n    unsigned v = *prob;\n    if (bit)\n    {\n        v -= v >> 5;\n    }\n    else\n    {\n        v += ((1 << 11) - v) >> 5;\n    }\n    *prob = (uint16_t)v;\n}",
+          "encode_direct_bits": "void encode_direct_bits(unsigned bits, size_t num_bits, EncoderInterface *enc)\n{\n    (*enc->encode_direct_bits)(enc, bits, num_bits);\n}",
+          "encode_bit_tree": "void encode_bit_tree(unsigned bits, uint16_t *probs, size_t num_bits, EncoderInterface *enc)\n{\n    unsigned m = 1;\n    for (unsigned bit_index = num_bits; bit_index != 0;)\n    {\n        bit_index--;\n        int bit = (bits >> bit_index) & 1;\n        encode_bit(bit, &probs[m], enc);\n        m = (m << 1) | bit;\n    }\n}",
+          "encode_bit_tree_reverse": "void encode_bit_tree_reverse(unsigned bits, uint16_t *probs, size_t num_bits, EncoderInterface *enc)\n{\n    unsigned m = 1;\n    for (unsigned i = 0; i < num_bits; i++)\n    {\n        int bit = bits & 1;\n        encode_bit(bit, &probs[m], enc);\n        m = (m << 1) | bit;\n        bits >>= 1;\n    }\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/packet_slab.i": {
+      "relative_path": "src/packet_slab.i",
+      "original_file": "src/packet_slab.c",
+      "includes": [
+        "packet_slab.h",
+        "memory_mapper.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "LZMAPacket": "typedef struct\n{\n    uint8_t type;\n    uint32_t dist;\n    uint16_t len;\n} LZMAPacket;",
+          "PacketSlab": "typedef struct PacketSlab_struct PacketSlab;",
+          "PacketSlab_struct": "struct PacketSlab_struct\n{\n    size_t data_size;\n    LZMAPacket *packets;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "packet_slab_memory_usage": "size_t packet_slab_memory_usage(size_t data_size)\n{\n    return sizeof(LZMAPacket) * data_size + sizeof(PacketSlab);\n}",
+          "packet_slab_new": "PacketSlab *packet_slab_new(size_t data_size)\n{\n    PacketSlab *slab = malloc(sizeof(PacketSlab));\n    if (slab == ((void *)0))\n    {\n        return ((void *)0);\n    }\n    slab->data_size = data_size;\n    uint8_t *packets;\n    if (map_anonymous(sizeof(LZMAPacket) * data_size, &packets))\n    {\n        free(slab);\n        return ((void *)0);\n    }\n    slab->packets = (LZMAPacket *)packets;\n    for (size_t i = 0; i < data_size; i++)\n    {\n        slab->packets[i] = literal_packet();\n    }\n    return slab;\n}",
+          "packet_slab_free": "void packet_slab_free(PacketSlab *slab)\n{\n    unmap((uint8_t *)slab->packets, sizeof(LZMAPacket) * slab->data_size);\n    free(slab);\n}",
+          "packet_slab_size": "size_t packet_slab_size(const PacketSlab *slab)\n{\n    return slab->data_size;\n}",
+          "packet_slab_count": "size_t packet_slab_count(const PacketSlab *slab)\n{\n    size_t position = 0;\n    size_t count = 0;\n    while (position < slab->data_size)\n    {\n        count++;\n        position += slab->packets[position].len;\n    }\n    return count;\n}",
+          "packet_slab_packets": "LZMAPacket *packet_slab_packets(PacketSlab *slab)\n{\n    return slab->packets;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/main.i": {
+      "relative_path": "src/main.i",
+      "original_file": "src/main.c",
+      "includes": [
+        "memory_mapper.h",
+        "file_output.h",
+        "range_encoder.h",
+        "lzma_state.h",
+        "lzma_header_encoder.h",
+        "lzma_packet_encoder.h",
+        "packet_enumerator.h",
+        "packet_slab.h",
+        "packet_slab_neighbour.h",
+        "top_k_packet_finder.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "OutputInterface": "typedef struct OutputInterface_struct OutputInterface;",
+          "OutputInterface_struct": "struct OutputInterface_struct\n{\n    _Bool (*write)(OutputInterface *enc, const void *data, size_t data_size);\n    void *private_data;\n}",
+          "EncoderInterface": "typedef struct EncoderInterface_struct EncoderInterface;",
+          "EncoderInterface_struct": "struct EncoderInterface_struct\n{\n    void (*encode_bit)(EncoderInterface *enc, _Bool bit, uint16_t prob);\n    void (*encode_direct_bits)(EncoderInterface *enc, unsigned bits, unsigned num_bits);\n    void *private_data;\n}",
+          "LengthProbabilityModel": "typedef struct\n{\n    uint16_t choice_1;\n    uint16_t choice_2;\n    uint16_t low_coder[1 << 4][1 << 3];\n    uint16_t mid_coder[1 << 4][1 << 3];\n    uint16_t high_coder[1 << 8];\n} LengthProbabilityModel;",
+          "DistanceProbabilityModel": "typedef struct\n{\n    uint16_t pos_slot_coder[4][1 << 6];\n    uint16_t align_coder[1 << 4];\n    uint16_t pos_coder[1 + (1 << (14 >> 1)) - 14];\n} DistanceProbabilityModel;",
+          "ContextStateProbabilityModel": "typedef struct\n{\n    uint16_t is_match[12 << 4];\n    uint16_t is_rep[12];\n    uint16_t is_rep_g0[12];\n    uint16_t is_rep_g1[12];\n    uint16_t is_rep_g2[12];\n    uint16_t is_rep0_long[12 << 4];\n} ContextStateProbabilityModel;",
+          "LZMAProbabilityModel": "typedef struct\n{\n    uint16_t lit[0x300];\n    LengthProbabilityModel len;\n    LengthProbabilityModel rep_len;\n    DistanceProbabilityModel dist;\n    ContextStateProbabilityModel ctx_state;\n} LZMAProbabilityModel;",
+          "LZMAProperties": "typedef struct\n{\n    uint8_t lc;\n    uint8_t lp;\n    uint8_t pb;\n} LZMAProperties;",
+          "LZMAState": "typedef struct\n{\n    const uint8_t *data;\n    size_t data_size;\n    LZMAProperties properties;\n    uint8_t ctx_state;\n    uint32_t dists[4];\n    LZMAProbabilityModel probs;\n    size_t position;\n} LZMAState;",
+          "LZMAPacket": "typedef struct\n{\n    uint8_t type;\n    uint32_t dist;\n    uint16_t len;\n} LZMAPacket;",
+          "PacketEnumerator": "typedef struct PacketEnumerator_struct PacketEnumerator;",
+          "PacketSlab": "typedef struct PacketSlab_struct PacketSlab;",
+          "PacketSlabUndo": "typedef struct\n{\n    size_t position;\n    LZMAPacket old_packet;\n} PacketSlabUndo;",
+          "PacketSlabUndoHeap": "typedef struct PacketSlabUndoHeap_struct PacketSlabUndoHeap;",
+          "PacketSlabUndoStack": "typedef struct\n{\n    size_t total_count;\n    size_t count;\n    PacketSlabUndo stack[16];\n    PacketSlabUndoHeap *last;\n} PacketSlabUndoStack;",
+          "TopKPacketFinder": "typedef struct TopKPacketFinder_struct TopKPacketFinder;",
+          "PacketSlabNeighbour": "typedef struct\n{\n    LZMAState init_state;\n    PacketSlab *slab;\n    uint64_t perplexity;\n    PacketSlabUndoStack undo_stack;\n} PacketSlabNeighbour;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "main": "int main(int argc, char **argv)\n{\n    if (argc != 2)\n    {\n        fprintf(stderr, \"usage: %s filename\\n\", argv[0]);\n        return -1;\n    }\n    const uint8_t *file_data;\n    size_t file_size;\n    if (map_file(argv[1], &file_data, &file_size) < 0)\n    {\n        return -1;\n    }\n    if (file_size == 0)\n    {\n        return 0;\n    }\n    LZMAState init_state;\n    LZMAProperties properties = {.lc = 0, .lp = 0, .pb = 0};\n    lzma_state_init(&init_state, file_data, file_size, properties);\n    PacketEnumerator *packet_enumerator = packet_enumerator_new(file_data, file_size);\n    TopKPacketFinder *packet_finder = top_k_packet_finder_new(20, packet_enumerator);\n    PacketSlab *packet_slab_best = packet_slab_new(file_size);\n    LZMAPacket *packets_best = packet_slab_packets(packet_slab_best);\n    uint64_t best_perplexity = 0;\n    const int num_epochs = 200;\n    const int num_iters = file_size;\n    srand(1673551);\n    for (unsigned step = 0; step < 3; step++)\n    {\n        for (unsigned epoch = 0; epoch < num_epochs; epoch++)\n        {\n            PacketSlab *packet_slab = packet_slab_new(file_size);\n            LZMAPacket *packets = packet_slab_packets(packet_slab);\n            PacketSlabNeighbour neighbour;\n            uint64_t current_perplexity = 0;\n            if (step != 0)\n            {\n                memcpy(packets, packets_best, sizeof(LZMAPacket) * file_size);\n            }\n            for (int i = 0; i < num_iters; i++)\n            {\n                packet_slab_neighbour_new(&neighbour, packet_slab, init_state);\n                _Bool success = packet_slab_neighbour_generate(&neighbour, packet_finder);\n                if (!success)\n                {\n                    i--;\n                    continue;\n                }\n                _Bool transition = rand() % (i * i + 1 + step * num_iters / 2) < sqrt(num_iters);\n                if (current_perplexity == 0 || neighbour.perplexity < current_perplexity || transition)\n                {\n                    current_perplexity = neighbour.perplexity;\n                    if (best_perplexity == 0 || current_perplexity < best_perplexity)\n                    {\n                        best_perplexity = current_perplexity;\n                        memcpy(packets_best, packets, sizeof(LZMAPacket) * file_size);\n                    }\n                }\n                else\n                {\n                    packet_slab_neighbour_undo(&neighbour);\n                }\n                if (i % 100 == 0)\n                {\n                    fprintf(stderr, \"current file size: %f\\tstep: %d\\tepoch: %04d - %.1f%%\\n\",\n                            18 + current_perplexity / 16384.f, step + 1, epoch, ((float)i) / num_iters * 100);\n                }\n                packet_slab_neighbour_free(&neighbour);\n            }\n            packet_slab_free(packet_slab);\n        }\n    }\n    top_k_packet_finder_free(packet_finder);\n    packet_enumerator_free(packet_enumerator);\n    OutputInterface output;\n    file_output_new(&output, stdout);\n    LZMAState state = init_state;\n    lzma_encode_header(&state, &output);\n    EncoderInterface enc;\n    range_encoder_new(&enc, &output);\n    while (state.position < state.data_size)\n    {\n        lzma_encode_packet(&state, &enc, packets_best[state.position]);\n    }\n    range_encoder_free(&enc);\n    packet_slab_free(packet_slab_best);\n    if (unmap(file_data, file_size) < 0)\n    {\n        return -1;\n    }\n    return 0;\n}"
+        },
+        "typedefs": {
+          "PacketEnumeratorCallback": "typedef void (*PacketEnumeratorCallback)(void *user_data, const LZMAState *state, LZMAPacket packet);"
+        }
+      }
+    },
+    "src/lzma_header_encoder.i": {
+      "relative_path": "src/lzma_header_encoder.i",
+      "original_file": "src/lzma_header_encoder.c",
+      "includes": [
+        "lzma_header_encoder.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "LengthProbabilityModel": "typedef struct\n{\n    uint16_t choice_1;\n    uint16_t choice_2;\n    uint16_t low_coder[1 << 4][1 << 3];\n    uint16_t mid_coder[1 << 4][1 << 3];\n    uint16_t high_coder[1 << 8];\n} LengthProbabilityModel;",
+          "DistanceProbabilityModel": "typedef struct\n{\n    uint16_t pos_slot_coder[4][1 << 6];\n    uint16_t align_coder[1 << 4];\n    uint16_t pos_coder[1 + (1 << (14 >> 1)) - 14];\n} DistanceProbabilityModel;",
+          "ContextStateProbabilityModel": "typedef struct\n{\n    uint16_t is_match[12 << 4];\n    uint16_t is_rep[12];\n    uint16_t is_rep_g0[12];\n    uint16_t is_rep_g1[12];\n    uint16_t is_rep_g2[12];\n    uint16_t is_rep0_long[12 << 4];\n} ContextStateProbabilityModel;",
+          "LZMAProbabilityModel": "typedef struct\n{\n    uint16_t lit[0x300];\n    LengthProbabilityModel len;\n    LengthProbabilityModel rep_len;\n    DistanceProbabilityModel dist;\n    ContextStateProbabilityModel ctx_state;\n} LZMAProbabilityModel;",
+          "LZMAProperties": "typedef struct\n{\n    uint8_t lc;\n    uint8_t lp;\n    uint8_t pb;\n} LZMAProperties;",
+          "LZMAState": "typedef struct\n{\n    const uint8_t *data;\n    size_t data_size;\n    LZMAProperties properties;\n    uint8_t ctx_state;\n    uint32_t dists[4];\n    LZMAProbabilityModel probs;\n    size_t position;\n} LZMAState;",
+          "OutputInterface": "typedef struct OutputInterface_struct OutputInterface;",
+          "OutputInterface_struct": "struct OutputInterface_struct\n{\n    _Bool (*write)(OutputInterface *enc, const void *data, size_t data_size);\n    void *private_data;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "lzma_encode_header_properties": "static uint8_t lzma_encode_header_properties(const LZMAState *lzma_state)\n{\n    const LZMAProperties *p = &lzma_state->properties;\n    return ((p->pb * 5 + p->lp) * 9 + p->lc);\n}",
+          "lzma_encode_header": "void lzma_encode_header(const LZMAState *lzma_state, OutputInterface *output)\n{\n    uint8_t props = lzma_encode_header_properties(lzma_state);\n    (*output->write)(output, &props, sizeof(uint8_t));\n    uint32_t dictsize = __uint32_identity(0x400000);\n    (*output->write)(output, &dictsize, sizeof(uint32_t));\n    uint64_t outsize = __uint32_identity(lzma_state->data_size);\n    (*output->write)(output, &outsize, sizeof(uint64_t));\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/top_k_packet_finder.i": {
+      "relative_path": "src/top_k_packet_finder.i",
+      "original_file": "src/top_k_packet_finder.c",
+      "includes": [
+        "top_k_packet_finder.h",
+        "perplexity_encoder.h",
+        "lzma_packet_encoder.h",
+        "max_heap.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "LZMAPacket": "typedef struct\n{\n    uint8_t type;\n    uint32_t dist;\n    uint16_t len;\n} LZMAPacket;",
+          "LengthProbabilityModel": "typedef struct\n{\n    uint16_t choice_1;\n    uint16_t choice_2;\n    uint16_t low_coder[1 << 4][1 << 3];\n    uint16_t mid_coder[1 << 4][1 << 3];\n    uint16_t high_coder[1 << 8];\n} LengthProbabilityModel;",
+          "DistanceProbabilityModel": "typedef struct\n{\n    uint16_t pos_slot_coder[4][1 << 6];\n    uint16_t align_coder[1 << 4];\n    uint16_t pos_coder[1 + (1 << (14 >> 1)) - 14];\n} DistanceProbabilityModel;",
+          "ContextStateProbabilityModel": "typedef struct\n{\n    uint16_t is_match[12 << 4];\n    uint16_t is_rep[12];\n    uint16_t is_rep_g0[12];\n    uint16_t is_rep_g1[12];\n    uint16_t is_rep_g2[12];\n    uint16_t is_rep0_long[12 << 4];\n} ContextStateProbabilityModel;",
+          "LZMAProbabilityModel": "typedef struct\n{\n    uint16_t lit[0x300];\n    LengthProbabilityModel len;\n    LengthProbabilityModel rep_len;\n    DistanceProbabilityModel dist;\n    ContextStateProbabilityModel ctx_state;\n} LZMAProbabilityModel;",
+          "LZMAProperties": "typedef struct\n{\n    uint8_t lc;\n    uint8_t lp;\n    uint8_t pb;\n} LZMAProperties;",
+          "LZMAState": "typedef struct\n{\n    const uint8_t *data;\n    size_t data_size;\n    LZMAProperties properties;\n    uint8_t ctx_state;\n    uint32_t dists[4];\n    LZMAProbabilityModel probs;\n    size_t position;\n} LZMAState;",
+          "PacketEnumerator": "typedef struct PacketEnumerator_struct PacketEnumerator;",
+          "TopKPacketFinder": "typedef struct TopKPacketFinder_struct TopKPacketFinder;",
+          "EncoderInterface": "typedef struct EncoderInterface_struct EncoderInterface;",
+          "EncoderInterface_struct": "struct EncoderInterface_struct\n{\n    void (*encode_bit)(EncoderInterface *enc, _Bool bit, uint16_t prob);\n    void (*encode_direct_bits)(EncoderInterface *enc, unsigned bits, unsigned num_bits);\n    void *private_data;\n}",
+          "MaxHeap": "typedef struct MaxHeap_struct MaxHeap;",
+          "TopKEntry": "typedef struct\n{\n    LZMAPacket packet;\n    float cost;\n} TopKEntry;",
+          "TopKPacketFinder_struct": "struct TopKPacketFinder_struct\n{\n    size_t size;\n    TopKEntry *entries;\n    LZMAPacket *next_packets;\n    MaxHeap *heap;\n    const PacketEnumerator *packet_enumerator;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "sign": "static int sign(float x)\n{\n    if (x < 0.f)\n        return -1;\n    if (x > 0.f)\n        return 1;\n    return 0;\n}",
+          "top_k_entry_comparator": "static int top_k_entry_comparator(void *user_data, unsigned a, unsigned b)\n{\n    TopKPacketFinder *finder = (TopKPacketFinder *)user_data;\n    ((void)sizeof((a < finder->size) ? 1 : 0), __extension__({\n         if (a < finder->size)\n             ;\n         else\n             __assert_fail(\"a < finder->size\",\n                           \"/home/bbzs/code/reporeflectrust/data/project/CBench/Megalania/src/top_k_packet_finder.c\",\n                           31, __extension__ __PRETTY_FUNCTION__);\n     }));\n    ((void)sizeof((b < finder->size) ? 1 : 0), __extension__({\n         if (b < finder->size)\n             ;\n         else\n             __assert_fail(\"b < finder->size\",\n                           \"/home/bbzs/code/reporeflectrust/data/project/CBench/Megalania/src/top_k_packet_finder.c\",\n                           32, __extension__ __PRETTY_FUNCTION__);\n     }));\n    TopKEntry *entry_a = &finder->entries[a];\n    TopKEntry *entry_b = &finder->entries[b];\n    return sign(entry_a->cost - entry_b->cost);\n}",
+          "top_k_packet_finder_new": "TopKPacketFinder *top_k_packet_finder_new(size_t size, const PacketEnumerator *packet_enumerator)\n{\n    TopKPacketFinder *finder = malloc(sizeof(TopKPacketFinder));\n    if (finder == ((void *)0))\n    {\n        return ((void *)0);\n    }\n    finder->size = size;\n    finder->packet_enumerator = packet_enumerator;\n    finder->entries = malloc(sizeof(TopKEntry) * size);\n    if (finder->entries == ((void *)0))\n    {\n        free(finder);\n        return ((void *)0);\n    }\n    finder->heap = max_heap_new(size, top_k_entry_comparator, finder);\n    if (finder->heap == ((void *)0))\n    {\n        free(finder->entries);\n        free(finder);\n        return ((void *)0);\n    }\n    return finder;\n}",
+          "top_k_packet_finder_free": "void top_k_packet_finder_free(TopKPacketFinder *finder)\n{\n    max_heap_free(finder->heap);\n    free(finder->entries);\n    free(finder);\n}",
+          "top_k_packet_finder_count": "size_t top_k_packet_finder_count(const TopKPacketFinder *finder)\n{\n    return max_heap_count(finder->heap);\n}",
+          "top_k_entry_finder_insert": "static void top_k_entry_finder_insert(TopKPacketFinder *finder, TopKEntry entry)\n{\n    size_t count = top_k_packet_finder_count(finder);\n    if (count < finder->size)\n    {\n        size_t pos = count++;\n        finder->entries[pos] = entry;\n        max_heap_insert(finder->heap, pos);\n        return;\n    }\n    unsigned maximum = 0;\n    _Bool had_max = max_heap_maximum(finder->heap, &maximum);\n    ((void)sizeof((had_max) ? 1 : 0), __extension__({\n         if (had_max)\n             ;\n         else\n             __assert_fail(\"had_max\",\n                           \"/home/bbzs/code/reporeflectrust/data/project/CBench/Megalania/src/top_k_packet_finder.c\",\n                           87, __extension__ __PRETTY_FUNCTION__);\n     }));\n    ((void)sizeof((maximum < finder->size) ? 1 : 0), __extension__({\n         if (maximum < finder->size)\n             ;\n         else\n             __assert_fail(\"maximum < finder->size\",\n                           \"/home/bbzs/code/reporeflectrust/data/project/CBench/Megalania/src/top_k_packet_finder.c\",\n                           88, __extension__ __PRETTY_FUNCTION__);\n     }));\n    if (entry.cost <= finder->entries[maximum].cost)\n    {\n        finder->entries[maximum] = entry;\n        max_heap_update_maximum(finder->heap);\n    }\n}",
+          "top_k_packet_finder_callback": "static void top_k_packet_finder_callback(void *user_data, const LZMAState *state, LZMAPacket packet)\n{\n    TopKPacketFinder *finder = (TopKPacketFinder *)user_data;\n    if (lzma_packet_cmp(&packet, &finder->next_packets[state->position]))\n    {\n        return;\n    }\n    LZMAState new_state = *state;\n    EncoderInterface enc;\n    uint64_t perplexity = 0;\n    size_t start_position = new_state.position;\n    perplexity_encoder_new(&enc, &perplexity);\n    lzma_encode_packet(&new_state, &enc, packet);\n    size_t length = new_state.position - start_position;\n    TopKEntry entry = {.packet = packet, .cost = perplexity / length};\n    top_k_entry_finder_insert(finder, entry);\n}",
+          "top_k_packet_finder_find": "void top_k_packet_finder_find(TopKPacketFinder *finder, const LZMAState *lzma_state, LZMAPacket *next_packets)\n{\n    finder->next_packets = next_packets;\n    max_heap_clear(finder->heap);\n    packet_enumerator_for_each(finder->packet_enumerator, lzma_state, top_k_packet_finder_callback, finder);\n}",
+          "top_k_packet_finder_pop": "_Bool top_k_packet_finder_pop(TopKPacketFinder *finder, LZMAPacket *packet)\n{\n    unsigned maximum;\n    if (!max_heap_maximum(finder->heap, &maximum))\n    {\n        return 0;\n    }\n    *packet = finder->entries[maximum].packet;\n    max_heap_remove_maximum(finder->heap);\n    return 1;\n}"
+        },
+        "typedefs": {
+          "PacketEnumeratorCallback": "typedef void (*PacketEnumeratorCallback)(void *user_data, const LZMAState *state, LZMAPacket packet);",
+          "MaxHeapComparator": "typedef int (*MaxHeapComparator)(void *comparator_data, unsigned a, unsigned b);"
+        }
+      }
+    },
+    "src/max_heap.i": {
+      "relative_path": "src/max_heap.i",
+      "original_file": "src/max_heap.c",
+      "includes": [
+        "max_heap.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "MaxHeap": "typedef struct MaxHeap_struct MaxHeap;",
+          "MaxHeap_struct": "struct MaxHeap_struct\n{\n    unsigned *store;\n    size_t store_size;\n    size_t count;\n    MaxHeapComparator comparator;\n    void *comparator_data;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "max_heap_new": "MaxHeap *max_heap_new(size_t size, MaxHeapComparator comparator, void *comparator_data)\n{\n    MaxHeap *heap = malloc(sizeof(MaxHeap));\n    if (heap == ((void *)0))\n    {\n        fprintf(stderr, \"Could not allocate memory for MaxHeap.\\n\");\n        return ((void *)0);\n    }\n    heap->store = malloc(sizeof(unsigned) * size);\n    if (heap->store == ((void *)0))\n    {\n        fprintf(stderr, \"Could not allocate memory for MaxHeap store.\\n\");\n        free(heap);\n        return ((void *)0);\n    }\n    heap->store_size = size;\n    heap->count = 0;\n    heap->comparator = comparator;\n    heap->comparator_data = comparator_data;\n    return heap;\n}",
+          "max_heap_free": "void max_heap_free(MaxHeap *heap)\n{\n    if (heap == ((void *)0))\n    {\n        return;\n    }\n    free(heap->store);\n    free(heap);\n}",
+          "max_heap_count": "size_t max_heap_count(const MaxHeap *heap)\n{\n    return heap->count;\n}",
+          "max_heap_clear": "void max_heap_clear(MaxHeap *heap)\n{\n    heap->count = 0;\n}",
+          "swap": "static void swap(unsigned *a, unsigned *b)\n{\n    unsigned temp = *a;\n    *a = *b;\n    *b = temp;\n}",
+          "max_heap_parent": "static _Bool max_heap_parent(MaxHeap *heap, size_t index, size_t *parent)\n{\n    (void)heap;\n    *parent = (index - 1) / 2;\n    return index > 0;\n}",
+          "max_heap_left_child": "static _Bool max_heap_left_child(MaxHeap *heap, size_t index, size_t *left_child)\n{\n    *left_child = index * 2 + 1;\n    return *left_child < heap->count;\n}",
+          "max_heap_right_child": "static _Bool max_heap_right_child(MaxHeap *heap, size_t index, size_t *right_child)\n{\n    *right_child = index * 2 + 2;\n    return *right_child < heap->count;\n}",
+          "max_heap_bubble_down": "static void max_heap_bubble_down(MaxHeap *heap, size_t parent)\n{\n    MaxHeapComparator cmp = heap->comparator;\n    void *cmp_dat = heap->comparator_data;\n    size_t left_child;\n    size_t right_child;\n    while (max_heap_left_child(heap, parent, &left_child))\n    {\n        size_t largest_child = left_child;\n        if (max_heap_right_child(heap, parent, &right_child))\n        {\n            if ((*cmp)(cmp_dat, heap->store[right_child], heap->store[left_child]) > 0)\n            {\n                largest_child = right_child;\n            }\n        }\n        if ((*cmp)(cmp_dat, heap->store[largest_child], heap->store[parent]) > 0)\n        {\n            swap(&heap->store[largest_child], &heap->store[parent]);\n            parent = largest_child;\n        }\n        else\n        {\n            break;\n        }\n    }\n}",
+          "max_heap_bubble_up": "static void max_heap_bubble_up(MaxHeap *heap, size_t node)\n{\n    MaxHeapComparator cmp = heap->comparator;\n    void *cmp_dat = heap->comparator_data;\n    size_t parent;\n    while (max_heap_parent(heap, node, &parent))\n    {\n        if ((*cmp)(cmp_dat, heap->store[node], heap->store[parent]) > 0)\n        {\n            swap(&heap->store[node], &heap->store[parent]);\n            node = parent;\n        }\n        else\n        {\n            break;\n        }\n    }\n}",
+          "max_heap_insert": "_Bool max_heap_insert(MaxHeap *heap, unsigned value)\n{\n    if (heap->count == heap->store_size)\n    {\n        return 0;\n    }\n    size_t new_node = heap->count++;\n    heap->store[new_node] = value;\n    max_heap_bubble_up(heap, new_node);\n    return 1;\n}",
+          "max_heap_maximum": "_Bool max_heap_maximum(MaxHeap *heap, unsigned *value)\n{\n    if (heap->count == 0)\n    {\n        return 0;\n    }\n    *value = heap->store[0];\n    return 1;\n}",
+          "max_heap_remove_maximum": "_Bool max_heap_remove_maximum(MaxHeap *heap)\n{\n    if (heap->count == 0)\n    {\n        return 0;\n    }\n    heap->store[0] = heap->store[--heap->count];\n    max_heap_bubble_down(heap, 0);\n    return 1;\n}",
+          "max_heap_update_maximum": "_Bool max_heap_update_maximum(MaxHeap *heap)\n{\n    if (heap->count == 0)\n    {\n        return 0;\n    }\n    max_heap_bubble_down(heap, 0);\n    return 1;\n}"
+        },
+        "typedefs": {
+          "MaxHeapComparator": "typedef int (*MaxHeapComparator)(void *comparator_data, unsigned a, unsigned b);"
+        }
+      }
+    },
+    "src/substring_enumerator.i": {
+      "relative_path": "src/substring_enumerator.i",
+      "original_file": "src/substring_enumerator.c",
+      "includes": [
+        "substring_enumerator.h",
+        "memory_mapper.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "SubstringEnumerator": "typedef struct SubstringEnumerator_struct SubstringEnumerator;",
+          "SubstringEnumerator_struct": "struct SubstringEnumerator_struct\n{\n    const uint8_t *data;\n    size_t data_size;\n    size_t min_length;\n    size_t max_length;\n    size_t bigram_offsets[256][256];\n    size_t bigram_sizes[256][256];\n    size_t *bigram_positions;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "substring_enumerator_memory_usage": "size_t substring_enumerator_memory_usage(size_t data_size)\n{\n    return sizeof(size_t) * data_size + sizeof(SubstringEnumerator);\n}",
+          "memoize_bigram_positions": "static void memoize_bigram_positions(SubstringEnumerator *em)\n{\n    const uint8_t *data = em->data;\n    size_t data_size = em->data_size;\n    for (size_t i = 1; i < data_size; i++)\n    {\n        em->bigram_sizes[data[i - 1]][data[i]]++;\n    }\n    for (int i = 1; i < 256 * 256; i++)\n    {\n        int j = i - 1;\n        em->bigram_offsets[i % 256][i / 256] =\n            em->bigram_offsets[j % 256][j / 256] + em->bigram_sizes[j % 256][j / 256];\n    }\n    int fills[256][256] = {0};\n    for (size_t i = 1; i < data_size; i++)\n    {\n        uint8_t first = data[i - 1];\n        uint8_t second = data[i];\n        size_t offset = em->bigram_offsets[first][second] + fills[first][second];\n        em->bigram_positions[offset] = i - 1;\n        fills[first][second]++;\n    }\n}",
+          "substring_enumerator_new": "SubstringEnumerator *substring_enumerator_new(const uint8_t *data, size_t data_size, size_t min_length,\n                                              size_t max_length)\n{\n    if (min_length != 2)\n    {\n        fprintf(stderr, \"Error: only min_length = 2 is supported in substring_enumerator_callback\\n\");\n        return ((void *)0);\n    }\n    SubstringEnumerator *enumerator = malloc(sizeof(SubstringEnumerator));\n    if (enumerator == ((void *)0))\n    {\n        fprintf(stderr, \"Error: could not allocate memory in substring_enumerator_new\\n\");\n        return ((void *)0);\n    }\n    memset(enumerator, 0, sizeof(SubstringEnumerator));\n    enumerator->data = data;\n    enumerator->data_size = data_size;\n    enumerator->min_length = min_length;\n    enumerator->max_length = max_length;\n    uint8_t *bigram_positions;\n    if (map_anonymous(sizeof(size_t) * data_size, &bigram_positions))\n    {\n        free(enumerator);\n        return ((void *)0);\n    }\n    enumerator->bigram_positions = (size_t *)bigram_positions;\n    memoize_bigram_positions(enumerator);\n    return enumerator;\n}",
+          "substring_enumerator_free": "void substring_enumerator_free(SubstringEnumerator *enumerator)\n{\n    unmap((const uint8_t *)enumerator->bigram_positions, sizeof(size_t) * enumerator->data_size);\n    free(enumerator);\n}",
+          "substring_enumerator_for_each": "void substring_enumerator_for_each(const SubstringEnumerator *em, size_t pos, SubstringEnumeratorCallback callback,\n                                   void *user_data)\n{\n    if (pos == 0)\n        return;\n    if (pos == em->data_size - 1)\n        return;\n    uint8_t first = em->data[pos];\n    uint8_t second = em->data[pos + 1];\n    size_t offset = em->bigram_offsets[first][second];\n    size_t size = em->bigram_sizes[first][second];\n    for (size_t i = 0; i < size; i++)\n    {\n        size_t position = em->bigram_positions[offset + i];\n        if (position >= pos)\n            break;\n        callback(user_data, position, 2);\n        for (size_t j = 2; j < em->max_length && j + pos < em->data_size; j++)\n        {\n            if (em->data[pos + j] != em->data[position + j])\n                break;\n            callback(user_data, position, 1 + j);\n        }\n    }\n}"
+        },
+        "typedefs": {
+          "SubstringEnumeratorCallback": "typedef void (*SubstringEnumeratorCallback)(void *user_data, size_t offset, size_t length);"
+        }
+      }
+    },
+    "src/perplexity_encoder.i": {
+      "relative_path": "src/perplexity_encoder.i",
+      "original_file": "src/perplexity_encoder.c",
+      "includes": [
+        "perplexity_encoder.h",
+        "perplexity_table.h"
+      ],
+      "declarations": {
+        "globals": {
+          "LOG2_LOOKUP": "static const uint64_t LOG2_LOOKUP[2048] = {\n    0,     22528, 20480, 19281, 18432, 17772, 17233, 16778, 16384, 16035, 15724, 15443, 15185, 14949, 14730, 14526,\n    14336, 14156, 13987, 13828, 13676, 13532, 13395, 13263, 13137, 13017, 12901, 12789, 12682, 12578, 12478, 12381,\n    12288, 12197, 12108, 12023, 11939, 11859, 11780, 11703, 11628, 11555, 11484, 11415, 11347, 11280, 11215, 11152,\n    11089, 11029, 10969, 10910, 10853, 10797, 10741, 10687, 10634, 10582, 10530, 10480, 10430, 10381, 10333, 10286,\n    10240, 10194, 10149, 10104, 10060, 10017, 9975,  9933,  9891,  9851,  9811,  9771,  9732,  9693,  9655,  9617,\n    9580,  9543,  9507,  9471,  9436,  9401,  9367,  9332,  9299,  9265,  9232,  9200,  9167,  9135,  9104,  9072,\n    9041,  9011,  8981,  8951,  8921,  8891,  8862,  8834,  8805,  8777,  8749,  8721,  8693,  8666,  8639,  8613,\n    8586,  8560,  8534,  8508,  8482,  8457,  8432,  8407,  8382,  8358,  8333,  8309,  8285,  8262,  8238,  8215,\n    8192,  8169,  8146,  8123,  8101,  8078,  8056,  8034,  8012,  7991,  7969,  7948,  7927,  7906,  7885,  7864,\n    7843,  7823,  7803,  7783,  7763,  7743,  7723,  7703,  7684,  7664,  7645,  7626,  7607,  7588,  7569,  7551,\n    7532,  7514,  7495,  7477,  7459,  7441,  7423,  7406,  7388,  7370,  7353,  7336,  7319,  7301,  7284,  7267,\n    7251,  7234,  7217,  7201,  7184,  7168,  7152,  7135,  7119,  7103,  7087,  7071,  7056,  7040,  7024,  7009,\n    6993,  6978,  6963,  6948,  6933,  6918,  6903,  6888,  6873,  6858,  6843,  6829,  6814,  6800,  6786,  6771,\n    6757,  6743,  6729,  6715,  6701,  6687,  6673,  6659,  6645,  6632,  6618,  6605,  6591,  6578,  6565,  6551,\n    6538,  6525,  6512,  6499,  6486,  6473,  6460,  6447,  6434,  6422,  6409,  6396,  6384,  6371,  6359,  6347,\n    6334,  6322,  6310,  6297,  6285,  6273,  6261,  6249,  6237,  6225,  6214,  6202,  6190,  6178,  6167,  6155,\n    6144,  6132,  6121,  6109,  6098,  6086,  6075,  6064,  6053,  6041,  6030,  6019,  6008,  5997,  5986,  5975,\n    5964,  5954,  5943,  5932,  5921,  5911,  5900,  5889,  5879,  5868,  5858,  5847,  5837,  5826,  5816,  5806,\n    5795,  5785,  5775,  5765,  5755,  5745,  5735,  5725,  5715,  5705,  5695,  5685,  5675,  5665,  5655,  5645,\n    5636,  5626,  5616,  5607,  5597,  5588,  5578,  5568,  5559,  5550,  5540,  5531,  5521,  5512,  5503,  5493,\n    5484,  5475,  5466,  5457,  5447,  5438,  5429,  5420,  5411,  5402,  5393,  5384,  5375,  5367,  5358,  5349,\n    5340,  5331,  5322,  5314,  5305,  5296,  5288,  5279,  5271,  5262,  5253,  5245,  5236,  5228,  5219,  5211,\n    5203,  5194,  5186,  5178,  5169,  5161,  5153,  5144,  5136,  5128,  5120,  5112,  5104,  5095,  5087,  5079,\n    5071,  5063,  5055,  5047,  5039,  5031,  5023,  5016,  5008,  5000,  4992,  4984,  4976,  4969,  4961,  4953,\n    4945,  4938,  4930,  4923,  4915,  4907,  4900,  4892,  4885,  4877,  4870,  4862,  4855,  4847,  4840,  4832,\n    4825,  4818,  4810,  4803,  4795,  4788,  4781,  4774,  4766,  4759,  4752,  4745,  4738,  4730,  4723,  4716,\n    4709,  4702,  4695,  4688,  4681,  4674,  4667,  4660,  4653,  4646,  4639,  4632,  4625,  4618,  4611,  4604,\n    4597,  4591,  4584,  4577,  4570,  4563,  4557,  4550,  4543,  4537,  4530,  4523,  4517,  4510,  4503,  4497,\n    4490,  4483,  4477,  4470,  4464,  4457,  4451,  4444,  4438,  4431,  4425,  4418,  4412,  4406,  4399,  4393,\n    4386,  4380,  4374,  4367,  4361,  4355,  4348,  4342,  4336,  4330,  4323,  4317,  4311,  4305,  4299,  4292,\n    4286,  4280,  4274,  4268,  4262,  4256,  4249,  4243,  4237,  4231,  4225,  4219,  4213,  4207,  4201,  4195,\n    4189,  4183,  4177,  4171,  4166,  4160,  4154,  4148,  4142,  4136,  4130,  4124,  4119,  4113,  4107,  4101,\n    4096,  4090,  4084,  4078,  4073,  4067,  4061,  4055,  4050,  4044,  4038,  4033,  4027,  4021,  4016,  4010,\n    4005,  3999,  3993,  3988,  3982,  3977,  3971,  3966,  3960,  3955,  3949,  3944,  3938,  3933,  3927,  3922,\n    3916,  3911,  3906,  3900,  3895,  3889,  3884,  3879,  3873,  3868,  3863,  3857,  3852,  3847,  3841,  3836,\n    3831,  3825,  3820,  3815,  3810,  3804,  3799,  3794,  3789,  3784,  3778,  3773,  3768,  3763,  3758,  3753,\n    3747,  3742,  3737,  3732,  3727,  3722,  3717,  3712,  3707,  3702,  3697,  3692,  3687,  3682,  3677,  3672,\n    3667,  3662,  3657,  3652,  3647,  3642,  3637,  3632,  3627,  3622,  3617,  3612,  3607,  3602,  3597,  3593,\n    3588,  3583,  3578,  3573,  3568,  3564,  3559,  3554,  3549,  3544,  3540,  3535,  3530,  3525,  3520,  3516,\n    3511,  3506,  3502,  3497,  3492,  3487,  3483,  3478,  3473,  3469,  3464,  3459,  3455,  3450,  3445,  3441,\n    3436,  3432,  3427,  3422,  3418,  3413,  3409,  3404,  3399,  3395,  3390,  3386,  3381,  3377,  3372,  3368,\n    3363,  3359,  3354,  3350,  3345,  3341,  3336,  3332,  3327,  3323,  3319,  3314,  3310,  3305,  3301,  3296,\n    3292,  3288,  3283,  3279,  3274,  3270,  3266,  3261,  3257,  3253,  3248,  3244,  3240,  3235,  3231,  3227,\n    3223,  3218,  3214,  3210,  3205,  3201,  3197,  3193,  3188,  3184,  3180,  3176,  3171,  3167,  3163,  3159,\n    3155,  3150,  3146,  3142,  3138,  3134,  3130,  3125,  3121,  3117,  3113,  3109,  3105,  3101,  3096,  3092,\n    3088,  3084,  3080,  3076,  3072,  3068,  3064,  3060,  3056,  3051,  3047,  3043,  3039,  3035,  3031,  3027,\n    3023,  3019,  3015,  3011,  3007,  3003,  2999,  2995,  2991,  2987,  2983,  2979,  2975,  2972,  2968,  2964,\n    2960,  2956,  2952,  2948,  2944,  2940,  2936,  2932,  2928,  2925,  2921,  2917,  2913,  2909,  2905,  2901,\n    2897,  2894,  2890,  2886,  2882,  2878,  2875,  2871,  2867,  2863,  2859,  2855,  2852,  2848,  2844,  2840,\n    2837,  2833,  2829,  2825,  2822,  2818,  2814,  2810,  2807,  2803,  2799,  2795,  2792,  2788,  2784,  2781,\n    2777,  2773,  2770,  2766,  2762,  2758,  2755,  2751,  2747,  2744,  2740,  2737,  2733,  2729,  2726,  2722,\n    2718,  2715,  2711,  2708,  2704,  2700,  2697,  2693,  2690,  2686,  2682,  2679,  2675,  2672,  2668,  2665,\n    2661,  2657,  2654,  2650,  2647,  2643,  2640,  2636,  2633,  2629,  2626,  2622,  2619,  2615,  2612,  2608,\n    2605,  2601,  2598,  2594,  2591,  2587,  2584,  2580,  2577,  2574,  2570,  2567,  2563,  2560,  2556,  2553,\n    2549,  2546,  2543,  2539,  2536,  2532,  2529,  2526,  2522,  2519,  2515,  2512,  2509,  2505,  2502,  2499,\n    2495,  2492,  2489,  2485,  2482,  2479,  2475,  2472,  2469,  2465,  2462,  2459,  2455,  2452,  2449,  2445,\n    2442,  2439,  2435,  2432,  2429,  2426,  2422,  2419,  2416,  2413,  2409,  2406,  2403,  2399,  2396,  2393,\n    2390,  2387,  2383,  2380,  2377,  2374,  2370,  2367,  2364,  2361,  2358,  2354,  2351,  2348,  2345,  2342,\n    2338,  2335,  2332,  2329,  2326,  2322,  2319,  2316,  2313,  2310,  2307,  2304,  2300,  2297,  2294,  2291,\n    2288,  2285,  2282,  2278,  2275,  2272,  2269,  2266,  2263,  2260,  2257,  2254,  2251,  2247,  2244,  2241,\n    2238,  2235,  2232,  2229,  2226,  2223,  2220,  2217,  2214,  2211,  2208,  2205,  2201,  2198,  2195,  2192,\n    2189,  2186,  2183,  2180,  2177,  2174,  2171,  2168,  2165,  2162,  2159,  2156,  2153,  2150,  2147,  2144,\n    2141,  2138,  2135,  2132,  2129,  2126,  2123,  2121,  2118,  2115,  2112,  2109,  2106,  2103,  2100,  2097,\n    2094,  2091,  2088,  2085,  2082,  2079,  2076,  2074,  2071,  2068,  2065,  2062,  2059,  2056,  2053,  2050,\n    2048,  2045,  2042,  2039,  2036,  2033,  2030,  2027,  2025,  2022,  2019,  2016,  2013,  2010,  2007,  2005,\n    2002,  1999,  1996,  1993,  1990,  1988,  1985,  1982,  1979,  1976,  1973,  1971,  1968,  1965,  1962,  1959,\n    1957,  1954,  1951,  1948,  1945,  1943,  1940,  1937,  1934,  1932,  1929,  1926,  1923,  1920,  1918,  1915,\n    1912,  1909,  1907,  1904,  1901,  1898,  1896,  1893,  1890,  1887,  1885,  1882,  1879,  1877,  1874,  1871,\n    1868,  1866,  1863,  1860,  1858,  1855,  1852,  1849,  1847,  1844,  1841,  1839,  1836,  1833,  1831,  1828,\n    1825,  1823,  1820,  1817,  1815,  1812,  1809,  1807,  1804,  1801,  1799,  1796,  1793,  1791,  1788,  1785,\n    1783,  1780,  1777,  1775,  1772,  1770,  1767,  1764,  1762,  1759,  1756,  1754,  1751,  1749,  1746,  1743,\n    1741,  1738,  1736,  1733,  1730,  1728,  1725,  1723,  1720,  1718,  1715,  1712,  1710,  1707,  1705,  1702,\n    1699,  1697,  1694,  1692,  1689,  1687,  1684,  1682,  1679,  1677,  1674,  1671,  1669,  1666,  1664,  1661,\n    1659,  1656,  1654,  1651,  1649,  1646,  1644,  1641,  1639,  1636,  1634,  1631,  1629,  1626,  1624,  1621,\n    1619,  1616,  1614,  1611,  1609,  1606,  1604,  1601,  1599,  1596,  1594,  1591,  1589,  1586,  1584,  1581,\n    1579,  1576,  1574,  1572,  1569,  1567,  1564,  1562,  1559,  1557,  1554,  1552,  1549,  1547,  1545,  1542,\n    1540,  1537,  1535,  1532,  1530,  1528,  1525,  1523,  1520,  1518,  1516,  1513,  1511,  1508,  1506,  1504,\n    1501,  1499,  1496,  1494,  1492,  1489,  1487,  1484,  1482,  1480,  1477,  1475,  1472,  1470,  1468,  1465,\n    1463,  1461,  1458,  1456,  1454,  1451,  1449,  1446,  1444,  1442,  1439,  1437,  1435,  1432,  1430,  1428,\n    1425,  1423,  1421,  1418,  1416,  1414,  1411,  1409,  1407,  1404,  1402,  1400,  1397,  1395,  1393,  1391,\n    1388,  1386,  1384,  1381,  1379,  1377,  1374,  1372,  1370,  1367,  1365,  1363,  1361,  1358,  1356,  1354,\n    1351,  1349,  1347,  1345,  1342,  1340,  1338,  1336,  1333,  1331,  1329,  1327,  1324,  1322,  1320,  1317,\n    1315,  1313,  1311,  1308,  1306,  1304,  1302,  1300,  1297,  1295,  1293,  1291,  1288,  1286,  1284,  1282,\n    1279,  1277,  1275,  1273,  1271,  1268,  1266,  1264,  1262,  1259,  1257,  1255,  1253,  1251,  1248,  1246,\n    1244,  1242,  1240,  1237,  1235,  1233,  1231,  1229,  1226,  1224,  1222,  1220,  1218,  1216,  1213,  1211,\n    1209,  1207,  1205,  1203,  1200,  1198,  1196,  1194,  1192,  1190,  1187,  1185,  1183,  1181,  1179,  1177,\n    1175,  1172,  1170,  1168,  1166,  1164,  1162,  1160,  1157,  1155,  1153,  1151,  1149,  1147,  1145,  1142,\n    1140,  1138,  1136,  1134,  1132,  1130,  1128,  1126,  1123,  1121,  1119,  1117,  1115,  1113,  1111,  1109,\n    1107,  1104,  1102,  1100,  1098,  1096,  1094,  1092,  1090,  1088,  1086,  1084,  1082,  1079,  1077,  1075,\n    1073,  1071,  1069,  1067,  1065,  1063,  1061,  1059,  1057,  1055,  1053,  1050,  1048,  1046,  1044,  1042,\n    1040,  1038,  1036,  1034,  1032,  1030,  1028,  1026,  1024,  1022,  1020,  1018,  1016,  1014,  1012,  1010,\n    1008,  1006,  1003,  1001,  999,   997,   995,   993,   991,   989,   987,   985,   983,   981,   979,   977,\n    975,   973,   971,   969,   967,   965,   963,   961,   959,   957,   955,   953,   951,   949,   947,   945,\n    943,   941,   939,   937,   935,   933,   931,   929,   927,   925,   924,   922,   920,   918,   916,   914,\n    912,   910,   908,   906,   904,   902,   900,   898,   896,   894,   892,   890,   888,   886,   884,   882,\n    880,   878,   877,   875,   873,   871,   869,   867,   865,   863,   861,   859,   857,   855,   853,   851,\n    849,   848,   846,   844,   842,   840,   838,   836,   834,   832,   830,   828,   827,   825,   823,   821,\n    819,   817,   815,   813,   811,   809,   807,   806,   804,   802,   800,   798,   796,   794,   792,   790,\n    789,   787,   785,   783,   781,   779,   777,   775,   774,   772,   770,   768,   766,   764,   762,   760,\n    759,   757,   755,   753,   751,   749,   747,   746,   744,   742,   740,   738,   736,   734,   733,   731,\n    729,   727,   725,   723,   722,   720,   718,   716,   714,   712,   710,   709,   707,   705,   703,   701,\n    699,   698,   696,   694,   692,   690,   689,   687,   685,   683,   681,   679,   678,   676,   674,   672,\n    670,   669,   667,   665,   663,   661,   660,   658,   656,   654,   652,   651,   649,   647,   645,   643,\n    642,   640,   638,   636,   634,   633,   631,   629,   627,   625,   624,   622,   620,   618,   617,   615,\n    613,   611,   609,   608,   606,   604,   602,   601,   599,   597,   595,   594,   592,   590,   588,   586,\n    585,   583,   581,   579,   578,   576,   574,   572,   571,   569,   567,   565,   564,   562,   560,   558,\n    557,   555,   553,   551,   550,   548,   546,   545,   543,   541,   539,   538,   536,   534,   532,   531,\n    529,   527,   526,   524,   522,   520,   519,   517,   515,   513,   512,   510,   508,   507,   505,   503,\n    501,   500,   498,   496,   495,   493,   491,   490,   488,   486,   484,   483,   481,   479,   478,   476,\n    474,   473,   471,   469,   467,   466,   464,   462,   461,   459,   457,   456,   454,   452,   451,   449,\n    447,   446,   444,   442,   441,   439,   437,   436,   434,   432,   431,   429,   427,   426,   424,   422,\n    421,   419,   417,   416,   414,   412,   411,   409,   407,   406,   404,   402,   401,   399,   397,   396,\n    394,   392,   391,   389,   387,   386,   384,   383,   381,   379,   378,   376,   374,   373,   371,   369,\n    368,   366,   365,   363,   361,   360,   358,   356,   355,   353,   351,   350,   348,   347,   345,   343,\n    342,   340,   339,   337,   335,   334,   332,   330,   329,   327,   326,   324,   322,   321,   319,   318,\n    316,   314,   313,   311,   310,   308,   306,   305,   303,   302,   300,   298,   297,   295,   294,   292,\n    290,   289,   287,   286,   284,   282,   281,   279,   278,   276,   274,   273,   271,   270,   268,   267,\n    265,   263,   262,   260,   259,   257,   256,   254,   252,   251,   249,   248,   246,   245,   243,   241,\n    240,   238,   237,   235,   234,   232,   230,   229,   227,   226,   224,   223,   221,   220,   218,   216,\n    215,   213,   212,   210,   209,   207,   206,   204,   203,   201,   199,   198,   196,   195,   193,   192,\n    190,   189,   187,   186,   184,   183,   181,   179,   178,   176,   175,   173,   172,   170,   169,   167,\n    166,   164,   163,   161,   160,   158,   157,   155,   153,   152,   150,   149,   147,   146,   144,   143,\n    141,   140,   138,   137,   135,   134,   132,   131,   129,   128,   126,   125,   123,   122,   120,   119,\n    117,   116,   114,   113,   111,   110,   108,   107,   105,   104,   102,   101,   99,    98,    96,    95,\n    93,    92,    90,    89,    87,    86,    84,    83,    81,    80,    78,    77,    75,    74,    73,    71,\n    70,    68,    67,    65,    64,    62,    61,    59,    58,    56,    55,    53,    52,    50,    49,    47,\n    46,    45,    43,    42,    40,    39,    37,    36,    34,    33,    31,    30,    28,    27,    26,    24,\n    23,    21,    20,    18,    17,    15,    14,    13,    11,    10,    8,     7,     5,     4,     2,     1,\n};"
+        },
+        "structs": {
+          "EncoderInterface": "typedef struct EncoderInterface_struct EncoderInterface;",
+          "EncoderInterface_struct": "struct EncoderInterface_struct\n{\n    void (*encode_bit)(EncoderInterface *enc, _Bool bit, uint16_t prob);\n    void (*encode_direct_bits)(EncoderInterface *enc, unsigned bits, unsigned num_bits);\n    void *private_data;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "perplexity_encoder_encode_bit": "static void perplexity_encoder_encode_bit(EncoderInterface *enc, _Bool bit, uint16_t prob)\n{\n    uint64_t *perplexity = (uint64_t *)enc->private_data;\n    *perplexity += LOG2_LOOKUP[bit ? (2048 - prob) : prob];\n}",
+          "perplexity_encoder_encode_direct_bits": "static void perplexity_encoder_encode_direct_bits(EncoderInterface *enc, unsigned bits, unsigned num_bits)\n{\n    (void)bits;\n    uint64_t *perplexity = (uint64_t *)enc->private_data;\n    *perplexity += num_bits << 11;\n}",
+          "perplexity_encoder_new": "void perplexity_encoder_new(EncoderInterface *enc, uint64_t *perplexity)\n{\n    enc->encode_bit = perplexity_encoder_encode_bit;\n    enc->encode_direct_bits = perplexity_encoder_encode_direct_bits;\n    enc->private_data = (void *)perplexity;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/packet_slab_undo_stack.i": {
+      "relative_path": "src/packet_slab_undo_stack.i",
+      "original_file": "src/packet_slab_undo_stack.c",
+      "includes": [
+        "packet_slab_undo_stack.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "LengthProbabilityModel": "typedef struct\n{\n    uint16_t choice_1;\n    uint16_t choice_2;\n    uint16_t low_coder[1 << 4][1 << 3];\n    uint16_t mid_coder[1 << 4][1 << 3];\n    uint16_t high_coder[1 << 8];\n} LengthProbabilityModel;",
+          "DistanceProbabilityModel": "typedef struct\n{\n    uint16_t pos_slot_coder[4][1 << 6];\n    uint16_t align_coder[1 << 4];\n    uint16_t pos_coder[1 + (1 << (14 >> 1)) - 14];\n} DistanceProbabilityModel;",
+          "ContextStateProbabilityModel": "typedef struct\n{\n    uint16_t is_match[12 << 4];\n    uint16_t is_rep[12];\n    uint16_t is_rep_g0[12];\n    uint16_t is_rep_g1[12];\n    uint16_t is_rep_g2[12];\n    uint16_t is_rep0_long[12 << 4];\n} ContextStateProbabilityModel;",
+          "LZMAProbabilityModel": "typedef struct\n{\n    uint16_t lit[0x300];\n    LengthProbabilityModel len;\n    LengthProbabilityModel rep_len;\n    DistanceProbabilityModel dist;\n    ContextStateProbabilityModel ctx_state;\n} LZMAProbabilityModel;",
+          "LZMAProperties": "typedef struct\n{\n    uint8_t lc;\n    uint8_t lp;\n    uint8_t pb;\n} LZMAProperties;",
+          "LZMAState": "typedef struct\n{\n    const uint8_t *data;\n    size_t data_size;\n    LZMAProperties properties;\n    uint8_t ctx_state;\n    uint32_t dists[4];\n    LZMAProbabilityModel probs;\n    size_t position;\n} LZMAState;",
+          "LZMAPacket": "typedef struct\n{\n    uint8_t type;\n    uint32_t dist;\n    uint16_t len;\n} LZMAPacket;",
+          "PacketSlab": "typedef struct PacketSlab_struct PacketSlab;",
+          "PacketSlabUndo": "typedef struct\n{\n    size_t position;\n    LZMAPacket old_packet;\n} PacketSlabUndo;",
+          "PacketSlabUndoHeap": "typedef struct PacketSlabUndoHeap_struct PacketSlabUndoHeap;",
+          "PacketSlabUndoStack": "typedef struct\n{\n    size_t total_count;\n    size_t count;\n    PacketSlabUndo stack[16];\n    PacketSlabUndoHeap *last;\n} PacketSlabUndoStack;",
+          "PacketSlabUndoHeap_struct": "struct PacketSlabUndoHeap_struct\n{\n    size_t size;\n    size_t count;\n    PacketSlabUndo *heap;\n    PacketSlabUndoHeap *prev;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "packet_slab_undo_heap_new": "static PacketSlabUndoHeap *packet_slab_undo_heap_new(size_t size, PacketSlabUndoHeap *prev)\n{\n    PacketSlabUndoHeap *undo_heap = malloc(sizeof(PacketSlabUndoHeap));\n    if (undo_heap == ((void *)0))\n    {\n        return ((void *)0);\n    }\n    undo_heap->size = size;\n    undo_heap->count = 0;\n    undo_heap->prev = prev;\n    undo_heap->heap = malloc(sizeof(PacketSlabUndo) * size);\n    if (undo_heap->heap == ((void *)0))\n    {\n        free(undo_heap);\n        return ((void *)0);\n    }\n    return undo_heap;\n}",
+          "packet_slab_undo_heap_free": "static void packet_slab_undo_heap_free(PacketSlabUndoHeap *undo_heap)\n{\n    free(undo_heap->heap);\n    free(undo_heap);\n}",
+          "packet_slab_undo_heap_apply": "static void packet_slab_undo_heap_apply(PacketSlabUndoHeap *undo_heap, PacketSlab *slab)\n{\n    LZMAPacket *packets = packet_slab_packets(slab);\n    while (undo_heap->count > 0)\n    {\n        PacketSlabUndo undo = undo_heap->heap[--undo_heap->count];\n        packets[undo.position] = undo.old_packet;\n    }\n}",
+          "packet_slab_undo_stack_new": "void packet_slab_undo_stack_new(PacketSlabUndoStack *undo_stack)\n{\n    undo_stack->count = 0;\n    undo_stack->total_count = 0;\n    undo_stack->last = ((void *)0);\n}",
+          "packet_slab_undo_stack_free": "void packet_slab_undo_stack_free(PacketSlabUndoStack *undo_stack)\n{\n    undo_stack->count = 0;\n    undo_stack->total_count = 0;\n    while (undo_stack->last != ((void *)0))\n    {\n        PacketSlabUndoHeap *undo_heap = undo_stack->last;\n        undo_stack->last = undo_heap->prev;\n        packet_slab_undo_heap_free(undo_heap);\n    }\n}",
+          "packet_slab_undo_stack_insert": "void packet_slab_undo_stack_insert(PacketSlabUndoStack *undo_stack, PacketSlabUndo undo)\n{\n    undo_stack->total_count++;\n    if (undo_stack->count < 16)\n    {\n        undo_stack->stack[undo_stack->count++] = undo;\n        return;\n    }\n    if (undo_stack->last == ((void *)0) || undo_stack->last->size == undo_stack->last->count)\n    {\n        size_t next_size = 16 * 2;\n        if (undo_stack->last != ((void *)0))\n        {\n            next_size = undo_stack->last->size * 2;\n        }\n        PacketSlabUndoHeap *prev = undo_stack->last;\n        undo_stack->last = packet_slab_undo_heap_new(next_size, prev);\n    }\n    ((void)sizeof((undo_stack->last != ((void *)0)) ? 1 : 0), __extension__({\n         if (undo_stack->last != ((void *)0))\n             ;\n         else\n             __assert_fail(\"undo_stack->last != NULL\",\n                           \"/home/bbzs/code/reporeflectrust/data/project/CBench/Megalania/src/packet_slab_undo_stack.c\",\n                           79, __extension__ __PRETTY_FUNCTION__);\n     }));\n    undo_stack->last->heap[undo_stack->last->count++] = undo;\n}",
+          "packet_slab_undo_stack_apply": "void packet_slab_undo_stack_apply(PacketSlabUndoStack *undo_stack, PacketSlab *slab)\n{\n    while (undo_stack->last != ((void *)0))\n    {\n        PacketSlabUndoHeap *undo_heap = undo_stack->last;\n        undo_stack->last = undo_heap->prev;\n        packet_slab_undo_heap_apply(undo_heap, slab);\n        packet_slab_undo_heap_free(undo_heap);\n    }\n    LZMAPacket *packets = packet_slab_packets(slab);\n    while (undo_stack->count > 0)\n    {\n        PacketSlabUndo undo = undo_stack->stack[--undo_stack->count];\n        packets[undo.position] = undo.old_packet;\n    }\n    undo_stack->total_count = 0;\n}",
+          "packet_slab_undo_stack_count": "size_t packet_slab_undo_stack_count(const PacketSlabUndoStack *undo_stack)\n{\n    return undo_stack->total_count;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/lzma_state.i": {
+      "relative_path": "src/lzma_state.i",
+      "original_file": "src/lzma_state.c",
+      "includes": [
+        "lzma_state.h",
+        "lzma_packet.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "LengthProbabilityModel": "typedef struct\n{\n    uint16_t choice_1;\n    uint16_t choice_2;\n    uint16_t low_coder[1 << 4][1 << 3];\n    uint16_t mid_coder[1 << 4][1 << 3];\n    uint16_t high_coder[1 << 8];\n} LengthProbabilityModel;",
+          "DistanceProbabilityModel": "typedef struct\n{\n    uint16_t pos_slot_coder[4][1 << 6];\n    uint16_t align_coder[1 << 4];\n    uint16_t pos_coder[1 + (1 << (14 >> 1)) - 14];\n} DistanceProbabilityModel;",
+          "ContextStateProbabilityModel": "typedef struct\n{\n    uint16_t is_match[12 << 4];\n    uint16_t is_rep[12];\n    uint16_t is_rep_g0[12];\n    uint16_t is_rep_g1[12];\n    uint16_t is_rep_g2[12];\n    uint16_t is_rep0_long[12 << 4];\n} ContextStateProbabilityModel;",
+          "LZMAProbabilityModel": "typedef struct\n{\n    uint16_t lit[0x300];\n    LengthProbabilityModel len;\n    LengthProbabilityModel rep_len;\n    DistanceProbabilityModel dist;\n    ContextStateProbabilityModel ctx_state;\n} LZMAProbabilityModel;",
+          "LZMAProperties": "typedef struct\n{\n    uint8_t lc;\n    uint8_t lp;\n    uint8_t pb;\n} LZMAProperties;",
+          "LZMAState": "typedef struct\n{\n    const uint8_t *data;\n    size_t data_size;\n    LZMAProperties properties;\n    uint8_t ctx_state;\n    uint32_t dists[4];\n    LZMAProbabilityModel probs;\n    size_t position;\n} LZMAState;",
+          "LZMAPacket": "typedef struct\n{\n    uint8_t type;\n    uint32_t dist;\n    uint16_t len;\n} LZMAPacket;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "lzma_state_init_probs": "static void lzma_state_init_probs(LZMAProbabilityModel *probs)\n{\n    int num_probs = sizeof(LZMAProbabilityModel) / sizeof(uint16_t);\n    uint16_t *prob_array = (uint16_t *)probs;\n    for (int i = 0; i < num_probs; i++)\n    {\n        prob_array[i] = ((1 << 11) / 2);\n    }\n}",
+          "lzma_state_init": "void lzma_state_init(LZMAState *lzma_state, const uint8_t *data, size_t data_size, LZMAProperties properties)\n{\n    lzma_state->data = data;\n    lzma_state->data_size = data_size;\n    lzma_state->properties = properties;\n    lzma_state->ctx_state = 0;\n    memset(lzma_state->dists, 0, sizeof(lzma_state->dists));\n    lzma_state_init_probs(&lzma_state->probs);\n    lzma_state->position = 0;\n}",
+          "lzma_state_update_ctx_state": "void lzma_state_update_ctx_state(LZMAState *lzma_state, unsigned packet_type)\n{\n    uint8_t ctx_state = lzma_state->ctx_state;\n    switch (packet_type)\n    {\n    case 1:\n        if (ctx_state < 4)\n        {\n            ctx_state = 0;\n        }\n        else if (ctx_state < 10)\n        {\n            ctx_state -= 3;\n        }\n        else\n        {\n            ctx_state -= 6;\n        }\n        break;\n    case 2:\n        ctx_state = ctx_state < 7 ? 7 : 10;\n        break;\n    case 3:\n        ctx_state = ctx_state < 7 ? 9 : 11;\n        break;\n    case 4:\n        ctx_state = ctx_state < 7 ? 8 : 11;\n        break;\n    case 0:\n    default:\n        ((void)sizeof((0) ? 1 : 0), __extension__({\n             if (0)\n                 ;\n             else\n                 __assert_fail(\"false\",\n                               \"/home/bbzs/code/reporeflectrust/data/project/CBench/Megalania/src/lzma_state.c\", 53,\n                               __extension__ __PRETTY_FUNCTION__);\n         }));\n        break;\n    }\n    lzma_state->ctx_state = ctx_state;\n}",
+          "lzma_state_push_distance": "void lzma_state_push_distance(LZMAState *lzma_state, uint32_t dist)\n{\n    lzma_state->dists[3] = lzma_state->dists[2];\n    lzma_state->dists[2] = lzma_state->dists[1];\n    lzma_state->dists[1] = lzma_state->dists[0];\n    lzma_state->dists[0] = dist;\n}",
+          "lzma_state_promote_distance_at": "void lzma_state_promote_distance_at(LZMAState *lzma_state, unsigned dist_index)\n{\n    ((void)sizeof((dist_index < 4) ? 1 : 0), __extension__({\n         if (dist_index < 4)\n             ;\n         else\n             __assert_fail(\"dist_index < 4\",\n                           \"/home/bbzs/code/reporeflectrust/data/project/CBench/Megalania/src/lzma_state.c\", 69,\n                           __extension__ __PRETTY_FUNCTION__);\n     }));\n    uint32_t dist = lzma_state->dists[dist_index];\n    if (dist_index > 2)\n    {\n        lzma_state->dists[3] = lzma_state->dists[2];\n    }\n    if (dist_index > 1)\n    {\n        lzma_state->dists[2] = lzma_state->dists[1];\n    }\n    if (dist_index > 0)\n    {\n        lzma_state->dists[1] = lzma_state->dists[0];\n    }\n    lzma_state->dists[0] = dist;\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

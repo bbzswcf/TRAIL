@@ -1,0 +1,22 @@
+{
+  "project_name": "leftpad",
+  "files": {
+    "src/leftpad.i": {
+      "relative_path": "src/leftpad.i",
+      "original_file": "src/leftpad.c",
+      "includes": [
+        "leftpad.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "leftpad": "size_t leftpad(const char *str, const char *padding, size_t min_len, char *dest, size_t dest_sz)\n{\n    size_t i = 0;\n    size_t str_len = 0;\n    size_t dest_len = 0;\n    size_t npad = 0;\n    while (str && str[str_len])\n        str_len++;\n    if (!padding || !padding[0])\n        padding = \" \";\n    if (str_len < min_len)\n        npad = min_len - str_len;\n    if (!dest || !dest_sz)\n        return str_len + npad;\n    while (dest_len < npad && dest_len < dest_sz - 1)\n        if (!(dest[dest_len++] = padding[i++]))\n        {\n            dest[dest_len - 1] = padding[0];\n            i = 1;\n        }\n    for (i = 0; i < str_len && dest_len < dest_sz - 1; i++)\n        dest[dest_len++] = str[i];\n    dest[dest_len] = '\\0';\n    return dest_len;\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

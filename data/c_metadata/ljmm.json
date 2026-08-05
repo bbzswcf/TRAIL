@@ -1,0 +1,38 @@
+{
+  "project_name": "ljmm",
+  "files": {
+    "ljmm.i": {
+      "relative_path": "ljmm.i",
+      "original_file": "ljmm.c",
+      "includes": [],
+      "declarations": {
+        "globals": {
+          "ljmm": "static ljmm_t ljmm;"
+        },
+        "structs": {
+          "ljmm_t": "typedef struct\n{\n    uintptr_t page_size;\n    uintptr_t page_mask;\n    uintptr_t addr_upbound;\n    uintptr_t addr_lowbound;\n    char *dummy_blk;\n    const char *map_file;\n    char *buffer;\n    int buf_len;\n    char OS_take_care_1G_2G;\n    char init_succ;\n} ljmm_t;",
+          "mem_blk_t": "typedef struct\n{\n    uintptr_t start;\n    size_t size;\n} mem_blk_t;"
+        },
+        "unions": {},
+        "enums": {
+          "BUFFER_SZ": "enum\n{\n    BUFFER_SZ = 8192,\n    DUMMY_BLK_SZ = 12,\n    ADDR_2G = 0x80000000,\n    ADDR_1G = 0x40000000,\n}",
+          "DUMMY_BLK_SZ": "enum\n{\n    BUFFER_SZ = 8192,\n    DUMMY_BLK_SZ = 12,\n    ADDR_2G = 0x80000000,\n    ADDR_1G = 0x40000000,\n}",
+          "ADDR_2G": "enum\n{\n    BUFFER_SZ = 8192,\n    DUMMY_BLK_SZ = 12,\n    ADDR_2G = 0x80000000,\n    ADDR_1G = 0x40000000,\n}",
+          "ADDR_1G": "enum\n{\n    BUFFER_SZ = 8192,\n    DUMMY_BLK_SZ = 12,\n    ADDR_2G = 0x80000000,\n    ADDR_1G = 0x40000000,\n}"
+        },
+        "functions": {
+          "ljmm_init": "__attribute__((constructor)) static void ljmm_init(void)\n{\n    ljmm.OS_take_care_1G_2G = 0;\n    ljmm.addr_lowbound = (uintptr_t)sbrk(0);\n    ljmm.addr_upbound = ADDR_2G;\n    ljmm.page_size = sysconf(_SC_PAGESIZE);\n    ljmm.page_mask = ljmm.page_size - 1;\n    char *p = __real_mmap64(sbrk(0), DUMMY_BLK_SZ, 0x1 | 0x2, 0x02 | 0x20, -1, 0);\n    if (__builtin_expect((p == ((void *)-1)), 0))\n    {\n        return;\n    }\n    ljmm.dummy_blk = p;\n    ljmm.map_file = \"/proc/self/maps\";\n    p = __real_mmap64(((void *)0), BUFFER_SZ, 0x1 | 0x2, 0x02 | 0x20, -1, 0);\n    if (__builtin_expect((p == ((void *)-1)), 0))\n    {\n        return;\n    }\n    ljmm.buffer = p;\n    ljmm.init_succ = 1;\n}",
+          "ljmm_finalize": "__attribute__((destructor)) static void ljmm_finalize(void)\n{\n    if (ljmm.dummy_blk && ljmm.dummy_blk != ((void *)-1))\n    {\n        munmap(ljmm.dummy_blk, DUMMY_BLK_SZ);\n        ljmm.dummy_blk = ((void *)0);\n        ljmm.map_file = ((void *)0);\n    }\n    if (ljmm.buffer && ljmm.buffer != ((void *)-1))\n    {\n        munmap(ljmm.buffer, BUFFER_SZ);\n    }\n    ljmm.init_succ = 0;\n}",
+          "read_maps_to_buffer": "static int read_maps_to_buffer(void)\n{\n    int fd = open(ljmm.map_file, 0);\n    if (fd == -1)\n    {\n        return -1;\n    }\n    int len = read(fd, ljmm.buffer, BUFFER_SZ - 1);\n    if (len >= 0 && ljmm.buffer[len - 1] != '\\n')\n    {\n        ljmm.buffer[len++] = '\\n';\n    }\n    close(fd);\n    ljmm.buf_len = len;\n    return len;\n}",
+          "page_align_addr": "static inline uintptr_t page_align_addr(uintptr_t addr)\n{\n    return (addr + ljmm.page_size - 1) & ~ljmm.page_mask;\n}",
+          "parse_addr": "static int parse_addr(const char *addr_str, uintptr_t *addr_val)\n{\n    uintptr_t addr = 0;\n    const char *p = addr_str;\n    while (1)\n    {\n        char c = *p++;\n        if (c >= '0' && c <= '9')\n        {\n            addr = addr * 16 + c - '0';\n            continue;\n        }\n        c |= 0x20;\n        if (c >= 'a' && c <= 'f')\n        {\n            addr = addr * 16 + 10 + c - 'a';\n            continue;\n        }\n        *addr_val = addr;\n        return p - 1 - addr_str;\n    }\n    return 0;\n}",
+          "find_best_fit": "static uintptr_t find_best_fit(size_t length)\n{\n    if (read_maps_to_buffer() < 0)\n    {\n        return 0;\n    }\n    length = page_align_addr(length);\n    mem_blk_t best_fit, prev_blk;\n    const char *buffer;\n    int ofst, buf_len;\n    uintptr_t upbound, lowbound;\n    lowbound = ljmm.addr_lowbound;\n    upbound = ljmm.addr_upbound;\n    best_fit.size = -1;\n    best_fit.start = upbound;\n    prev_blk.size = prev_blk.start = 0;\n    ofst = 0;\n    buffer = ljmm.buffer;\n    buf_len = ljmm.buf_len;\n    if (!(buffer[buf_len - 1] == '\\n'))\n    {\n        fprintf(stderr, \"%s:%d Assert: %s\\n\", \"ljmm.c\", 215, \"buffer[buf_len-1] == '\\\\n'\");\n        abort();\n    };\n    while (ofst < buf_len)\n    {\n        uintptr_t start_addr, end_addr;\n        int advance = parse_addr(ljmm.buffer + ofst, &start_addr);\n        if (advance && (buffer[ofst + advance] == '-'))\n        {\n            ofst += advance + 1;\n        }\n        else\n        {\n            break;\n        }\n        advance = parse_addr(buffer + ofst, &end_addr);\n        if (advance && buffer[ofst + advance] == ' ')\n        {\n            ofst += advance + 1;\n            if (!(ofst < buf_len))\n            {\n                fprintf(stderr, \"%s:%d Assert: %s\\n\", \"ljmm.c\", 232, \"ofst < buf_len\");\n                abort();\n            };\n            while (buffer[ofst++] != '\\n')\n            {\n            }\n        }\n        else\n        {\n            end_addr = upbound >= start_addr ? upbound : start_addr;\n        }\n        end_addr = page_align_addr(end_addr);\n        uintptr_t hole_start = prev_blk.start + prev_blk.size;\n        uintptr_t hole_size = start_addr - hole_start;\n        if (hole_size >= length && (hole_start >= lowbound && (hole_start + length) <= upbound) &&\n            hole_size < best_fit.size)\n        {\n            best_fit.start = hole_start;\n            best_fit.size = hole_size;\n            if (best_fit.size == length)\n            {\n                break;\n            }\n        }\n        if (__builtin_expect((start_addr >= ADDR_1G), 0))\n        {\n            if (!ljmm.OS_take_care_1G_2G || start_addr >= upbound)\n            {\n                break;\n            }\n        }\n        if (__builtin_expect((end_addr >= upbound), 0))\n        {\n            break;\n        }\n        prev_blk.start = start_addr;\n        prev_blk.size = end_addr - start_addr;\n    }\n    return (best_fit.size != (uintptr_t)-1) ? best_fit.start : 0;\n}",
+          "__wrap_mmap64": "void *__wrap_mmap64(void *addr, size_t length, int prot, int flags, int fd, off_t offset)\n{\n    if (!(flags & 0x40) || addr || !ljmm.init_succ)\n    {\n        return __real_mmap64(addr, length, prot, flags, fd, offset);\n    }\n    if (ljmm.OS_take_care_1G_2G)\n    {\n        void *blk = __real_mmap64(((void *)0), length, prot, flags, fd, offset);\n        if (blk != ((void *)-1))\n        {\n            return blk;\n        }\n    }\n    uintptr_t best_fit = find_best_fit(length);\n    if (best_fit)\n    {\n        return __real_mmap64((void *)best_fit, length, prot, flags & ~0x40, fd, offset);\n    }\n    return __real_mmap64(((void *)0), length, prot, flags, fd, offset);\n}",
+          "ljmm_let_OS_take_care_1G_2G": "void ljmm_let_OS_take_care_1G_2G(int turn_on)\n{\n    ljmm.OS_take_care_1G_2G = turn_on;\n}",
+          "ljmm_test_set_test_param": "void ljmm_test_set_test_param(const char *map_file, void *sbrk0, int page_size)\n{\n    ljmm.map_file = map_file;\n    ljmm.addr_lowbound = (uintptr_t)sbrk0;\n    if (!(page_size && (((page_size - 1) & page_size) == 0)))\n    {\n        fprintf(stderr, \"%s:%d Assert: %s\\n\", \"ljmm.c\", 324, \"page_size && (((page_size - 1) & page_size) == 0)\");\n        abort();\n    };\n    ljmm.page_size = page_size;\n    ljmm.page_mask = page_size - 1;\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

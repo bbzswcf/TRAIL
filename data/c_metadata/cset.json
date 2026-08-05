@@ -1,0 +1,43 @@
+{
+  "project_name": "cset",
+  "files": {
+    "src/cset.i": {
+      "relative_path": "src/cset.i",
+      "original_file": "src/cset.h",
+      "includes": [],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "XXH_readLE64": "static __inline__ __attribute__((always_inline, unused)) xxh_u64 XXH_readLE64(const void *memPtr)\n{\n    const xxh_u8 *bytePtr = (const xxh_u8 *)memPtr;\n    return bytePtr[0] | ((xxh_u64)bytePtr[1] << 8) | ((xxh_u64)bytePtr[2] << 16) | ((xxh_u64)bytePtr[3] << 24) |\n           ((xxh_u64)bytePtr[4] << 32) | ((xxh_u64)bytePtr[5] << 40) | ((xxh_u64)bytePtr[6] << 48) |\n           ((xxh_u64)bytePtr[7] << 56);\n}",
+          "XXH_readLE64_align": "static __inline__ __attribute__((always_inline, unused)) xxh_u64 XXH_readLE64_align(const void *ptr)\n{\n    return XXH_readLE64(ptr);\n}",
+          "XXH_swap32": "static xxh_u32 XXH_swap32(xxh_u32 x)\n{\n    return ((x << 24) & 0xff000000) | ((x << 8) & 0x00ff0000) | ((x >> 8) & 0x0000ff00) | ((x >> 24) & 0x000000ff);\n}",
+          "XXH_read32": "static xxh_u32 XXH_read32(const void *memPtr)\n{\n    xxh_u32 val;\n    memcpy(&val, memPtr, sizeof(val));\n    return val;\n}",
+          "XXH64_round": "static xxh_u64 XXH64_round(xxh_u64 acc, xxh_u64 input)\n{\n    acc += input * 0xC2B2AE3D27D4EB4FULL;\n    acc = (((acc) << (31)) | ((acc) >> (64 - (31))));\n    acc *= 0x9E3779B185EBCA87ULL;\n    return acc;\n}",
+          "XXH64_mergeRound": "static xxh_u64 XXH64_mergeRound(xxh_u64 acc, xxh_u64 val)\n{\n    val = XXH64_round(0, val);\n    acc ^= val;\n    acc = acc * 0x9E3779B185EBCA87ULL + 0x85EBCA77C2B2AE63ULL;\n    return acc;\n}",
+          "XXH_readLE32": "static __inline__ __attribute__((always_inline, unused)) xxh_u32 XXH_readLE32(const void *ptr)\n{\n    return 1 ? XXH_read32(ptr) : XXH_swap32(XXH_read32(ptr));\n}",
+          "XXH_readLE32_align": "static __inline__ __attribute__((always_inline, unused)) xxh_u32 XXH_readLE32_align(const void *ptr)\n{\n    return XXH_readLE32(ptr);\n}",
+          "XXH64_avalanche": "static xxh_u64 XXH64_avalanche(xxh_u64 h64)\n{\n    h64 ^= h64 >> 33;\n    h64 *= 0xC2B2AE3D27D4EB4FULL;\n    h64 ^= h64 >> 29;\n    h64 *= 0x165667B19E3779F9ULL;\n    h64 ^= h64 >> 32;\n    return h64;\n}",
+          "XXH64_finalize": "static xxh_u64 XXH64_finalize(xxh_u64 h64, const xxh_u8 *ptr, size_t len)\n{\n    len &= 31;\n    while (len >= 8)\n    {\n        xxh_u64 const k1 = XXH64_round(0, XXH_readLE64_align(ptr));\n        ptr += 8;\n        h64 ^= k1;\n        h64 = (((h64) << (27)) | ((h64) >> (64 - (27)))) * 0x9E3779B185EBCA87ULL + 0x85EBCA77C2B2AE63ULL;\n        len -= 8;\n    }\n    if (len >= 4)\n    {\n        h64 ^= (xxh_u64)(XXH_readLE32_align(ptr)) * 0x9E3779B185EBCA87ULL;\n        ptr += 4;\n        h64 = (((h64) << (23)) | ((h64) >> (64 - (23)))) * 0xC2B2AE3D27D4EB4FULL + 0x165667B19E3779F9ULL;\n        len -= 4;\n    }\n    while (len > 0)\n    {\n        h64 ^= (*ptr++) * 0x27D4EB2F165667C5ULL;\n        h64 = (((h64) << (11)) | ((h64) >> (64 - (11)))) * 0x9E3779B185EBCA87ULL;\n        --len;\n    }\n    return XXH64_avalanche(h64);\n}",
+          "XXH64_endian_align": "static __inline__ __attribute__((always_inline, unused)) xxh_u64 XXH64_endian_align(const xxh_u8 *input, size_t len,\n                                                                                    xxh_u64 seed)\n{\n    const xxh_u8 *bEnd = input ? input + len : ((void *)0);\n    xxh_u64 h64;\n    if (len >= 32)\n    {\n        const xxh_u8 *const limit = bEnd - 32;\n        xxh_u64 v1 = seed + 0x9E3779B185EBCA87ULL + 0xC2B2AE3D27D4EB4FULL;\n        xxh_u64 v2 = seed + 0xC2B2AE3D27D4EB4FULL;\n        xxh_u64 v3 = seed + 0;\n        xxh_u64 v4 = seed - 0x9E3779B185EBCA87ULL;\n        do\n        {\n            v1 = XXH64_round(v1, XXH_readLE64_align(input));\n            input += 8;\n            v2 = XXH64_round(v2, XXH_readLE64_align(input));\n            input += 8;\n            v3 = XXH64_round(v3, XXH_readLE64_align(input));\n            input += 8;\n            v4 = XXH64_round(v4, XXH_readLE64_align(input));\n            input += 8;\n        } while (input <= limit);\n        h64 = (((v1) << (1)) | ((v1) >> (64 - (1)))) + (((v2) << (7)) | ((v2) >> (64 - (7)))) +\n              (((v3) << (12)) | ((v3) >> (64 - (12)))) + (((v4) << (18)) | ((v4) >> (64 - (18))));\n        h64 = XXH64_mergeRound(h64, v1);\n        h64 = XXH64_mergeRound(h64, v2);\n        h64 = XXH64_mergeRound(h64, v3);\n        h64 = XXH64_mergeRound(h64, v4);\n    }\n    else\n    {\n        h64 = seed + 0x27D4EB2F165667C5ULL;\n    }\n    h64 += (xxh_u64)len;\n    return XXH64_finalize(h64, input, len);\n}",
+          "XXH64_endian_align_h": "static __inline__ __attribute__((always_inline, unused)) xxh_u64 XXH64_endian_align_h(const xxh_u8 *input, size_t len,\n                                                                                      xxh_u64 seed)\n{\n    const xxh_u8 *bEnd = input ? input + len : ((void *)0);\n    xxh_u64 h64;\n    if (len >= 32)\n    {\n        const xxh_u8 *const limit = bEnd - 32;\n        xxh_u64 v1 = seed + 0x9E3779B185EBCA87ULL + 0xC2B2AE3D27D4EB4FULL;\n        xxh_u64 v2 = seed - 0xC2B2AE3D27D4EB4FULL;\n        xxh_u64 v3 = seed + 0x165667B19E3779F9ULL;\n        xxh_u64 v4 = seed - 0x9E3779B185EBCA87ULL;\n        do\n        {\n            v1 = XXH64_round(v1, XXH_readLE64_align(input));\n            input += 8;\n            v2 = XXH64_round(v2, XXH_readLE64_align(input));\n            input += 8;\n            v3 = XXH64_round(v3, XXH_readLE64_align(input));\n            input += 8;\n            v4 = XXH64_round(v4, XXH_readLE64_align(input));\n            input += 8;\n        } while (input <= limit);\n        h64 = (((v1) << (1)) | ((v1) >> (64 - (1)))) + (((v2) << (7)) | ((v2) >> (64 - (7)))) +\n              (((v3) << (12)) | ((v3) >> (64 - (12)))) + (((v4) << (18)) | ((v4) >> (64 - (18))));\n        h64 = XXH64_mergeRound(h64, v1);\n        h64 = XXH64_mergeRound(h64, v2);\n        h64 = XXH64_mergeRound(h64, v3);\n        h64 = XXH64_mergeRound(h64, v4);\n    }\n    else\n    {\n        h64 = seed + 0x9E3779B185EBCA87ULL;\n    }\n    h64 += (xxh_u64)len;\n    return XXH64_finalize(h64, input, len);\n}",
+          "XXH64": "static XXH64_hash_t XXH64(const void *input, size_t len, XXH64_hash_t seed)\n{\n    return XXH64_endian_align((const xxh_u8 *)input, len, seed);\n}",
+          "XXH64_h": "static XXH64_hash_t XXH64_h(const void *input, size_t len, XXH64_hash_t seed)\n{\n    return XXH64_endian_align_h((const xxh_u8 *)input, len, seed);\n}",
+          "cset__hash1_callback": "static cset__u64 cset__hash1_callback(void *memptr, size_t size)\n{\n    return XXH64(memptr, size, 2718182);\n}",
+          "cset__hash2_callback": "static cset__u64 cset__hash2_callback(void *memptr, size_t size)\n{\n    return ((XXH64_h(memptr, size, 2718182)) | 1);\n}"
+        },
+        "typedefs": {
+          "XXH64_hash_t": "typedef uint64_t XXH64_hash_t;",
+          "xxh_u8": "typedef uint8_t xxh_u8;",
+          "xxh_u64": "typedef XXH64_hash_t xxh_u64;",
+          "XXH32_hash_t": "typedef uint32_t XXH32_hash_t;",
+          "xxh_u32": "typedef XXH32_hash_t xxh_u32;",
+          "cset__u8": "typedef uint8_t cset__u8;",
+          "cset__u64": "typedef uint64_t cset__u64;"
+        }
+      }
+    }
+  }
+}

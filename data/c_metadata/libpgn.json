@@ -1,0 +1,329 @@
+{
+  "project_name": "libpgn",
+  "files": {
+    "piece.i": {
+      "relative_path": "piece.i",
+      "original_file": "piece.c",
+      "includes": [
+        "piece.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {
+          "pgn_piece_t": "typedef enum pgn_piece_t\n{\n    PGN_PIECE_UNKNOWN = 0,\n    PGN_PIECE_PAWN = 'P',\n    PGN_PIECE_ROOK = 'R',\n    PGN_PIECE_KNIGHT = 'N',\n    PGN_PIECE_BISHOP = 'B',\n    PGN_PIECE_QUEEN = 'Q',\n    PGN_PIECE_KING = 'K',\n} pgn_piece_t;"
+        },
+        "functions": {
+          "pgn_piece_from_char": "pgn_piece_t pgn_piece_from_char(char ch)\n{\n    switch (ch)\n    {\n    case PGN_PIECE_PAWN:\n    case PGN_PIECE_ROOK:\n    case PGN_PIECE_KNIGHT:\n    case PGN_PIECE_BISHOP:\n    case PGN_PIECE_QUEEN:\n    case PGN_PIECE_KING:\n        return ch;\n    default:\n        return PGN_PIECE_UNKNOWN;\n    }\n}",
+          "pgn_piece_to_string": "char *pgn_piece_to_string(pgn_piece_t piece)\n{\n    switch (piece)\n    {\n    case PGN_PIECE_PAWN:\n        return \"Pawn\";\n    case PGN_PIECE_ROOK:\n        return \"Rook\";\n    case PGN_PIECE_KNIGHT:\n        return \"Knight\";\n    case PGN_PIECE_BISHOP:\n        return \"Bishop\";\n    case PGN_PIECE_QUEEN:\n        return \"Queen\";\n    case PGN_PIECE_KING:\n        return \"King\";\n    default:\n        return ((void *)0);\n    }\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "coordinate.i": {
+      "relative_path": "coordinate.i",
+      "original_file": "coordinate.c",
+      "includes": [
+        "coordinate.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "pgn_coordinate_t": "typedef struct pgn_coordinate_t\n{\n    char file;\n    int rank;\n} pgn_coordinate_t;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "pgn_coordinate_file_as_index": "int pgn_coordinate_file_as_index(char file)\n{\n    return file - (((*__ctype_b_loc())[(int)((file))] & (unsigned short int)_ISupper) ? 'A' : 'a');\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "annotation.i": {
+      "relative_path": "annotation.i",
+      "original_file": "annotation.c",
+      "includes": [
+        "annotation.h",
+        "utils/cursor.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {
+          "pgn_annotation_t": "typedef enum pgn_annotation_t\n{\n    PGN_ANNOTATION_UNKNOWN = -1,\n    PGN_ANNOTATION_NULL = 0,\n    PGN_ANNOTATION_GOOD_MOVE,\n    PGN_ANNOTATION_MISTAKE,\n    PGN_ANNOTATION_BRILLIANT_MOVE,\n    PGN_ANNOTATION_BLUNDER,\n    PGN_ANNOTATION_INTRESTING_MOVE,\n    PGN_ANNOTATION_DUBIOUS_MOVE,\n} pgn_annotation_t;"
+        },
+        "functions": {
+          "__pgn_annotation_nag_from_string": "pgn_annotation_t __pgn_annotation_nag_from_string(char *str, size_t *consumed)\n{\n    pgn_annotation_t annotation = PGN_ANNOTATION_UNKNOWN;\n    size_t cursor = 0;\n    if (str[cursor] != '$')\n        return annotation;\n    while (str[cursor] == '$')\n    {\n        ((((*__ctype_b_loc())[(int)((str[++cursor]))] & (unsigned short int)_ISdigit))\n             ? (void)(0)\n             : __assert_fail(\"isdigit(str[++cursor])\", \"annotation.c\", 42, __extension__ __PRETTY_FUNCTION__));\n        char *endptr = ((void *)0);\n        long num = strtol(str + cursor, &endptr, 10);\n        annotation = num;\n        cursor += endptr - (str + cursor);\n        pgn_cursor_skip_whitespace(str, &cursor);\n    }\n    pgn_cursor_revisit_whitespace(str, &cursor);\n    *consumed += cursor;\n    return annotation;\n}",
+          "__pgn_annotation_from_string": "pgn_annotation_t __pgn_annotation_from_string(char *str, size_t *consumed)\n{\n    pgn_annotation_t annotation = PGN_ANNOTATION_UNKNOWN;\n    if (str[0] == '\\0')\n        return annotation;\n    if (str[0] == '!')\n    {\n        (*consumed)++;\n        annotation = PGN_ANNOTATION_GOOD_MOVE;\n    }\n    if (str[0] == '?')\n    {\n        (*consumed)++;\n        annotation = PGN_ANNOTATION_MISTAKE;\n    }\n    if (str[1] == '\\0')\n        return annotation;\n    if (str[0] == '!' && str[1] == '!')\n    {\n        (*consumed)++;\n        annotation = PGN_ANNOTATION_BRILLIANT_MOVE;\n    }\n    if (str[0] == '!' && str[1] == '?')\n    {\n        (*consumed)++;\n        annotation = PGN_ANNOTATION_INTRESTING_MOVE;\n    }\n    if (str[0] == '?' && str[1] == '!')\n    {\n        (*consumed)++;\n        annotation = PGN_ANNOTATION_DUBIOUS_MOVE;\n    }\n    if (str[0] == '?' && str[1] == '?')\n    {\n        (*consumed)++;\n        annotation = PGN_ANNOTATION_BLUNDER;\n    }\n    return annotation;\n}",
+          "pgn_annotation_from_string": "pgn_annotation_t pgn_annotation_from_string(char *str)\n{\n    size_t consumed = 0;\n    return __pgn_annotation_from_string(str, &consumed);\n}",
+          "pgn_annotation_to_string": "size_t pgn_annotation_to_string(pgn_annotation_t annotation, char *dest)\n{\n    switch (annotation)\n    {\n    case PGN_ANNOTATION_UNKNOWN:\n        return 0;\n    case PGN_ANNOTATION_NULL:\n        break;\n    case PGN_ANNOTATION_GOOD_MOVE:\n        strcpy(dest, \"!\");\n        return 1;\n    case PGN_ANNOTATION_MISTAKE:\n        strcpy(dest, \"?\");\n        return 1;\n    case PGN_ANNOTATION_BRILLIANT_MOVE:\n        strcpy(dest, \"!!\");\n        return 2;\n    case PGN_ANNOTATION_BLUNDER:\n        strcpy(dest, \"??\");\n        return 2;\n    case PGN_ANNOTATION_INTRESTING_MOVE:\n        strcpy(dest, \"!?\");\n        return 2;\n    case PGN_ANNOTATION_DUBIOUS_MOVE:\n        strcpy(dest, \"?!\");\n        return 2;\n    }\n    int bytes = sprintf(dest, \"$%d\", annotation);\n    ((bytes >= 0) ? (void)(0) : __assert_fail(\"bytes >= 0\", \"annotation.c\", 137, __extension__ __PRETTY_FUNCTION__));\n    return bytes;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "score.i": {
+      "relative_path": "score.i",
+      "original_file": "score.c",
+      "includes": [
+        "score.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {
+          "pgn_score_t": "typedef enum pgn_score_t\n{\n    PGN_SCORE_UNKNOWN = 0,\n    PGN_SCORE_ONGOING,\n    PGN_SCORE_DRAW,\n    PGN_SCORE_WHITE_WON,\n    PGN_SCORE_BLACK_WON,\n    PGN_SCORE_FORFEIT,\n    PGN_SCORE_WHITE_FORFEIT,\n    PGN_SCORE_BLACK_FORFEIT,\n} pgn_score_t;",
+          "pgn_score_single_t": "typedef enum pgn_score_single_t\n{\n    ZERO = 0,\n    ONE,\n    HALF,\n} pgn_score_single_t;"
+        },
+        "functions": {
+          "__pgn_score_single_from_string": "pgn_score_single_t __pgn_score_single_from_string(char *str, size_t *consumed)\n{\n    if (strncmp(str, \"1/2\", 3) == 0)\n    {\n        *consumed += 3;\n        return HALF;\n    }\n    else if (*str == '0')\n    {\n        *consumed += 1;\n        return ZERO;\n    }\n    else if (*str == '1')\n    {\n        *consumed += 1;\n        return ONE;\n    }\n    return -1;\n}",
+          "__pgn_score_from_string": "pgn_score_t __pgn_score_from_string(char *str, size_t *consumed)\n{\n    size_t cursor = 0;\n    if (str[cursor] == '*')\n    {\n        cursor++;\n        *consumed += cursor;\n        return PGN_SCORE_ONGOING;\n    }\n    pgn_score_single_t white = __pgn_score_single_from_string(str + cursor, &cursor);\n    if ((int)white == -1)\n        return PGN_SCORE_UNKNOWN;\n    if (str[cursor++] != '-')\n        return PGN_SCORE_UNKNOWN;\n    pgn_score_single_t black = __pgn_score_single_from_string(str + cursor, &cursor);\n    if ((int)black == -1)\n        return PGN_SCORE_UNKNOWN;\n    *consumed += cursor;\n    if (white == HALF && black == HALF)\n        return PGN_SCORE_DRAW;\n    else if (white == 1 && black == 0)\n        return PGN_SCORE_WHITE_WON;\n    else if (white == 0 && black == 1)\n        return PGN_SCORE_BLACK_WON;\n    else if (white == 0 && black == 0)\n        return PGN_SCORE_FORFEIT;\n    else if (white == 0 && black == HALF)\n        return PGN_SCORE_WHITE_FORFEIT;\n    else if (white == HALF && black == 0)\n        return PGN_SCORE_BLACK_FORFEIT;\n    else\n        return PGN_SCORE_UNKNOWN;\n}",
+          "pgn_score_from_string": "pgn_score_t pgn_score_from_string(char *str)\n{\n    size_t consumed = 0;\n    return __pgn_score_from_string(str, &consumed);\n}",
+          "pgn_score_to_string": "char *pgn_score_to_string(pgn_score_t score)\n{\n    switch (score)\n    {\n    case PGN_SCORE_UNKNOWN:\n        break;\n    case PGN_SCORE_ONGOING:\n        return \"*\";\n    case PGN_SCORE_DRAW:\n        return \"1/2-1/2\";\n    case PGN_SCORE_WHITE_WON:\n        return \"1-0\";\n    case PGN_SCORE_BLACK_WON:\n        return \"0-1\";\n    case PGN_SCORE_FORFEIT:\n        return \"0-0\";\n    case PGN_SCORE_WHITE_FORFEIT:\n        return \"0-1/2\";\n    case PGN_SCORE_BLACK_FORFEIT:\n        return \"1/2-0\";\n    }\n    return \"\";\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "moves.i": {
+      "relative_path": "moves.i",
+      "original_file": "moves.c",
+      "includes": [
+        "moves.h",
+        "annotation.h",
+        "check.h",
+        "comments.h",
+        "piece.h",
+        "score.h",
+        "utils/cursor.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "pgn_coordinate_t": "typedef struct pgn_coordinate_t\n{\n    char file;\n    int rank;\n} pgn_coordinate_t;",
+          "pgn_buffer_t": "typedef struct pgn_buffer_t\n{\n    char *buf;\n    size_t length;\n    size_t size;\n} pgn_buffer_t;",
+          "pgn_comment_t": "typedef struct pgn_comment_t\n{\n    pgn_comment_position_t position;\n    pgn_buffer_t *value;\n} pgn_comment_t;",
+          "pgn_comments_t": "typedef struct pgn_comments_t\n{\n    pgn_comment_t *values;\n    size_t length;\n    size_t size;\n} pgn_comments_t;",
+          "pgn_moves_t": "struct pgn_moves_t\n{\n    __pgn_moves_item_t *values;\n    size_t length;\n    size_t size;\n}",
+          "__pgn_moves_item_t": "struct __pgn_moves_item_t\n{\n    pgn_move_t white;\n    pgn_move_t black;\n}",
+          "pgn_alternative_moves_t": "typedef struct pgn_alternative_moves_t\n{\n    pgn_moves_t **values;\n    size_t length;\n    size_t size;\n} pgn_alternative_moves_t;",
+          "pgn_move_t": "typedef struct pgn_move_t\n{\n    pgn_piece_t piece, promoted_to;\n    char notation[16];\n    int castles;\n    _Bool captures;\n    _Bool en_passant;\n    pgn_check_t check;\n    pgn_coordinate_t from, dest;\n    pgn_annotation_t annotation;\n    pgn_comments_t *comments;\n    pgn_alternative_moves_t *alternatives;\n} pgn_move_t;"
+        },
+        "unions": {},
+        "enums": {
+          "pgn_piece_t": "typedef enum pgn_piece_t\n{\n    PGN_PIECE_UNKNOWN = 0,\n    PGN_PIECE_PAWN = 'P',\n    PGN_PIECE_ROOK = 'R',\n    PGN_PIECE_KNIGHT = 'N',\n    PGN_PIECE_BISHOP = 'B',\n    PGN_PIECE_QUEEN = 'Q',\n    PGN_PIECE_KING = 'K',\n} pgn_piece_t;",
+          "pgn_annotation_t": "typedef enum pgn_annotation_t\n{\n    PGN_ANNOTATION_UNKNOWN = -1,\n    PGN_ANNOTATION_NULL = 0,\n    PGN_ANNOTATION_GOOD_MOVE,\n    PGN_ANNOTATION_MISTAKE,\n    PGN_ANNOTATION_BRILLIANT_MOVE,\n    PGN_ANNOTATION_BLUNDER,\n    PGN_ANNOTATION_INTRESTING_MOVE,\n    PGN_ANNOTATION_DUBIOUS_MOVE,\n} pgn_annotation_t;",
+          "pgn_comment_position_t": "typedef enum pgn_comment_position_t\n{\n    PGN_COMMENT_POSITION_UNKNOWN = 0,\n    PGN_COMMENT_POSITION_BEFORE_MOVE,\n    PGN_COMMENT_POSITION_BETWEEN_MOVE,\n    PGN_COMMENT_POSITION_AFTER_MOVE,\n    PGN_COMMENT_POSITION_AFTER_ALTERNATIVE,\n} pgn_comment_position_t;",
+          "pgn_check_t": "typedef enum pgn_check_t\n{\n    PGN_CHECK_MATE = -1,\n    PGN_CHECK_NONE = 0,\n    PGN_CHECK_SINGLE,\n    PGN_CHECK_DOUBLE,\n} pgn_check_t;",
+          "pgn_score_t": "typedef enum pgn_score_t\n{\n    PGN_SCORE_UNKNOWN = 0,\n    PGN_SCORE_ONGOING,\n    PGN_SCORE_DRAW,\n    PGN_SCORE_WHITE_WON,\n    PGN_SCORE_BLACK_WON,\n    PGN_SCORE_FORFEIT,\n    PGN_SCORE_WHITE_FORFEIT,\n    PGN_SCORE_BLACK_FORFEIT,\n} pgn_score_t;"
+        },
+        "functions": {
+          "__pgn_move_from_string": "pgn_move_t __pgn_move_from_string(char *str, size_t *consumed)\n{\n    pgn_move_t move = {0};\n    size_t cursor = 0;\n    if (str[cursor] == 'O')\n    {\n        ((str[++cursor] == '-')\n             ? (void)(0)\n             : __assert_fail(\"str[++cursor] == '-'\", \"moves.c\", 43, __extension__ __PRETTY_FUNCTION__));\n        ((str[++cursor] == 'O')\n             ? (void)(0)\n             : __assert_fail(\"str[++cursor] == 'O'\", \"moves.c\", 44, __extension__ __PRETTY_FUNCTION__));\n        move.castles = 2;\n        cursor++;\n        if (str[cursor] == '-')\n        {\n            ((str[++cursor] == 'O')\n                 ? (void)(0)\n                 : __assert_fail(\"str[++cursor] == 'O'\", \"moves.c\", 49, __extension__ __PRETTY_FUNCTION__));\n            move.castles = 3;\n            cursor++;\n        }\n        goto check;\n    }\n    move.piece = pgn_piece_from_char(str[cursor++]);\n    if (move.piece == PGN_PIECE_UNKNOWN)\n    {\n        move.piece = PGN_PIECE_PAWN;\n        cursor--;\n    }\n    if (((*__ctype_b_loc())[(int)((str[cursor]))] & (unsigned short int)_ISlower) && str[cursor] != 'x')\n        move.from.file = str[cursor++];\n    if (((*__ctype_b_loc())[(int)((str[cursor]))] & (unsigned short int)_ISdigit))\n        move.from.rank = str[cursor++] - '0';\n    move.captures = str[cursor] == 'x' || str[cursor] == ':';\n    cursor += move.captures;\n    if (((*__ctype_b_loc())[(int)((str[cursor]))] & (unsigned short int)_ISlower))\n    {\n        ((((*__ctype_b_loc())[(int)((str[cursor]))] & (unsigned short int)_ISlower))\n             ? (void)(0)\n             : __assert_fail(\"islower(str[cursor])\", \"moves.c\", 72, __extension__ __PRETTY_FUNCTION__));\n        move.dest.file = str[cursor++];\n        ((((*__ctype_b_loc())[(int)((str[cursor]))] & (unsigned short int)_ISdigit))\n             ? (void)(0)\n             : __assert_fail(\"isdigit(str[cursor])\", \"moves.c\", 74, __extension__ __PRETTY_FUNCTION__));\n        move.dest.rank = str[cursor++] - '0';\n    }\n    else\n    {\n        move.dest = move.from;\n        move.from = (pgn_coordinate_t){0};\n    }\n    move.promoted_to = pgn_piece_from_char(str[cursor]);\n    if (move.promoted_to == PGN_PIECE_UNKNOWN)\n    {\n        switch (str[cursor])\n        {\n        case '(':\n            move.promoted_to = pgn_piece_from_char(str[++cursor]);\n            ((move.promoted_to != PGN_PIECE_UNKNOWN) ? (void)(0)\n                                                     : __assert_fail(\"move.promoted_to != PGN_PIECE_UNKNOWN\", \"moves.c\",\n                                                                     86, __extension__ __PRETTY_FUNCTION__));\n            ((str[++cursor] == ')')\n                 ? (void)(0)\n                 : __assert_fail(\"str[++cursor] == ')'\", \"moves.c\", 87, __extension__ __PRETTY_FUNCTION__));\n            cursor++;\n            break;\n        case '=':\n        case '/':\n            move.promoted_to = pgn_piece_from_char(str[++cursor]);\n            ((move.promoted_to != PGN_PIECE_UNKNOWN) ? (void)(0)\n                                                     : __assert_fail(\"move.promoted_to != PGN_PIECE_UNKNOWN\", \"moves.c\",\n                                                                     93, __extension__ __PRETTY_FUNCTION__));\n            cursor++;\n            break;\n        }\n    }\n    ((move.dest.file != 0) ? (void)(0)\n                           : __assert_fail(\"move.dest.file != 0\", \"moves.c\", 99, __extension__ __PRETTY_FUNCTION__));\n    ((move.dest.rank != 0) ? (void)(0)\n                           : __assert_fail(\"move.dest.rank != 0\", \"moves.c\", 100, __extension__ __PRETTY_FUNCTION__));\ncheck:\n    move.check = __pgn_check_from_string(str + cursor, &cursor);\n    move.annotation = __pgn_annotation_from_string(str + cursor, &cursor);\n    _Bool skipped_whitespace_before_ep = pgn_cursor_skip_whitespace(str, &cursor);\n    if (str[cursor] == 'e' && str[cursor + 1] == '.')\n    {\n        ((skipped_whitespace_before_ep)\n             ? (void)(0)\n             : __assert_fail(\"skipped_whitespace_before_ep\", \"moves.c\", 112, __extension__ __PRETTY_FUNCTION__));\n        ((str[cursor] == 'e') ? (void)(0)\n                              : __assert_fail(\"str[cursor] == 'e'\", \"moves.c\", 114, __extension__ __PRETTY_FUNCTION__));\n        ((str[++cursor] == '.')\n             ? (void)(0)\n             : __assert_fail(\"str[++cursor] == '.'\", \"moves.c\", 115, __extension__ __PRETTY_FUNCTION__));\n        ((str[++cursor] == 'p')\n             ? (void)(0)\n             : __assert_fail(\"str[++cursor] == 'p'\", \"moves.c\", 116, __extension__ __PRETTY_FUNCTION__));\n        ((str[++cursor] == '.')\n             ? (void)(0)\n             : __assert_fail(\"str[++cursor] == '.'\", \"moves.c\", 117, __extension__ __PRETTY_FUNCTION__));\n        cursor++;\n        move.en_passant = 1;\n    }\n    _Bool skipped_whitespace_after_ep =\n        move.en_passant ? pgn_cursor_skip_whitespace(str, &cursor) : skipped_whitespace_before_ep;\n    if (move.annotation == PGN_ANNOTATION_UNKNOWN)\n    {\n        move.annotation = __pgn_annotation_nag_from_string(str + cursor, &cursor);\n        if (move.annotation != PGN_ANNOTATION_UNKNOWN)\n        {\n            ((skipped_whitespace_after_ep)\n                 ? (void)(0)\n                 : __assert_fail(\"skipped_whitespace_after_ep\", \"moves.c\", 132, __extension__ __PRETTY_FUNCTION__));\n        }\n    }\n    pgn_cursor_revisit_whitespace(str, &cursor);\n    size_t notation_len = cursor;\n    strncpy(move.notation, str, notation_len);\n    *consumed += cursor;\n    return move;\n}",
+          "pgn_move_from_string": "pgn_move_t pgn_move_from_string(char *str)\n{\n    size_t consumed = 0;\n    return __pgn_move_from_string(str, &consumed);\n}",
+          "pgn_move_to_string": "size_t pgn_move_to_string(pgn_move_t *move, char *dest)\n{\n    size_t cursor = 0;\n    switch (move->castles)\n    {\n    case 0:\n        break;\n    case 2:\n        strcpy(dest, \"O-O\");\n        cursor += 2 * 2 - 1;\n        goto check;\n    case 3:\n        strcpy(dest, \"O-O-O\");\n        cursor += 3 * 2 - 1;\n        goto check;\n    }\n    ((move->piece != PGN_PIECE_UNKNOWN)\n         ? (void)(0)\n         : __assert_fail(\"move->piece != PGN_PIECE_UNKNOWN\", \"moves.c\", 167, __extension__ __PRETTY_FUNCTION__));\n    if (move->piece != PGN_PIECE_PAWN)\n    {\n        dest[cursor++] = move->piece;\n    }\n    if (move->from.file)\n        dest[cursor++] = move->from.file;\n    if (move->from.rank)\n        dest[cursor++] = '0' + move->from.rank;\n    if (move->captures)\n        dest[cursor++] = 'x';\n    dest[cursor++] = move->dest.file;\n    dest[cursor++] = '0' + move->dest.rank;\n    if (move->promoted_to)\n    {\n        ((move->piece == PGN_PIECE_PAWN)\n             ? (void)(0)\n             : __assert_fail(\"move->piece == PGN_PIECE_PAWN\", \"moves.c\", 181, __extension__ __PRETTY_FUNCTION__));\n        ((move->promoted_to != PGN_PIECE_PAWN)\n             ? (void)(0)\n             : __assert_fail(\"move->promoted_to != PGN_PIECE_PAWN\", \"moves.c\", 182, __extension__ __PRETTY_FUNCTION__));\n        dest[cursor++] = '=';\n        dest[cursor++] = move->promoted_to;\n    }\ncheck:\n    switch (move->check)\n    {\n    case PGN_CHECK_NONE:\n        break;\n    case PGN_CHECK_MATE:\n        dest[cursor++] = '#';\n        break;\n    case PGN_CHECK_SINGLE:\n        dest[cursor++] = '+';\n        break;\n    case PGN_CHECK_DOUBLE:\n        dest[cursor++] = '+';\n        dest[cursor++] = '+';\n        break;\n    }\n    if (move->annotation >= PGN_ANNOTATION_GOOD_MOVE && move->annotation <= PGN_ANNOTATION_DUBIOUS_MOVE)\n    {\n        cursor += pgn_annotation_to_string(move->annotation, dest + cursor);\n    }\n    if (move->en_passant)\n    {\n        dest[cursor++] = ' ';\n        strcpy(dest + cursor, \"e.p.\");\n        cursor += 4;\n    }\n    if (move->annotation > PGN_ANNOTATION_DUBIOUS_MOVE || move->annotation == PGN_ANNOTATION_NULL)\n    {\n        dest[cursor++] = ' ';\n        cursor += pgn_annotation_to_string(move->annotation, dest + cursor);\n    }\n    dest[cursor] = '\\0';\n    return cursor;\n}",
+          "__pgn_moves_from_string_recurse": "pgn_moves_t *__pgn_moves_from_string_recurse(char *str, size_t *consumed, pgn_moves_t *moves, int expect)\n{\n    if (str[0] == ')' || str[0] == '\\0')\n        return moves;\n    size_t cursor = 0;\n    __pgn_moves_item_t move = {0};\n    pgn_comments_t *comments = ((void *)0);\n    pgn_cursor_skip_whitespace(str, &cursor);\n    cursor += pgn_comments_poll(&comments, PGN_COMMENT_POSITION_BEFORE_MOVE, str + cursor);\n    ((((*__ctype_b_loc())[(int)((str[cursor]))] & (unsigned short int)_ISdigit))\n         ? (void)(0)\n         : __assert_fail(\"isdigit(str[cursor])\", \"moves.c\", 237, __extension__ __PRETTY_FUNCTION__));\n    while (((*__ctype_b_loc())[(int)((str[cursor]))] & (unsigned short int)_ISdigit))\n        cursor++;\n    int dots_count = 0;\n    ((str[cursor] == '.') ? (void)(0)\n                          : __assert_fail(\"str[cursor] == '.'\", \"moves.c\", 241, __extension__ __PRETTY_FUNCTION__));\n    while (str[cursor] == '.')\n    {\n        cursor++;\n        dots_count++;\n    }\n    if (expect == 0)\n        ((dots_count == 1) ? (void)(0)\n                           : __assert_fail(\"dots_count == 1\", \"moves.c\", 247, __extension__ __PRETTY_FUNCTION__));\n    if (expect == 1)\n        ((dots_count == 3) ? (void)(0)\n                           : __assert_fail(\"dots_count == 3\", \"moves.c\", 248, __extension__ __PRETTY_FUNCTION__));\n    pgn_cursor_skip_whitespace(str, &cursor);\n    cursor += pgn_comments_poll(&comments, PGN_COMMENT_POSITION_BETWEEN_MOVE, str + cursor);\n    if (dots_count == 3)\n    {\n        move.black = __pgn_move_from_string(str + cursor, &cursor);\n        pgn_cursor_skip_whitespace(str, &cursor);\n        cursor += pgn_comments_poll(&comments, PGN_COMMENT_POSITION_AFTER_MOVE, str + cursor);\n        cursor += pgn_alternative_moves_poll(&move.black.alternatives, &comments, str + cursor, 1);\n        pgn_cursor_skip_whitespace(str, &cursor);\n        cursor += pgn_comments_poll(&comments, PGN_COMMENT_POSITION_AFTER_MOVE, str + cursor);\n        if (comments)\n        {\n            move.black.comments = comments;\n            comments = ((void *)0);\n        }\n        pgn_moves_push(moves, move);\n        __pgn_moves_from_string_recurse(str + cursor, &cursor, moves, 0);\n        *consumed += cursor;\n        return moves;\n    }\n    move.white = __pgn_move_from_string(str + cursor, &cursor);\n    pgn_cursor_skip_whitespace(str, &cursor);\n    cursor += pgn_comments_poll(&comments, PGN_COMMENT_POSITION_AFTER_MOVE, str + cursor);\n    cursor += pgn_alternative_moves_poll(&move.white.alternatives, &comments, str + cursor, 0);\n    pgn_cursor_skip_whitespace(str, &cursor);\n    cursor += pgn_comments_poll(&comments, PGN_COMMENT_POSITION_AFTER_MOVE, str + cursor);\n    if (comments)\n    {\n        move.white.comments = comments;\n        comments = ((void *)0);\n    }\n    if (pgn_score_from_string(str + cursor))\n    {\n        pgn_moves_push(moves, move);\n        *consumed += cursor;\n        return moves;\n    }\n    if (str[cursor] == ')' || str[cursor] == '\\0')\n    {\n        pgn_moves_push(moves, move);\n        *consumed += cursor;\n        return moves;\n    }\n    pgn_cursor_skip_whitespace(str, &cursor);\n    cursor += pgn_comments_poll(&comments, PGN_COMMENT_POSITION_BEFORE_MOVE, str + cursor);\n    if (((*__ctype_b_loc())[(int)((str[cursor]))] & (unsigned short int)_ISdigit))\n    {\n        while (((*__ctype_b_loc())[(int)((str[cursor]))] & (unsigned short int)_ISdigit))\n            cursor++;\n        for (int i = 0; i < 3; i++)\n            ((str[cursor++] == '.')\n                 ? (void)(0)\n                 : __assert_fail(\"str[cursor++] == '.'\", \"moves.c\", 308, __extension__ __PRETTY_FUNCTION__));\n    }\n    pgn_cursor_skip_whitespace(str, &cursor);\n    cursor += pgn_comments_poll(&comments, PGN_COMMENT_POSITION_BETWEEN_MOVE, str + cursor);\n    move.black = __pgn_move_from_string(str + cursor, &cursor);\n    pgn_cursor_skip_whitespace(str, &cursor);\n    cursor += pgn_comments_poll(&comments, PGN_COMMENT_POSITION_AFTER_MOVE, str + cursor);\n    cursor += pgn_alternative_moves_poll(&move.black.alternatives, &comments, str + cursor, 1);\n    pgn_cursor_skip_whitespace(str, &cursor);\n    cursor += pgn_comments_poll(&comments, PGN_COMMENT_POSITION_AFTER_MOVE, str + cursor);\n    if (comments)\n    {\n        move.black.comments = comments;\n        comments = ((void *)0);\n    }\n    pgn_moves_push(moves, move);\n    if (pgn_score_from_string(str + cursor))\n    {\n        *consumed += cursor;\n        return moves;\n    }\n    __pgn_moves_from_string_recurse(str + cursor, &cursor, moves, 0);\n    *consumed += cursor;\n    return moves;\n}",
+          "__pgn_moves_from_string": "pgn_moves_t *__pgn_moves_from_string(char *str, size_t *consumed)\n{\n    return __pgn_moves_from_string_recurse(str, consumed, pgn_moves_init(), 0);\n}",
+          "pgn_moves_from_string": "pgn_moves_t *pgn_moves_from_string(char *str)\n{\n    size_t consumed = 0;\n    return __pgn_moves_from_string(str, &consumed);\n}",
+          "pgn_alternative_moves_init": "pgn_alternative_moves_t *pgn_alternative_moves_init(void)\n{\n    pgn_alternative_moves_t *alt = malloc(sizeof *alt);\n    alt->values = malloc(sizeof *alt->values * 1);\n    alt->size = 1;\n    alt->length = 0;\n    return alt;\n}",
+          "pgn_alternative_moves_poll": "size_t pgn_alternative_moves_poll(pgn_alternative_moves_t **alt, pgn_comments_t **placeholder, char *str, int expect)\n{\n    size_t cursor = 0;\n    while (str[cursor] == '(')\n    {\n        cursor++;\n        if (!*alt)\n            *alt = pgn_alternative_moves_init();\n        pgn_cursor_skip_whitespace(str, &cursor);\n        pgn_alternative_moves_push(*alt,\n                                   __pgn_moves_from_string_recurse(str + cursor, &cursor, pgn_moves_init(), expect));\n        pgn_cursor_skip_whitespace(str, &cursor);\n        ((str[cursor++] == ')')\n             ? (void)(0)\n             : __assert_fail(\"str[cursor++] == ')'\", \"moves.c\", 371, __extension__ __PRETTY_FUNCTION__));\n        pgn_cursor_skip_whitespace(str, &cursor);\n        cursor += pgn_comments_poll(placeholder, PGN_COMMENT_POSITION_AFTER_ALTERNATIVE, str + cursor);\n    }\n    return cursor;\n}",
+          "pgn_alternative_moves_push": "void pgn_alternative_moves_push(pgn_alternative_moves_t *alt, pgn_moves_t *moves)\n{\n    if (alt->length >= alt->size)\n    {\n        alt->size += 1;\n        alt->values = realloc(alt->values, (sizeof *alt->values) * alt->size);\n    }\n    alt->values[alt->length++] = moves;\n}",
+          "pgn_alternative_moves_cleanup": "void pgn_alternative_moves_cleanup(pgn_alternative_moves_t *alt)\n{\n    for (size_t i = 0; i < alt->length; i++)\n    {\n        pgn_moves_cleanup(alt->values[i]);\n    }\n    free(alt->values);\n    free(alt);\n}",
+          "pgn_moves_init": "pgn_moves_t *pgn_moves_init(void)\n{\n    pgn_moves_t *moves = malloc(sizeof *moves);\n    moves->values = malloc(sizeof *moves->values * 32);\n    moves->size = 32;\n    moves->length = 0;\n    return moves;\n}",
+          "pgn_moves_push": "void pgn_moves_push(pgn_moves_t *moves, __pgn_moves_item_t __moves)\n{\n    if (moves->length >= moves->size)\n    {\n        moves->size += 32;\n        moves->values = realloc(moves->values, (sizeof *moves->values) * moves->size);\n    }\n    moves->values[moves->length++] = __moves;\n}",
+          "pgn_moves_cleanup": "void pgn_moves_cleanup(pgn_moves_t *moves)\n{\n    for (size_t i = 0; i < moves->length; i++)\n    {\n        if (moves->values[i].white.comments)\n        {\n            pgn_comments_cleanup(moves->values[i].white.comments);\n        }\n        if (moves->values[i].black.comments)\n        {\n            pgn_comments_cleanup(moves->values[i].black.comments);\n        }\n        if (moves->values[i].white.alternatives)\n        {\n            pgn_alternative_moves_cleanup(moves->values[i].white.alternatives);\n        }\n        if (moves->values[i].black.alternatives)\n        {\n            pgn_alternative_moves_cleanup(moves->values[i].black.alternatives);\n        }\n    }\n    free(moves->values);\n    free(moves);\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "pgn.i": {
+      "relative_path": "pgn.i",
+      "original_file": "pgn.c",
+      "includes": [
+        "pgn.h",
+        "utils/cursor.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "pgn_buffer_t": "typedef struct pgn_buffer_t\n{\n    char *buf;\n    size_t length;\n    size_t size;\n} pgn_buffer_t;",
+          "__pgn_metadata_item_t": "typedef struct __pgn_metadata_item_t\n{\n    pgn_buffer_t *key;\n    pgn_buffer_t *value;\n} __pgn_metadata_item_t;",
+          "pgn_metadata_t": "typedef struct pgn_metadata_t\n{\n    __pgn_metadata_item_t *items;\n    size_t length, size;\n} pgn_metadata_t;",
+          "pgn_coordinate_t": "typedef struct pgn_coordinate_t\n{\n    char file;\n    int rank;\n} pgn_coordinate_t;",
+          "pgn_comment_t": "typedef struct pgn_comment_t\n{\n    pgn_comment_position_t position;\n    pgn_buffer_t *value;\n} pgn_comment_t;",
+          "pgn_comments_t": "typedef struct pgn_comments_t\n{\n    pgn_comment_t *values;\n    size_t length;\n    size_t size;\n} pgn_comments_t;",
+          "pgn_moves_t": "struct pgn_moves_t\n{\n    __pgn_moves_item_t *values;\n    size_t length;\n    size_t size;\n}",
+          "__pgn_moves_item_t": "struct __pgn_moves_item_t\n{\n    pgn_move_t white;\n    pgn_move_t black;\n}",
+          "pgn_alternative_moves_t": "typedef struct pgn_alternative_moves_t\n{\n    pgn_moves_t **values;\n    size_t length;\n    size_t size;\n} pgn_alternative_moves_t;",
+          "pgn_move_t": "typedef struct pgn_move_t\n{\n    pgn_piece_t piece, promoted_to;\n    char notation[16];\n    int castles;\n    _Bool captures;\n    _Bool en_passant;\n    pgn_check_t check;\n    pgn_coordinate_t from, dest;\n    pgn_annotation_t annotation;\n    pgn_comments_t *comments;\n    pgn_alternative_moves_t *alternatives;\n} pgn_move_t;",
+          "pgn_t": "typedef struct pgn_t\n{\n    pgn_metadata_t *metadata;\n    pgn_moves_t *moves;\n    pgn_score_t score;\n} pgn_t;"
+        },
+        "unions": {},
+        "enums": {
+          "pgn_piece_t": "typedef enum pgn_piece_t\n{\n    PGN_PIECE_UNKNOWN = 0,\n    PGN_PIECE_PAWN = 'P',\n    PGN_PIECE_ROOK = 'R',\n    PGN_PIECE_KNIGHT = 'N',\n    PGN_PIECE_BISHOP = 'B',\n    PGN_PIECE_QUEEN = 'Q',\n    PGN_PIECE_KING = 'K',\n} pgn_piece_t;",
+          "pgn_annotation_t": "typedef enum pgn_annotation_t\n{\n    PGN_ANNOTATION_UNKNOWN = -1,\n    PGN_ANNOTATION_NULL = 0,\n    PGN_ANNOTATION_GOOD_MOVE,\n    PGN_ANNOTATION_MISTAKE,\n    PGN_ANNOTATION_BRILLIANT_MOVE,\n    PGN_ANNOTATION_BLUNDER,\n    PGN_ANNOTATION_INTRESTING_MOVE,\n    PGN_ANNOTATION_DUBIOUS_MOVE,\n} pgn_annotation_t;",
+          "pgn_score_t": "typedef enum pgn_score_t\n{\n    PGN_SCORE_UNKNOWN = 0,\n    PGN_SCORE_ONGOING,\n    PGN_SCORE_DRAW,\n    PGN_SCORE_WHITE_WON,\n    PGN_SCORE_BLACK_WON,\n    PGN_SCORE_FORFEIT,\n    PGN_SCORE_WHITE_FORFEIT,\n    PGN_SCORE_BLACK_FORFEIT,\n} pgn_score_t;",
+          "pgn_check_t": "typedef enum pgn_check_t\n{\n    PGN_CHECK_MATE = -1,\n    PGN_CHECK_NONE = 0,\n    PGN_CHECK_SINGLE,\n    PGN_CHECK_DOUBLE,\n} pgn_check_t;",
+          "pgn_comment_position_t": "typedef enum pgn_comment_position_t\n{\n    PGN_COMMENT_POSITION_UNKNOWN = 0,\n    PGN_COMMENT_POSITION_BEFORE_MOVE,\n    PGN_COMMENT_POSITION_BETWEEN_MOVE,\n    PGN_COMMENT_POSITION_AFTER_MOVE,\n    PGN_COMMENT_POSITION_AFTER_ALTERNATIVE,\n} pgn_comment_position_t;"
+        },
+        "functions": {
+          "pgn_init": "pgn_t *pgn_init(void)\n{\n    pgn_t *pgn = malloc(sizeof *pgn);\n    pgn->metadata = ((void *)0);\n    pgn->moves = ((void *)0);\n    return pgn;\n}",
+          "pgn_cleanup": "void pgn_cleanup(pgn_t *pgn)\n{\n    if (pgn->metadata)\n        pgn_metadata_cleanup(pgn->metadata);\n    if (pgn->moves)\n        pgn_moves_cleanup(pgn->moves);\n    free(pgn);\n}",
+          "pgn_parse_metadata": "pgn_metadata_t *pgn_parse_metadata(char *str)\n{\n    return pgn_metadata_from_string(str);\n}",
+          "pgn_parse_move": "pgn_move_t pgn_parse_move(char *str)\n{\n    return pgn_move_from_string(str);\n}",
+          "pgn_parse_moves": "pgn_moves_t *pgn_parse_moves(char *str)\n{\n    return pgn_moves_from_string(str);\n}",
+          "pgn_parse_score": "pgn_score_t pgn_parse_score(char *str)\n{\n    return pgn_score_from_string(str);\n}",
+          "pgn_parse": "size_t pgn_parse(pgn_t *pgn, char *str)\n{\n    size_t cursor = 0;\n    pgn->metadata = __pgn_metadata_from_string(str + cursor, &cursor);\n    pgn_cursor_skip_whitespace(str, &cursor);\n    pgn->moves = __pgn_moves_from_string(str + cursor, &cursor);\n    pgn->score = __pgn_score_from_string(str + cursor, &cursor);\n    return cursor;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "metadata.i": {
+      "relative_path": "metadata.i",
+      "original_file": "metadata.c",
+      "includes": [
+        "metadata.h",
+        "utils/cursor.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "pgn_buffer_t": "typedef struct pgn_buffer_t\n{\n    char *buf;\n    size_t length;\n    size_t size;\n} pgn_buffer_t;",
+          "__pgn_metadata_item_t": "typedef struct __pgn_metadata_item_t\n{\n    pgn_buffer_t *key;\n    pgn_buffer_t *value;\n} __pgn_metadata_item_t;",
+          "pgn_metadata_t": "typedef struct pgn_metadata_t\n{\n    __pgn_metadata_item_t *items;\n    size_t length, size;\n} pgn_metadata_t;"
+        },
+        "unions": {},
+        "enums": {
+          "pgn_piece_t": "typedef enum pgn_piece_t\n{\n    PGN_PIECE_UNKNOWN = 0,\n    PGN_PIECE_PAWN = 'P',\n    PGN_PIECE_ROOK = 'R',\n    PGN_PIECE_KNIGHT = 'N',\n    PGN_PIECE_BISHOP = 'B',\n    PGN_PIECE_QUEEN = 'Q',\n    PGN_PIECE_KING = 'K',\n} pgn_piece_t;"
+        },
+        "functions": {
+          "__pgn_metadata_from_string": "pgn_metadata_t *__pgn_metadata_from_string(char *str, size_t *consumed)\n{\n    size_t cursor = 0;\n    if (str[cursor] != '[')\n        return ((void *)0);\n    pgn_metadata_t *metadata = pgn_metadata_init();\n    pgn_buffer_t *key_buffer = pgn_buffer_init();\n    pgn_buffer_t *value_buffer = pgn_buffer_init();\n    for (;;)\n    {\n        if (str[cursor] != '[')\n            break;\n        cursor++;\n        while (str[cursor] != ' ')\n            pgn_buffer_append(key_buffer, str[cursor++]);\n        pgn_buffer_append_null_terminator(key_buffer);\n        ((str[++cursor] == '\"')\n             ? (void)(0)\n             : __assert_fail(\"str[++cursor] == '\\\"'\", \"metadata.c\", 45, __extension__ __PRETTY_FUNCTION__));\n        cursor++;\n        while (str[cursor] != '\"')\n            pgn_buffer_append(value_buffer, str[cursor++]);\n        pgn_buffer_append_null_terminator(value_buffer);\n        pgn_metadata_insert(metadata, key_buffer->buf, value_buffer->buf);\n        pgn_buffer_reset(key_buffer);\n        pgn_buffer_reset(value_buffer);\n        ((str[++cursor] == ']')\n             ? (void)(0)\n             : __assert_fail(\"str[++cursor] == ']'\", \"metadata.c\", 55, __extension__ __PRETTY_FUNCTION__));\n        cursor++;\n        pgn_cursor_skip_newline(str, &cursor);\n    }\n    *consumed += cursor;\n    pgn_buffer_cleanup(key_buffer);\n    pgn_buffer_cleanup(value_buffer);\n    return metadata;\n}",
+          "pgn_metadata_from_string": "pgn_metadata_t *pgn_metadata_from_string(char *str)\n{\n    size_t consumed = 0;\n    return __pgn_metadata_from_string(str, &consumed);\n}",
+          "__pgn_metadata_item_init": "void __pgn_metadata_item_init(__pgn_metadata_item_t *item)\n{\n    item->key = pgn_buffer_init();\n    item->value = pgn_buffer_init();\n}",
+          "__pgn_metadata_item_cleanup": "void __pgn_metadata_item_cleanup(__pgn_metadata_item_t *item)\n{\n    pgn_buffer_cleanup(item->key);\n    pgn_buffer_cleanup(item->value);\n}",
+          "pgn_metadata_init": "pgn_metadata_t *pgn_metadata_init(void)\n{\n    pgn_metadata_t *metadata = malloc(sizeof *metadata);\n    metadata->items = malloc((sizeof *metadata->items) * 8);\n    metadata->size = 8;\n    metadata->length = 0;\n    return metadata;\n}",
+          "pgn_metadata_insert": "void pgn_metadata_insert(pgn_metadata_t *metadata, char *key, char *value)\n{\n    if (metadata->length >= metadata->size)\n    {\n        metadata->size += 8;\n        metadata->items = realloc(metadata->items, (sizeof *metadata->items) * metadata->size);\n    }\n    __pgn_metadata_item_t item = {0};\n    __pgn_metadata_item_init(&item);\n    pgn_buffer_concat(item.key, key);\n    pgn_buffer_concat(item.value, value);\n    metadata->items[metadata->length++] = item;\n}",
+          "pgn_metadata_get": "char *pgn_metadata_get(pgn_metadata_t *metadata, char *key)\n{\n    for (size_t i = 0; i < metadata->length; i++)\n    {\n        if (pgn_buffer_equal(metadata->items[i].key, key))\n        {\n            return metadata->items[i].value->buf;\n        }\n    }\n    return ((void *)0);\n}",
+          "pgn_metadata_delete": "void pgn_metadata_delete(pgn_metadata_t *metadata, char *key)\n{\n    for (size_t i = 0; i < metadata->length; i++)\n    {\n        if (!pgn_buffer_equal(metadata->items[i].key, key))\n        {\n            continue;\n        }\n        __pgn_metadata_item_cleanup(&metadata->items[i]);\n        for (size_t j = i; j < metadata->length - 1; j++)\n        {\n            metadata->items[j] = metadata->items[j + 1];\n        }\n        metadata->length--;\n        break;\n    }\n}",
+          "pgn_metadata_cleanup": "void pgn_metadata_cleanup(pgn_metadata_t *metadata)\n{\n    for (size_t i = 0; i < metadata->length; i++)\n    {\n        __pgn_metadata_item_cleanup(&metadata->items[i]);\n    }\n    free(metadata->items);\n    free(metadata);\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "comments.i": {
+      "relative_path": "comments.i",
+      "original_file": "comments.c",
+      "includes": [
+        "comments.h",
+        "utils/cursor.h",
+        "utils/buffer.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "pgn_buffer_t": "typedef struct pgn_buffer_t\n{\n    char *buf;\n    size_t length;\n    size_t size;\n} pgn_buffer_t;",
+          "pgn_comment_t": "typedef struct pgn_comment_t\n{\n    pgn_comment_position_t position;\n    pgn_buffer_t *value;\n} pgn_comment_t;",
+          "pgn_comments_t": "typedef struct pgn_comments_t\n{\n    pgn_comment_t *values;\n    size_t length;\n    size_t size;\n} pgn_comments_t;"
+        },
+        "unions": {},
+        "enums": {
+          "pgn_comment_position_t": "typedef enum pgn_comment_position_t\n{\n    PGN_COMMENT_POSITION_UNKNOWN = 0,\n    PGN_COMMENT_POSITION_BEFORE_MOVE,\n    PGN_COMMENT_POSITION_BETWEEN_MOVE,\n    PGN_COMMENT_POSITION_AFTER_MOVE,\n    PGN_COMMENT_POSITION_AFTER_ALTERNATIVE,\n} pgn_comment_position_t;"
+        },
+        "functions": {
+          "pgn_comment_init": "void pgn_comment_init(pgn_comment_t *comment)\n{\n    comment->value = pgn_buffer_init();\n    comment->position = PGN_COMMENT_POSITION_UNKNOWN;\n}",
+          "pgn_comment_value": "char *pgn_comment_value(pgn_comment_t *comment)\n{\n    return comment->value->buf;\n}",
+          "__pgn_comment_from_string": "pgn_comment_t __pgn_comment_from_string(char *str, size_t *consumed)\n{\n    size_t cursor = 0;\n    pgn_comment_t comment;\n    pgn_comment_init(&comment);\n    ((str[cursor++] == '{')\n         ? (void)(0)\n         : __assert_fail(\"str[cursor++] == '{'\", \"comments.c\", 43, __extension__ __PRETTY_FUNCTION__));\n    unsigned int left_brace_count = 1, right_brace_count = 0;\n    while (1)\n    {\n        if (str[cursor] == '\\0')\n            abort();\n        left_brace_count += str[cursor] == '{';\n        right_brace_count += str[cursor] == '}';\n        if (right_brace_count == left_brace_count)\n        {\n            break;\n        }\n        pgn_buffer_append(comment.value, str[cursor]);\n        cursor++;\n    }\n    ((str[cursor++] == '}')\n         ? (void)(0)\n         : __assert_fail(\"str[cursor++] == '}'\", \"comments.c\", 64, __extension__ __PRETTY_FUNCTION__));\n    pgn_buffer_append_null_terminator(comment.value);\n    *consumed += cursor;\n    return comment;\n}",
+          "pgn_comment_cleanup": "void pgn_comment_cleanup(pgn_comment_t *comment)\n{\n    pgn_buffer_cleanup(comment->value);\n}",
+          "pgn_comments_init": "pgn_comments_t *pgn_comments_init(void)\n{\n    pgn_comments_t *comments = malloc(sizeof *comments);\n    comments->values = malloc((sizeof *comments->values) * 1);\n    comments->size = 1;\n    comments->length = 0;\n    return comments;\n}",
+          "pgn_comments_push": "void pgn_comments_push(pgn_comments_t *comments, pgn_comment_t comment)\n{\n    if (comments->length >= comments->size)\n    {\n        comments->size += 1;\n        comments->values = realloc(comments->values, (sizeof *comments->values) * comments->size);\n    }\n    comments->values[comments->length++] = comment;\n}",
+          "pgn_comments_poll": "size_t pgn_comments_poll(pgn_comments_t **comments, pgn_comment_position_t pos, char *str)\n{\n    size_t cursor = 0;\n    if (str[cursor] == '{')\n    {\n        if (!*comments)\n            *comments = pgn_comments_init();\n        while (str[cursor] == '{')\n        {\n            pgn_comment_t comment = __pgn_comment_from_string(str + cursor, &cursor);\n            comment.position = pos;\n            pgn_comments_push(*comments, comment);\n            pgn_cursor_skip_whitespace(str, &cursor);\n        }\n        ((str[cursor] != '{')\n             ? (void)(0)\n             : __assert_fail(\"str[cursor] != '{'\", \"comments.c\", 110, __extension__ __PRETTY_FUNCTION__));\n        ((str[cursor] != '}')\n             ? (void)(0)\n             : __assert_fail(\"str[cursor] != '}'\", \"comments.c\", 111, __extension__ __PRETTY_FUNCTION__));\n        pgn_cursor_skip_whitespace(str, &cursor);\n    }\n    return cursor;\n}",
+          "pgn_comments_get_first_after_alternative_index": "int pgn_comments_get_first_after_alternative_index(pgn_comments_t *comments)\n{\n    for (int i = 0; i < (int)comments->length; i++)\n    {\n        if (comments->values[i].position == PGN_COMMENT_POSITION_AFTER_ALTERNATIVE)\n        {\n            return i;\n        }\n    }\n    return -1;\n}",
+          "pgn_comments_cleanup": "void pgn_comments_cleanup(pgn_comments_t *comments)\n{\n    for (size_t i = 0; i < comments->length; i++)\n    {\n        pgn_comment_cleanup(&comments->values[i]);\n    }\n    free(comments->values);\n    free(comments);\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "check.i": {
+      "relative_path": "check.i",
+      "original_file": "check.c",
+      "includes": [
+        "check.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {
+          "pgn_check_t": "typedef enum pgn_check_t\n{\n    PGN_CHECK_MATE = -1,\n    PGN_CHECK_NONE = 0,\n    PGN_CHECK_SINGLE,\n    PGN_CHECK_DOUBLE,\n} pgn_check_t;"
+        },
+        "functions": {
+          "__pgn_check_from_string": "pgn_check_t __pgn_check_from_string(char *str, size_t *consumed)\n{\n    size_t cursor = 0;\n    pgn_check_t check = PGN_CHECK_NONE;\n    switch (str[cursor])\n    {\n    case '+':\n        while (str[cursor] == '+')\n        {\n            check++;\n            cursor++;\n        }\n        ((check <= 2) ? (void)(0) : __assert_fail(\"check <= 2\", \"check.c\", 35, __extension__ __PRETTY_FUNCTION__));\n        break;\n    case '#':\n        check = PGN_CHECK_MATE;\n        cursor++;\n        break;\n    }\n    *consumed += cursor;\n    return check;\n}",
+          "pgn_check_from_string": "pgn_check_t pgn_check_from_string(char *str)\n{\n    size_t consumed = 0;\n    return __pgn_check_from_string(str, &consumed);\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "utils/cursor.i": {
+      "relative_path": "utils/cursor.i",
+      "original_file": "utils/cursor.c",
+      "includes": [
+        "cursor.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "pgn_cursor_skip_whitespace": "_Bool pgn_cursor_skip_whitespace(char *str, size_t *cursor)\n{\n    _Bool skipped = 0;\n    while (((*__ctype_b_loc())[(int)((str[*cursor]))] & (unsigned short int)_ISspace))\n    {\n        (*cursor)++;\n        skipped = 1;\n    }\n    return skipped;\n}",
+          "pgn_cursor_revisit_whitespace": "_Bool pgn_cursor_revisit_whitespace(char *str, size_t *cursor)\n{\n    _Bool skipped = 0;\n    while (((*__ctype_b_loc())[(int)((str[*cursor - 1]))] & (unsigned short int)_ISspace))\n    {\n        (*cursor)--;\n        skipped = 1;\n    }\n    return skipped;\n}",
+          "pgn_cursor_skip_comment": "_Bool pgn_cursor_skip_comment(char *str, size_t *cursor)\n{\n    if (str[*cursor] != '{')\n        return 0;\n    (*cursor)++;\n    unsigned int left_brace_count = 1, right_brace_count = 0;\n    while (right_brace_count != left_brace_count)\n    {\n        if (str[*cursor] == '\\0')\n            abort();\n        left_brace_count += str[*cursor] == '{';\n        right_brace_count += str[*cursor] == '}';\n        (*cursor)++;\n    }\n    return 1;\n}",
+          "pgn_cursor_skip_newline": "_Bool pgn_cursor_skip_newline(char *str, size_t *cursor)\n{\n    if (str[*cursor] == '\\r')\n    {\n        ((str[(*cursor)++] == '\\r')\n             ? (void)(0)\n             : __assert_fail(\"str[(*cursor)++] == '\\\\r'\", \"utils/cursor.c\", 75, __extension__ __PRETTY_FUNCTION__));\n        ((str[(*cursor)++] == '\\n')\n             ? (void)(0)\n             : __assert_fail(\"str[(*cursor)++] == '\\\\n'\", \"utils/cursor.c\", 76, __extension__ __PRETTY_FUNCTION__));\n        return 1;\n    }\n    ((str[(*cursor)++] == '\\n')\n         ? (void)(0)\n         : __assert_fail(\"str[(*cursor)++] == '\\\\n'\", \"utils/cursor.c\", 80, __extension__ __PRETTY_FUNCTION__));\n    return 1;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "utils/buffer.i": {
+      "relative_path": "utils/buffer.i",
+      "original_file": "utils/buffer.c",
+      "includes": [
+        "buffer.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "pgn_buffer_t": "typedef struct pgn_buffer_t\n{\n    char *buf;\n    size_t length;\n    size_t size;\n} pgn_buffer_t;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "pgn_buffer_init": "pgn_buffer_t *pgn_buffer_init(void)\n{\n    pgn_buffer_t *buf = malloc(sizeof *buf);\n    buf->buf = malloc((sizeof *buf->buf) * 16);\n    buf->size = 16;\n    pgn_buffer_reset(buf);\n    return buf;\n}",
+          "pgn_buffer_equal": "_Bool pgn_buffer_equal(pgn_buffer_t *buf, char *str)\n{\n    for (size_t i = 0; i <= buf->length; i++)\n    {\n        if (buf->buf[i] != str[i])\n        {\n            return 0;\n        }\n    }\n    return 1;\n}",
+          "pgn_buffer_grow": "void pgn_buffer_grow(pgn_buffer_t *buf)\n{\n    buf->size += 32;\n    buf->buf = realloc(buf->buf, (sizeof *buf->buf) * buf->size);\n}",
+          "pgn_buffer_reset": "void pgn_buffer_reset(pgn_buffer_t *buf)\n{\n    buf->length = 0;\n    pgn_buffer_append_null_terminator(buf);\n}",
+          "pgn_buffer_append": "void pgn_buffer_append(pgn_buffer_t *buf, char ch)\n{\n    if (buf->length >= buf->size)\n    {\n        pgn_buffer_grow(buf);\n    }\n    buf->buf[buf->length++] = ch;\n}",
+          "pgn_buffer_append_null_terminator": "void pgn_buffer_append_null_terminator(pgn_buffer_t *buf)\n{\n    if (buf->length >= buf->size)\n    {\n        pgn_buffer_grow(buf);\n    }\n    buf->buf[buf->length] = '\\0';\n}",
+          "pgn_buffer_concat": "void pgn_buffer_concat(pgn_buffer_t *buf, char *str)\n{\n    for (; *str != '\\0'; str++)\n    {\n        pgn_buffer_append(buf, *str);\n    }\n    pgn_buffer_append_null_terminator(buf);\n}",
+          "pgn_buffer_detach": "char *pgn_buffer_detach(pgn_buffer_t *buf)\n{\n    char *value = buf->buf;\n    free(buf);\n    return value;\n}",
+          "pgn_buffer_cleanup": "void pgn_buffer_cleanup(pgn_buffer_t *buf)\n{\n    free(buf->buf);\n    free(buf);\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "utils/export.i": {
+      "relative_path": "utils/export.i",
+      "original_file": "utils/export.c",
+      "includes": [
+        "export.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {},
+        "functions": {},
+        "typedefs": {}
+      }
+    }
+  }
+}

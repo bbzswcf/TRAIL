@@ -1,0 +1,59 @@
+{
+  "project_name": "Math-Library-in-C",
+  "files": {
+    "source/castom_math.i": {
+      "relative_path": "source/castom_math.i",
+      "original_file": "source/castom_math.c",
+      "includes": [
+        "castom_math.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "castom_abs": "int castom_abs(int x)\n{\n    return x > 0 ? x : -x;\n}",
+          "castom_acos": "long double castom_acos(double x)\n{\n    return 3.14159265358979323846264338327950288 / 2 - castom_asin(x);\n}",
+          "castom_asin": "long double castom_asin(double x)\n{\n    long double term = x, sum = 0.0 / 0.0;\n    if (-1.0 < x && x < 1.0)\n    {\n        sum = term;\n        x *= x;\n        for (int k = 1; castom_fabs(term) > 1e-10; k += 2)\n            sum += (term *= x * k / (k + 1)) / (k + 2);\n    }\n    else if (x == 1.0)\n    {\n        sum = 3.14159265358979323846264338327950288 / 2.0;\n    }\n    else if (x == -1.0)\n    {\n        sum = -3.14159265358979323846264338327950288 / 2.0;\n    }\n    return sum;\n}",
+          "castom_atan": "long double castom_atan(double x)\n{\n    return castom_asin(x / castom_sqrt(1.0 + x * x));\n}",
+          "castom_ceil": "long double castom_ceil(double x)\n{\n    if (x >= 0x7fffffffffffffffLL || x <= (-0x7fffffffffffffffLL - 1LL) || x != x)\n    {\n        return (long double)x;\n    }\n    long double truncation = (long long)x;\n    return truncation + (truncation < x);\n}",
+          "castom_cos": "long double castom_cos(double x)\n{\n    x = castom_fmod(x, 2.0 * 3.14159265358979323846264338327950288);\n    long double t_s = 0, last = 1;\n    for (int k = 1; castom_fabs(last) > 1e-10; ++k)\n    {\n        t_s += last;\n        last *= -x * x / (2.0 * k - 1.0) / (2.0 * k);\n    }\n    return t_s;\n}",
+          "castom_exp": "long double castom_exp(double x)\n{\n    long double sum = 1.0;\n    long double cur = 1.0;\n    unsigned int n = 1;\n    while (castom_fabs(cur) > 1e-10)\n    {\n        sum += (cur *= ((long double)x) / n++);\n    }\n    return sum;\n}",
+          "castom_fabs": "long double castom_fabs(double x)\n{\n    return x > 0.0 ? (long double)x : -(long double)x;\n}",
+          "castom_floor": "long double castom_floor(double x)\n{\n    if (x >= 0x7fffffffffffffffLL || x <= (-0x7fffffffffffffffLL - 1LL) || x != x)\n    {\n        return (long double)x;\n    }\n    long double truncation = (long long)x;\n    return truncation - (truncation > x);\n}",
+          "castom_fmod": "long double castom_fmod(double x, double y)\n{\n    return (long double)(x - castom_trunc(x / y) * y);\n}",
+          "castom_log": "long double castom_log(double x)\n{\n    unsigned a = 0;\n    double b = 0;\n    if (x > 0)\n    {\n        unsigned d;\n        double e = 0, c = 0, f = 0;\n        for (c = ((x < 1.0) ? 1 / x : x); (c /= 2.71828182845904523536028747135266250) > 1; ++a)\n        {\n        }\n        c = 1 / (c * 2.71828182845904523536028747135266250 - 1), c = c + c + 1, f = c * c, b = 0;\n        for (d = 1, c /= 2; e = b, b += 1 / (d * c), b - e;)\n            d += 2, c *= f;\n    }\n    else\n    {\n        b = (x == 0) / 0.;\n    }\n    return x < 1 ? -(a + b) : a + b;\n}",
+          "castom_pow": "long double castom_pow(double base, double exp)\n{\n    long double result;\n    if (base == 0.0 && exp != 0.0)\n    {\n        result = 0.0;\n    }\n    else if (exp < 0)\n    {\n        result = castom_pow(1 / base, -exp);\n    }\n    else if (base < 0.0 && exp != (long)exp)\n    {\n        result = -0.0 / 0.0;\n    }\n    else if (exp == 0.0)\n    {\n        result = 1.0;\n    }\n    else\n    {\n        long double flag = 1.0;\n        if (base < 0 && (long)exp % 2)\n        {\n            flag = -1.0;\n        }\n        if (base < 0)\n            base = -base;\n        long div = (long)exp;\n        long double integerPart = 1;\n        for (int i = 0; i < div; i++)\n            integerPart *= base;\n        result = integerPart * castom_exp((exp - (double)div) * castom_log(base)) * flag;\n    }\n    return result;\n}",
+          "castom_sin": "long double castom_sin(double x)\n{\n    x = castom_fmod(x, 2.0 * 3.14159265358979323846264338327950288);\n    long double sum = 0.0;\n    for (int i = 0; i <= 20; i++)\n    {\n        double fa = 1.0, pow = 1.0;\n        for (int j = 1; j <= 2 * i + 1; j++)\n        {\n            fa *= j;\n            pow *= x;\n        }\n        sum += ((i % 2 ? -1.0 : 1.0) / fa) * pow;\n    }\n    return sum;\n}",
+          "castom_sqrt": "long double castom_sqrt(double x)\n{\n    if (x != x || x < 0)\n        return 0.0 / 0.0;\n    double sqrt, temp;\n    sqrt = x / 2;\n    temp = 0;\n    while (sqrt != temp)\n    {\n        temp = sqrt;\n        sqrt = (x / temp + temp) / 2;\n    }\n    return sqrt;\n}",
+          "castom_tan": "long double castom_tan(double x)\n{\n    long double result = 0.0;\n    if (x == 0.0)\n    {\n        result = 0.0;\n    }\n    else if (3.14159265358979323846264338327950288 / 6 == x)\n    {\n        result = 1 / castom_sqrt(3);\n    }\n    else if (3.14159265358979323846264338327950288 / 4 == x)\n    {\n        result = 1.0;\n    }\n    else if (3.14159265358979323846264338327950288 / 3 == x)\n    {\n        result = castom_sqrt(3);\n    }\n    else if (3.14159265358979323846264338327950288 / 2 == x)\n    {\n        result = 1.0 / 0.0;\n    }\n    else if (3.14159265358979323846264338327950288 == x)\n    {\n        result = 0.0;\n    }\n    else if (3.0 * 3.14159265358979323846264338327950288 / 2 == x)\n    {\n        result = 1.0 / 0.0;\n    }\n    else if (2.0 * 3.14159265358979323846264338327950288 == x)\n    {\n        result = 0.0;\n    }\n    else\n    {\n        result = castom_sin(x) / castom_cos(x);\n    }\n    return result;\n}",
+          "castom_trunc": "long double castom_trunc(double x)\n{\n    return (x > 0.0) ? castom_floor(x) : castom_ceil(x);\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "build/CMakeFiles/3.28.3/CompilerIdC/CMakeCCompilerId.i": {
+      "relative_path": "build/CMakeFiles/3.28.3/CompilerIdC/CMakeCCompilerId.i",
+      "original_file": "build/CMakeFiles/3.28.3/CompilerIdC/CMakeCCompilerId.c",
+      "includes": [],
+      "declarations": {
+        "globals": {
+          "info_compiler": "char const *info_compiler = \"INFO\"\n                            \":\"\n                            \"compiler[\"\n                            \"GNU\"\n                            \"]\";",
+          "info_version": "char const info_version[] = {'I',\n                             'N',\n                             'F',\n                             'O',\n                             ':',\n                             'c',\n                             'o',\n                             'm',\n                             'p',\n                             'i',\n                             'l',\n                             'e',\n                             'r',\n                             '_',\n                             'v',\n                             'e',\n                             'r',\n                             's',\n                             'i',\n                             'o',\n                             'n',\n                             '[',\n                             ('0' + (((13) / 10000000) % 10)),\n                             ('0' + (((13) / 1000000) % 10)),\n                             ('0' + (((13) / 100000) % 10)),\n                             ('0' + (((13) / 10000) % 10)),\n                             ('0' + (((13) / 1000) % 10)),\n                             ('0' + (((13) / 100) % 10)),\n                             ('0' + (((13) / 10) % 10)),\n                             ('0' + ((13) % 10)),\n                             '.',\n                             ('0' + (((3) / 10000000) % 10)),\n                             ('0' + (((3) / 1000000) % 10)),\n                             ('0' + (((3) / 100000) % 10)),\n                             ('0' + (((3) / 10000) % 10)),\n                             ('0' + (((3) / 1000) % 10)),\n                             ('0' + (((3) / 100) % 10)),\n                             ('0' + (((3) / 10) % 10)),\n                             ('0' + ((3) % 10)),\n                             '.',\n                             ('0' + (((0) / 10000000) % 10)),\n                             ('0' + (((0) / 1000000) % 10)),\n                             ('0' + (((0) / 100000) % 10)),\n                             ('0' + (((0) / 10000) % 10)),\n                             ('0' + (((0) / 1000) % 10)),\n                             ('0' + (((0) / 100) % 10)),\n                             ('0' + (((0) / 10) % 10)),\n                             ('0' + ((0) % 10)),\n                             ']',\n                             '\\0'};",
+          "info_platform": "char const *info_platform = \"INFO\"\n                            \":\"\n                            \"platform[\"\n                            \"Linux\"\n                            \"]\";",
+          "info_arch": "char const *info_arch = \"INFO\"\n                        \":\"\n                        \"arch[\"\n                        \"]\";",
+          "info_language_standard_default": "const char *info_language_standard_default = \"INFO\"\n                                             \":\"\n                                             \"standard_default[\"\n                                             \"17\"\n                                             \"]\";",
+          "info_language_extensions_default": "const char *info_language_extensions_default = \"INFO\"\n                                               \":\"\n                                               \"extensions_default[\"\n                                               \"ON\"\n                                               \"]\";"
+        },
+        "structs": {},
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "main": "int main(int argc, char *argv[])\n{\n    int require = 0;\n    require += info_compiler[argc];\n    require += info_platform[argc];\n    require += info_arch[argc];\n    require += info_version[argc];\n    require += info_language_standard_default[argc];\n    require += info_language_extensions_default[argc];\n    (void)argv;\n    return require;\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

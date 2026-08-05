@@ -1,0 +1,128 @@
+{
+  "project_name": "bhshell",
+  "files": {
+    "src/input.i": {
+      "relative_path": "src/input.i",
+      "original_file": "src/input.c",
+      "includes": [
+        "include/input.h",
+        "include/dynamicarr.h",
+        "include/xalloc.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "command": "typedef struct command\n{\n    char **args;\n    char **pipe_args;\n    char *redirect_file_name;\n} command;",
+          "str": "typedef struct str\n{\n    char *items;\n    size_t position;\n    size_t bufsize;\n} str;",
+          "arg_list": "typedef struct arg_list\n{\n    char **items;\n    size_t position;\n    size_t bufsize;\n} arg_list;"
+        },
+        "unions": {},
+        "enums": {
+          "ARG_TYPE": "enum ARG_TYPE\n{\n    ARG,\n    PIPE_ARG,\n    REDIRECT\n}"
+        },
+        "functions": {
+          "bhshell_read_line": "char *bhshell_read_line()\n{\n    str s = {.items = ((void *)0), .position = 0, .bufsize = 0};\n    while (1)\n    {\n        int c = getchar();\n        if (c == '\\n' || c == (-1))\n        {\n            char *string = get_string(&s);\n            return string;\n        }\n        else\n        {\n            do\n            {\n                if ((&s)->position >= (&s)->bufsize)\n                {\n                    if ((&s)->bufsize == 0)\n                        (&s)->bufsize = 16;\n                    else\n                        (&s)->bufsize *= 2;\n                    (&s)->items = xrealloc((&s)->items, ((&s)->bufsize) * sizeof(*(&s)->items));\n                }\n                (&s)->items[(&s)->position++] = c;\n            } while (0);\n        }\n    }\n}",
+          "bhshell_parse": "command *bhshell_parse(char *line)\n{\n    size_t length = strlen(line);\n    arg_list args = {.items = ((void *)0), .position = 0, .bufsize = 0};\n    arg_list pipe_args = {.items = ((void *)0), .position = 0, .bufsize = 0};\n    str s = {.items = ((void *)0), .position = 0, .bufsize = 0};\n    char *redirect = ((void *)0);\n    enum ARG_TYPE current = ARG;\n    command *cmd = new_command();\n    for (size_t i = 0; i < length; i++)\n    {\n        if (line[i] == '\\n' || line[i] == '\\t' || line[i] == ' ')\n        {\n            if (s.position > 0)\n            {\n                char *string = get_string(&s);\n                if (current == ARG)\n                {\n                    do\n                    {\n                        if ((&args)->position >= (&args)->bufsize)\n                        {\n                            if ((&args)->bufsize == 0)\n                                (&args)->bufsize = 16;\n                            else\n                                (&args)->bufsize *= 2;\n                            (&args)->items = xrealloc((&args)->items, ((&args)->bufsize) * sizeof(*(&args)->items));\n                        }\n                        (&args)->items[(&args)->position++] = string;\n                    } while (0);\n                }\n                else if (current == PIPE_ARG)\n                {\n                    do\n                    {\n                        if ((&pipe_args)->position >= (&pipe_args)->bufsize)\n                        {\n                            if ((&pipe_args)->bufsize == 0)\n                                (&pipe_args)->bufsize = 16;\n                            else\n                                (&pipe_args)->bufsize *= 2;\n                            (&pipe_args)->items =\n                                xrealloc((&pipe_args)->items, ((&pipe_args)->bufsize) * sizeof(*(&pipe_args)->items));\n                        }\n                        (&pipe_args)->items[(&pipe_args)->position++] = string;\n                    } while (0);\n                }\n                else\n                {\n                    redirect = string;\n                }\n            }\n            continue;\n        }\n        else if (line[i] == '|')\n        {\n            if (s.position > 0)\n            {\n                char *string = get_string(&s);\n                if (current == ARG)\n                {\n                    do\n                    {\n                        if ((&args)->position >= (&args)->bufsize)\n                        {\n                            if ((&args)->bufsize == 0)\n                                (&args)->bufsize = 16;\n                            else\n                                (&args)->bufsize *= 2;\n                            (&args)->items = xrealloc((&args)->items, ((&args)->bufsize) * sizeof(*(&args)->items));\n                        }\n                        (&args)->items[(&args)->position++] = string;\n                    } while (0);\n                    do\n                    {\n                        if ((&args)->position >= (&args)->bufsize)\n                        {\n                            if ((&args)->bufsize == 0)\n                                (&args)->bufsize = 16;\n                            else\n                                (&args)->bufsize *= 2;\n                            (&args)->items = xrealloc((&args)->items, ((&args)->bufsize) * sizeof(*(&args)->items));\n                        }\n                        (&args)->items[(&args)->position++] = ((void *)0);\n                    } while (0);\n                }\n                else\n                {\n                    do\n                    {\n                        if ((args).position > 0)\n                            destroy_args(args.items);\n                        if ((pipe_args).position > 0)\n                            destroy_args(pipe_args.items);\n                        if ((redirect) != ((void *)0))\n                            free(redirect);\n                    } while (0);\n                    return ((void *)0);\n                }\n            }\n            if (i + 1 < length && line[i] == '>')\n            {\n                do\n                {\n                    if ((args).position > 0)\n                        destroy_args(args.items);\n                    if ((pipe_args).position > 0)\n                        destroy_args(pipe_args.items);\n                    if ((redirect) != ((void *)0))\n                        free(redirect);\n                } while (0);\n                return ((void *)0);\n            }\n            current = PIPE_ARG;\n        }\n        else if (line[i] == '>')\n        {\n            if (s.position > 0)\n            {\n                char *string = get_string(&s);\n                if (current == ARG)\n                {\n                    do\n                    {\n                        if ((&args)->position >= (&args)->bufsize)\n                        {\n                            if ((&args)->bufsize == 0)\n                                (&args)->bufsize = 16;\n                            else\n                                (&args)->bufsize *= 2;\n                            (&args)->items = xrealloc((&args)->items, ((&args)->bufsize) * sizeof(*(&args)->items));\n                        }\n                        (&args)->items[(&args)->position++] = string;\n                    } while (0);\n                    do\n                    {\n                        if ((&args)->position >= (&args)->bufsize)\n                        {\n                            if ((&args)->bufsize == 0)\n                                (&args)->bufsize = 16;\n                            else\n                                (&args)->bufsize *= 2;\n                            (&args)->items = xrealloc((&args)->items, ((&args)->bufsize) * sizeof(*(&args)->items));\n                        }\n                        (&args)->items[(&args)->position++] = ((void *)0);\n                    } while (0);\n                }\n                else if (current == PIPE_ARG)\n                {\n                    do\n                    {\n                        if ((&pipe_args)->position >= (&pipe_args)->bufsize)\n                        {\n                            if ((&pipe_args)->bufsize == 0)\n                                (&pipe_args)->bufsize = 16;\n                            else\n                                (&pipe_args)->bufsize *= 2;\n                            (&pipe_args)->items =\n                                xrealloc((&pipe_args)->items, ((&pipe_args)->bufsize) * sizeof(*(&pipe_args)->items));\n                        }\n                        (&pipe_args)->items[(&pipe_args)->position++] = string;\n                    } while (0);\n                    do\n                    {\n                        if ((&pipe_args)->position >= (&pipe_args)->bufsize)\n                        {\n                            if ((&pipe_args)->bufsize == 0)\n                                (&pipe_args)->bufsize = 16;\n                            else\n                                (&pipe_args)->bufsize *= 2;\n                            (&pipe_args)->items =\n                                xrealloc((&pipe_args)->items, ((&pipe_args)->bufsize) * sizeof(*(&pipe_args)->items));\n                        }\n                        (&pipe_args)->items[(&pipe_args)->position++] = ((void *)0);\n                    } while (0);\n                }\n            }\n            current = REDIRECT;\n        }\n        else\n        {\n            do\n            {\n                if ((&s)->position >= (&s)->bufsize)\n                {\n                    if ((&s)->bufsize == 0)\n                        (&s)->bufsize = 16;\n                    else\n                        (&s)->bufsize *= 2;\n                    (&s)->items = xrealloc((&s)->items, ((&s)->bufsize) * sizeof(*(&s)->items));\n                }\n                (&s)->items[(&s)->position++] = line[i];\n            } while (0);\n        }\n    }\n    if (s.position == 0)\n    {\n        do\n        {\n            if ((args).position > 0)\n                destroy_args(args.items);\n            if ((pipe_args).position > 0)\n                destroy_args(pipe_args.items);\n            if ((redirect) != ((void *)0))\n                free(redirect);\n        } while (0);\n        return ((void *)0);\n    }\n    if (s.position > 0)\n    {\n        char *string = get_string(&s);\n        if (current == ARG)\n        {\n            do\n            {\n                if ((&args)->position >= (&args)->bufsize)\n                {\n                    if ((&args)->bufsize == 0)\n                        (&args)->bufsize = 16;\n                    else\n                        (&args)->bufsize *= 2;\n                    (&args)->items = xrealloc((&args)->items, ((&args)->bufsize) * sizeof(*(&args)->items));\n                }\n                (&args)->items[(&args)->position++] = string;\n            } while (0);\n            do\n            {\n                if ((&args)->position >= (&args)->bufsize)\n                {\n                    if ((&args)->bufsize == 0)\n                        (&args)->bufsize = 16;\n                    else\n                        (&args)->bufsize *= 2;\n                    (&args)->items = xrealloc((&args)->items, ((&args)->bufsize) * sizeof(*(&args)->items));\n                }\n                (&args)->items[(&args)->position++] = ((void *)0);\n            } while (0);\n        }\n        else if (current == PIPE_ARG)\n        {\n            do\n            {\n                if ((&pipe_args)->position >= (&pipe_args)->bufsize)\n                {\n                    if ((&pipe_args)->bufsize == 0)\n                        (&pipe_args)->bufsize = 16;\n                    else\n                        (&pipe_args)->bufsize *= 2;\n                    (&pipe_args)->items =\n                        xrealloc((&pipe_args)->items, ((&pipe_args)->bufsize) * sizeof(*(&pipe_args)->items));\n                }\n                (&pipe_args)->items[(&pipe_args)->position++] = string;\n            } while (0);\n            do\n            {\n                if ((&pipe_args)->position >= (&pipe_args)->bufsize)\n                {\n                    if ((&pipe_args)->bufsize == 0)\n                        (&pipe_args)->bufsize = 16;\n                    else\n                        (&pipe_args)->bufsize *= 2;\n                    (&pipe_args)->items =\n                        xrealloc((&pipe_args)->items, ((&pipe_args)->bufsize) * sizeof(*(&pipe_args)->items));\n                }\n                (&pipe_args)->items[(&pipe_args)->position++] = ((void *)0);\n            } while (0);\n        }\n        else\n        {\n            redirect = string;\n        }\n    }\n    if (args.position == 0)\n    {\n        do\n        {\n            if ((args).position > 0)\n                destroy_args(args.items);\n            if ((pipe_args).position > 0)\n                destroy_args(pipe_args.items);\n            if ((redirect) != ((void *)0))\n                free(redirect);\n        } while (0);\n        return ((void *)0);\n    }\n    cmd->args = args.items;\n    if (pipe_args.position > 0)\n    {\n        cmd->pipe_args = pipe_args.items;\n    }\n    if (redirect != ((void *)0))\n    {\n        cmd->redirect_file_name = redirect;\n    }\n    return cmd;\n}",
+          "new_command": "command *new_command()\n{\n    command *cmd = xmalloc(sizeof(command));\n    cmd->args = ((void *)0);\n    cmd->pipe_args = ((void *)0);\n    cmd->redirect_file_name = ((void *)0);\n    return cmd;\n}",
+          "destroy_command": "void destroy_command(command *cmd)\n{\n    destroy_args(cmd->args);\n    destroy_args(cmd->pipe_args);\n    free(cmd->redirect_file_name);\n    free(cmd);\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/bhshell.i": {
+      "relative_path": "src/bhshell.i",
+      "original_file": "src/bhshell.c",
+      "includes": [
+        "include/dynamicarr.h",
+        "include/input.h",
+        "include/bhshell.h",
+        "include/xalloc.h"
+      ],
+      "declarations": {
+        "globals": {
+          "bhshell_builtin_str": "char *bhshell_builtin_str[] = {\n    \"cd\",\n    \"help\",\n    \"exit\",\n};",
+          "bhshell_builtin_func": "int (*bhshell_builtin_func[])(char **) = {\n    &bhshell_cd,\n    &bhshell_help,\n    &bhshell_exit,\n};"
+        },
+        "structs": {
+          "str": "typedef struct str\n{\n    char *items;\n    size_t position;\n    size_t bufsize;\n} str;",
+          "arg_list": "typedef struct arg_list\n{\n    char **items;\n    size_t position;\n    size_t bufsize;\n} arg_list;",
+          "command": "typedef struct command\n{\n    char **args;\n    char **pipe_args;\n    char *redirect_file_name;\n} command;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "bhshell_loop": "void bhshell_loop()\n{\n    char **args;\n    int status = 1;\n    do\n    {\n        char *dir = getcwd(((void *)0), 0);\n        if (!dir)\n            exit(1);\n        printf(\"[%s] $ \", dir);\n        char *line = bhshell_read_line();\n        command *cmd = bhshell_parse(line);\n        if (cmd == ((void *)0))\n        {\n            printf(\"Invalid Command\\n\");\n            continue;\n        }\n        status = bhshell_execute(cmd);\n        free(dir);\n        free(line);\n        destroy_command(cmd);\n    } while (status);\n}",
+          "bhshell_execute": "int bhshell_execute(command *cmd)\n{\n    if (cmd->args[0] == ((void *)0))\n    {\n        return 1;\n    }\n    for (int i = 0; i < bhshell_num_builtins(); i++)\n    {\n        if (strcmp(cmd->args[0], bhshell_builtin_str[i]) == 0)\n        {\n            return (*bhshell_builtin_func[i])(cmd->args);\n        }\n    }\n    return bhshell_launch(cmd);\n}",
+          "bhshell_launch": "int bhshell_launch(command *cmd)\n{\n    pid_t pid;\n    int status;\n    int redirect_fd[2];\n    if (cmd->redirect_file_name != ((void *)0))\n    {\n        if (pipe(redirect_fd) == -1)\n        {\n            exit(1);\n        }\n    }\n    int pipe_fd[2];\n    if (cmd->pipe_args != ((void *)0))\n    {\n        if (pipe(pipe_fd) == -1)\n        {\n            exit(1);\n        }\n    }\n    pid = fork();\n    if (pid == 0)\n    {\n        if (cmd->pipe_args != ((void *)0))\n        {\n            close(pipe_fd[0]);\n            if (dup2(pipe_fd[1], 1) == -1)\n            {\n                fprintf(stderr, \"bhshell: Could not redirect stdout\\n\");\n                exit(1);\n            }\n            close(pipe_fd[1]);\n            if (cmd->redirect_file_name != ((void *)0))\n            {\n                close(redirect_fd[0]);\n                close(redirect_fd[1]);\n            }\n        }\n        if (cmd->pipe_args == ((void *)0) && cmd->redirect_file_name != ((void *)0))\n        {\n            close(redirect_fd[0]);\n            if (dup2(redirect_fd[1], 1) == -1)\n            {\n                fprintf(stderr, \"bhshell: Could not redirect stdout to file\\n\");\n                exit(1);\n            }\n            close(redirect_fd[1]);\n        }\n        if (execvp(cmd->args[0], cmd->args) == -1)\n        {\n            perror(\"bhshell\");\n        }\n        exit(1);\n    }\n    else if (pid < 0)\n    {\n        perror(\"bhshell: Could not create child process\");\n        exit(1);\n    }\n    if (cmd->pipe_args != ((void *)0))\n    {\n        pid_t pid_pipe = fork();\n        int pipe_status;\n        if (pid_pipe == 0)\n        {\n            if (cmd->redirect_file_name != ((void *)0))\n            {\n                close(redirect_fd[0]);\n                if (dup2(redirect_fd[1], 1) == -1)\n                {\n                    fprintf(stderr, \"bhshell: Could not redirect stdout to file\\n\");\n                    exit(1);\n                }\n                close(redirect_fd[1]);\n            }\n            close(pipe_fd[1]);\n            if (dup2(pipe_fd[0], 0) == -1)\n            {\n                fprintf(stderr, \"bhshell: Could not redirect stdin\\n\");\n                exit(1);\n            }\n            close(pipe_fd[0]);\n            if (execvp(cmd->pipe_args[0], cmd->pipe_args) == -1)\n            {\n                perror(\"bhshell\");\n            }\n            exit(1);\n        }\n        else if (pid_pipe < 0)\n        {\n            perror(\"bhshell: Could not create child process\");\n            exit(1);\n        }\n        close(pipe_fd[0]);\n        close(pipe_fd[1]);\n        if (cmd->redirect_file_name != ((void *)0))\n        {\n            write_to_redirect(redirect_fd, cmd);\n        }\n        do\n        {\n            waitpid(pid_pipe, &pipe_status, 2);\n            waitpid(pid, &status, 2);\n        } while (!(((status) & 0x7f) == 0) && !(((signed char)(((status) & 0x7f) + 1) >> 1) > 0) &&\n                 !(((pipe_status) & 0x7f) == 0) && !(((signed char)(((pipe_status) & 0x7f) + 1) >> 1) > 0));\n        return 1;\n    }\n    else if (cmd->redirect_file_name != ((void *)0))\n    {\n        write_to_redirect(redirect_fd, cmd);\n    }\n    do\n    {\n        waitpid(pid, &status, 2);\n    } while (!(((status) & 0x7f) == 0) && !(((signed char)(((status) & 0x7f) + 1) >> 1) > 0));\n    return 1;\n}",
+          "bhshell_cd": "int bhshell_cd(char **args)\n{\n    if (args[1] == ((void *)0))\n    {\n        fprintf(stderr, \"bhshell: expected argument to \\\"cd\\\" into\\n\");\n    }\n    else\n    {\n        if (chdir(args[1]) != 0)\n        {\n            perror(\"bhshell\");\n        }\n    }\n    return 1;\n}",
+          "bhshell_help": "int bhshell_help(char **args)\n{\n    printf(\"A simple shell built to understand how processes work.\\n\");\n    printf(\"The following functions are builtin:\\n\");\n    int count = bhshell_num_builtins();\n    for (int i = 0; i < count; i++)\n    {\n        printf(\"\\t %d. %s\\n\", i + 1, bhshell_builtin_str[i]);\n    }\n    return 1;\n}",
+          "bhshell_exit": "int bhshell_exit(char **args)\n{\n    return 0;\n}",
+          "bhshell_num_builtins": "int bhshell_num_builtins()\n{\n    return sizeof(bhshell_builtin_str) / sizeof(char *);\n}",
+          "write_to_redirect": "void write_to_redirect(int redirect_fd[2], command *cmd)\n{\n    str s = {.items = ((void *)0), .position = 0, .bufsize = 0};\n    char temp;\n    close(redirect_fd[1]);\n    int finished = read(redirect_fd[0], &temp, sizeof(char));\n    if (finished == -1)\n    {\n        close(redirect_fd[0]);\n        close(redirect_fd[1]);\n        free(s.items);\n        exit(1);\n    }\n    while (finished != 0)\n    {\n        do\n        {\n            if ((&s)->position >= (&s)->bufsize)\n            {\n                if ((&s)->bufsize == 0)\n                    (&s)->bufsize = 16;\n                else\n                    (&s)->bufsize *= 2;\n                (&s)->items = xrealloc((&s)->items, ((&s)->bufsize) * sizeof(*(&s)->items));\n            }\n            (&s)->items[(&s)->position++] = temp;\n        } while (0);\n        finished = read(redirect_fd[0], &temp, sizeof(char));\n    }\n    char *string = get_string(&s);\n    close(redirect_fd[0]);\n    FILE *f = fopen(cmd->redirect_file_name, \"w\");\n    if (!f)\n    {\n        fprintf(stderr, \"Could not open file\\n\");\n        free(s.items);\n        exit(1);\n    }\n    size_t written = fwrite(string, strlen(string), 1, f);\n    if (written == 0)\n    {\n        fprintf(stderr, \"Could not write to file\\n\");\n        free(string);\n        exit(1);\n    }\n    free(string);\n    fclose(f);\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/dynamicarr.i": {
+      "relative_path": "src/dynamicarr.i",
+      "original_file": "src/dynamicarr.c",
+      "includes": [
+        "include/dynamicarr.h",
+        "include/xalloc.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "str": "typedef struct str\n{\n    char *items;\n    size_t position;\n    size_t bufsize;\n} str;",
+          "arg_list": "typedef struct arg_list\n{\n    char **items;\n    size_t position;\n    size_t bufsize;\n} arg_list;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "get_string": "char *get_string(str *s)\n{\n    do\n    {\n        if ((s)->position >= (s)->bufsize)\n        {\n            if ((s)->bufsize == 0)\n                (s)->bufsize = 16;\n            else\n                (s)->bufsize *= 2;\n            (s)->items = xrealloc((s)->items, ((s)->bufsize) * sizeof(*(s)->items));\n        }\n        (s)->items[(s)->position++] = '\\0';\n    } while (0);\n    char *string = xmalloc(sizeof(char) * (s->position));\n    memcpy(string, s->items, sizeof(char) * s->position);\n    free(s->items);\n    s->position = 0;\n    s->items = ((void *)0);\n    s->bufsize = 0;\n    return string;\n}",
+          "destroy_args": "void destroy_args(char **args)\n{\n    if (!args)\n        return;\n    size_t i = 0;\n    while (args[i] != ((void *)0))\n    {\n        free(args[i]);\n        i++;\n    }\n}",
+          "get_args": "char **get_args(arg_list *l)\n{\n    if (l->position == 0)\n    {\n        return ((void *)0);\n    }\n    do\n    {\n        if ((l)->position >= (l)->bufsize)\n        {\n            if ((l)->bufsize == 0)\n                (l)->bufsize = 16;\n            else\n                (l)->bufsize *= 2;\n            (l)->items = xrealloc((l)->items, ((l)->bufsize) * sizeof(*(l)->items));\n        }\n        (l)->items[(l)->position++] = ((void *)0);\n    } while (0);\n    char **args = xmalloc(sizeof(char *) * (l->position));\n    for (size_t i = 0; i < l->position - 1; i++)\n    {\n        size_t length = strlen(l->items[i]);\n        args[i] = xmalloc(sizeof(char) * (length + 1));\n        memcpy(args[i], l->items[i], length + 1);\n    }\n    args[l->position - 1] = ((void *)0);\n    return args;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/main.i": {
+      "relative_path": "src/main.i",
+      "original_file": "src/main.c",
+      "includes": [
+        "include/bhshell.h",
+        "include/input.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "command": "typedef struct command\n{\n    char **args;\n    char **pipe_args;\n    char *redirect_file_name;\n} command;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "main": "int main(void)\n{\n    bhshell_loop();\n    return 0;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/xalloc.i": {
+      "relative_path": "src/xalloc.i",
+      "original_file": "src/xalloc.c",
+      "includes": [
+        "include/xalloc.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "xmalloc": "void *xmalloc(size_t size)\n{\n    void *ptr = malloc(size);\n    if (!ptr)\n    {\n        fprintf(stderr, \"bhshell: allocation error\\n\");\n        exit(1);\n    }\n    return ptr;\n}",
+          "xrealloc": "void *xrealloc(void *ptr, size_t size)\n{\n    ptr = realloc(ptr, size);\n    if (!ptr)\n    {\n        fprintf(stderr, \"bhshell: allocation error\\n\");\n        exit(1);\n    }\n    return ptr;\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

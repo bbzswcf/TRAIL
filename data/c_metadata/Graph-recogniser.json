@@ -1,0 +1,124 @@
+{
+  "project_name": "Graph-recogniser",
+  "files": {
+    "src/openhash.i": {
+      "relative_path": "src/openhash.i",
+      "original_file": "src/openhash.c",
+      "includes": [
+        "openhash.h",
+        "check.h",
+        "log.h"
+      ],
+      "declarations": {
+        "globals": {
+          "empty_key": "static const o_key_t empty_key = ((void *)0);",
+          "empty_data": "static const o_data_t empty_data = ((void *)0);",
+          "power": "static const hash_t power = 131;",
+          "alternative_power": "static const hash_t alternative_power = 171;",
+          "rehasher": "static const hash_t rehasher = 718841;",
+          "load_factor": "static const float load_factor = .6;",
+          "eps": "static const float eps = 1e-3;"
+        },
+        "structs": {
+          "open_hash_table": "struct open_hash_table\n{\n    unsigned cur_size;\n    unsigned max_size;\n    struct open_entry *arr;\n}",
+          "open_entry": "struct open_entry\n{\n    o_key_t key;\n    o_data_t data;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "hash_by_power": "static inline hash_t hash_by_power(o_key_t p, hash_t power)\n{\n    hash_t res = 0;\n    while (*p)\n        res = res * power + *(p++);\n    return res;\n}",
+          "hash": "static inline hash_t hash(o_key_t p)\n{\n    return hash_by_power(p, power);\n}",
+          "alternative_hash": "static inline hash_t alternative_hash(o_key_t p)\n{\n    return hash_by_power(p, alternative_power);\n}",
+          "compare_keys": "static inline int compare_keys(o_key_t k1, o_key_t k2)\n{\n    return strcmp(k1, k2);\n}",
+          "rehash": "static inline hash_t rehash(hash_t h)\n{\n    return h + rehasher;\n}",
+          "allocate_arr": "static inline struct open_entry *allocate_arr(unsigned size)\n{\n    insert_log(2, 1, \"Allocating new array for a table with size = %u.\", size);\n    struct open_entry *arr;\n    const unsigned arr_size = sizeof(*arr) * size;\n    arr = (struct open_entry *)malloc(arr_size);\n    memset(arr, 0, arr_size);\n    return arr;\n}",
+          "create_open_hash_table": "struct open_hash_table *create_open_hash_table(unsigned initial_size)\n{\n    insert_log(2, 5, \"Creating a new table with max size = %u.\", initial_size);\n    do\n    {\n        ((void)sizeof((initial_size != 0) ? 1 : 0), __extension__({\n             if (initial_size != 0)\n                 ;\n             else\n                 __assert_fail(\"initial_size != 0\",\n                               \"/home/bbzs/code/reporeflectrust/data/project/CBench/Graph-recogniser/src/openhash.c\",\n                               37, __extension__ __PRETTY_FUNCTION__);\n         }));\n    } while (0);\n    do\n    {\n        ((void)sizeof((initial_size != power && initial_size != rehasher) ? 1 : 0), __extension__({\n             if (initial_size != power && initial_size != rehasher)\n                 ;\n             else\n                 __assert_fail(\"initial_size != power && initial_size != rehasher\",\n                               \"/home/bbzs/code/reporeflectrust/data/project/CBench/Graph-recogniser/src/openhash.c\",\n                               38, __extension__ __PRETTY_FUNCTION__);\n         }));\n    } while (0);\n    struct open_hash_table *ret = (struct open_hash_table *)malloc(sizeof(*ret));\n    ret->cur_size = 0;\n    ret->max_size = initial_size;\n    ret->arr = allocate_arr(initial_size);\n    return ret;\n}",
+          "query": "static inline struct open_entry *query(o_key_t key, const struct open_hash_table *table)\n{\n    insert_log(2, 1, \"Query in an with key = %s.\", key);\n    do\n    {\n        ((void)sizeof((key != empty_key) ? 1 : 0), __extension__({\n             if (key != empty_key)\n                 ;\n             else\n                 __assert_fail(\"key != empty_key\",\n                               \"/home/bbzs/code/reporeflectrust/data/project/CBench/Graph-recogniser/src/openhash.c\",\n                               51, __extension__ __PRETTY_FUNCTION__);\n         }));\n    } while (0);\n    hash_t h;\n    for (h = hash(key);; h = rehash(h))\n    {\n        insert_log(2, 0, \"Trying a cell with hash = %u(%u).\", h % table->max_size, h);\n        struct open_entry *entry = &table->arr[h % table->max_size];\n        const o_key_t cur_key = entry->key;\n        if (cur_key == empty_key || compare_keys(cur_key, key) == 0)\n        {\n            insert_log(2, 0, \"The cell is empty!\");\n            return entry;\n        }\n        insert_log(2, 0, \"Collision! Cell: key = %s, data = %s.\", entry->key, entry->data);\n    }\n    do\n    {\n        ((void)sizeof((0) ? 1 : 0), __extension__({\n             if (0)\n                 ;\n             else\n                 __assert_fail(\"0\",\n                               \"/home/bbzs/code/reporeflectrust/data/project/CBench/Graph-recogniser/src/openhash.c\",\n                               64, __extension__ __PRETTY_FUNCTION__);\n         }));\n    } while (0);\n    return 0;\n}",
+          "open_insert": "void open_insert(o_key_t key, o_data_t data, struct open_hash_table *table)\n{\n    insert_log(2, 4, \"Trying to insert a key = %s and data = %s.\", key, data);\n    insert_log(2, 4, \"Current size = %u, maximum size = %u.\", table->cur_size, table->max_size);\n    do\n    {\n        ((void)sizeof((((float)table->cur_size / table->max_size) < load_factor + eps) ? 1 : 0), __extension__({\n             if (((float)table->cur_size / table->max_size) < load_factor + eps)\n                 ;\n             else\n                 __assert_fail(\"((float)table->cur_size / table->max_size) < load_factor + eps\",\n                               \"/home/bbzs/code/reporeflectrust/data/project/CBench/Graph-recogniser/src/openhash.c\",\n                               73, __extension__ __PRETTY_FUNCTION__);\n         }));\n    } while (0);\n    table->cur_size++;\n    if (((float)table->cur_size / table->max_size) > load_factor)\n    {\n        table->max_size *= 2;\n        insert_log(2, 4, \"Table's density in above the load factor. New max size is %u.\", table->max_size);\n        struct open_entry *old_arr = table->arr;\n        table->arr = allocate_arr(table->max_size);\n        for (hash_t h = 0; h < table->max_size / 2; h++)\n        {\n            const o_key_t cur_key = old_arr[h].key;\n            if (cur_key != empty_key)\n                *query(cur_key, table) = old_arr[h];\n        }\n        free(old_arr);\n    }\n    struct open_entry *cell = query(key, table);\n    do\n    {\n        ((void)sizeof((cell->key == empty_key) ? 1 : 0), __extension__({\n             if (cell->key == empty_key)\n                 ;\n             else\n                 __assert_fail(\"cell->key == empty_key\",\n                               \"/home/bbzs/code/reporeflectrust/data/project/CBench/Graph-recogniser/src/openhash.c\",\n                               95, __extension__ __PRETTY_FUNCTION__);\n         }));\n    } while (0);\n    insert_log(2, 4, \"Inserting key = %s, data = %s. Current size = %u, maximum size = %u.\", key, data, table->cur_size,\n               table->max_size);\n    cell->key = key;\n    cell->data = data;\n}",
+          "open_find": "o_data_t open_find(o_key_t key, const struct open_hash_table *table)\n{\n    insert_log(2, 2, \"Looking for a key = %s.\", key);\n    struct open_entry *cell = query(key, table);\n    do\n    {\n        ((void)sizeof((cell->key != empty_key) ? 1 : 0), __extension__({\n             if (cell->key != empty_key)\n                 ;\n             else\n                 __assert_fail(\"cell->key != empty_key\",\n                               \"/home/bbzs/code/reporeflectrust/data/project/CBench/Graph-recogniser/src/openhash.c\",\n                               107, __extension__ __PRETTY_FUNCTION__);\n         }));\n    } while (0);\n    insert_log(2, 2, \"Returning data = %s.\", cell->data);\n    return cell->data;\n}",
+          "free_open_hash_table": "void free_open_hash_table(struct open_hash_table *table)\n{\n    insert_log(2, 3, \"Deleting a table with current size = %u, maximum size = %u.\", table->cur_size, table->max_size);\n    free(table->arr);\n    free(table);\n}"
+        },
+        "typedefs": {
+          "hash_t": "typedef unsigned hash_t;",
+          "o_key_t": "typedef const char *o_key_t;",
+          "o_data_t": "typedef const char *o_data_t;"
+        }
+      }
+    },
+    "src/log.i": {
+      "relative_path": "src/log.i",
+      "original_file": "src/log.c",
+      "includes": [
+        "log.h",
+        "check.h"
+      ],
+      "declarations": {
+        "globals": {
+          "log_info_table": "static struct log_info\n{\n    unsigned priority;\n    char prefix[0x7f];\n    char suffix[0x7f];\n} log_info_table[4] = {\n    {\n        0,\n        \"log log:\\t\",\n        \"\\n\",\n    },\n    {\n        0,\n        \"unit testing:\\t\",\n        \"\\n\",\n    },\n    {\n        0,\n        \"open hash table:\\t\",\n        \"\\n\",\n    },\n    {\n        0,\n        \"cuckoo hash table:\\t\",\n        \"\\n\",\n    },\n};"
+        },
+        "structs": {},
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "print_log": "static inline void print_log(FILE *file, const char *format, va_list args)\n{\n    vfprintf(file, format, args);\n}",
+          "change_log_priority": "unsigned change_log_priority(unsigned log_type, unsigned new_priority)\n{\n    unsigned old_priority = log_info_table[log_type].priority;\n    log_info_table[log_type].priority = new_priority;\n    return old_priority;\n}",
+          "insert_log": "void insert_log(unsigned log_type, unsigned priority, const char *format, ...)\n{\n    do\n    {\n        ((void)sizeof((log_type < 4 && priority <= 10) ? 1 : 0), __extension__({\n             if (log_type < 4 && priority <= 10)\n                 ;\n             else\n                 __assert_fail(\"log_type < 4 && priority <= 10\",\n                               \"/home/bbzs/code/reporeflectrust/data/project/CBench/Graph-recogniser/src/log.c\", 43,\n                               __extension__ __PRETTY_FUNCTION__);\n         }));\n    } while (0);\n    struct log_info *cur_log_info = &log_info_table[log_type];\n    if (cur_log_info->priority <= priority)\n    {\n        char message[0xff];\n        sprintf(message, \"%s%s%s\", cur_log_info->prefix, format, cur_log_info->suffix);\n        va_list args;\n        __builtin_va_start(args, format);\n        print_log(stdout, message, args);\n        __builtin_va_end(args);\n    }\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/cuckoohash.i": {
+      "relative_path": "src/cuckoohash.i",
+      "original_file": "src/cuckoohash.c",
+      "includes": [
+        "cuckoohash.h",
+        "check.h",
+        "log.h"
+      ],
+      "declarations": {
+        "globals": {
+          "empty_key": "static const o_key_t empty_key = ((void *)0);",
+          "empty_data": "static const o_data_t empty_data = ((void *)0);",
+          "power": "static const hash_t power = 131;",
+          "alternative_power": "static const hash_t alternative_power = 171;",
+          "rehasher": "static const hash_t rehasher = 718841;",
+          "load_factor": "static const float load_factor = 1.;",
+          "eps": "static const float eps = 1e-3;"
+        },
+        "structs": {
+          "cuckoo_hash_table": "struct cuckoo_hash_table\n{\n    unsigned cur_size;\n    unsigned cur_marker;\n    unsigned max_size;\n    struct cuckoo_entry *first_arr;\n    struct cuckoo_entry *second_arr;\n}",
+          "cuckoo_entry": "struct cuckoo_entry\n{\n    o_key_t key;\n    o_data_t data;\n    unsigned marker;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "hash_by_power": "static inline hash_t hash_by_power(o_key_t p, hash_t power)\n{\n    hash_t res = 0;\n    while (*p)\n        res = res * power + *(p++);\n    return res;\n}",
+          "hash": "static inline hash_t hash(o_key_t p)\n{\n    return hash_by_power(p, power);\n}",
+          "alternative_hash": "static inline hash_t alternative_hash(o_key_t p)\n{\n    return hash_by_power(p, alternative_power);\n}",
+          "compare_keys": "static inline int compare_keys(o_key_t k1, o_key_t k2)\n{\n    return strcmp(k1, k2);\n}",
+          "rehash": "static inline hash_t rehash(hash_t h)\n{\n    return h + rehasher;\n}",
+          "allocate_arr": "static inline struct cuckoo_entry *allocate_arr(unsigned size)\n{\n    insert_log(3, 1, \"Allocating new array with size = %u.\", size);\n    struct cuckoo_entry *arr;\n    const unsigned arr_size = sizeof(*arr) * size;\n    arr = (struct cuckoo_entry *)malloc(arr_size);\n    memset(arr, 0, arr_size);\n    return arr;\n}",
+          "initialize_table": "static inline void initialize_table(unsigned size, struct cuckoo_hash_table *table)\n{\n    table->cur_size = 0;\n    table->cur_marker = 0;\n    table->max_size = size;\n    table->first_arr = allocate_arr(size);\n    table->second_arr = allocate_arr(size);\n}",
+          "create_cuckoo_hash_table": "struct cuckoo_hash_table *create_cuckoo_hash_table(unsigned initial_size)\n{\n    insert_log(3, 5, \"Creating a new table with max size = %u.\", initial_size);\n    do\n    {\n        ((void)sizeof((initial_size >= 2) ? 1 : 0), __extension__({\n             if (initial_size >= 2)\n                 ;\n             else\n                 __assert_fail(\"initial_size >= 2\",\n                               \"/home/bbzs/code/reporeflectrust/data/project/CBench/Graph-recogniser/src/cuckoohash.c\",\n                               48, __extension__ __PRETTY_FUNCTION__);\n         }));\n    } while (0);\n    do\n    {\n        ((void)sizeof((initial_size != power && initial_size != alternative_power) ? 1 : 0), __extension__({\n             if (initial_size != power && initial_size != alternative_power)\n                 ;\n             else\n                 __assert_fail(\"initial_size != power && initial_size != alternative_power\",\n                               \"/home/bbzs/code/reporeflectrust/data/project/CBench/Graph-recogniser/src/cuckoohash.c\",\n                               49, __extension__ __PRETTY_FUNCTION__);\n         }));\n    } while (0);\n    struct cuckoo_hash_table *ret = (struct cuckoo_hash_table *)malloc(sizeof(*ret));\n    initialize_table(initial_size / 2, ret);\n    return ret;\n}",
+          "recreate": "static inline void recreate(unsigned new_size, struct cuckoo_hash_table *table)\n{\n    insert_log(3, 4, \"Recreating the table with new max size = %u.\", new_size * 2);\n    do\n    {\n        ((void)sizeof((new_size > 0) ? 1 : 0), __extension__({\n             if (new_size > 0)\n                 ;\n             else\n                 __assert_fail(\"new_size > 0\",\n                               \"/home/bbzs/code/reporeflectrust/data/project/CBench/Graph-recogniser/src/cuckoohash.c\",\n                               60, __extension__ __PRETTY_FUNCTION__);\n         }));\n    } while (0);\n    do\n    {\n        ((void)sizeof(((float)new_size * load_factor + eps > table->cur_size) ? 1 : 0), __extension__({\n             if ((float)new_size * load_factor + eps > table->cur_size)\n                 ;\n             else\n                 __assert_fail(\"(float)new_size * load_factor + eps > table->cur_size\",\n                               \"/home/bbzs/code/reporeflectrust/data/project/CBench/Graph-recogniser/src/cuckoohash.c\",\n                               61, __extension__ __PRETTY_FUNCTION__);\n         }));\n    } while (0);\n    struct cuckoo_entry *old_first = table->first_arr;\n    struct cuckoo_entry *old_second = table->second_arr;\n    unsigned old_size = table->max_size;\n    initialize_table(new_size, table);\n    for (unsigned i = 0; i < old_size; ++i)\n    {\n        struct cuckoo_entry *cur_entry = &old_first[i];\n        if (cur_entry->key != empty_key)\n            cuckoo_insert(cur_entry->key, cur_entry->data, table);\n    }\n    for (unsigned i = 0; i < old_size; ++i)\n    {\n        struct cuckoo_entry *cur_entry = &old_second[i];\n        if (cur_entry->key != empty_key)\n            cuckoo_insert(cur_entry->key, cur_entry->data, table);\n    }\n    free(old_first);\n    free(old_second);\n}",
+          "resize": "static inline void resize(struct cuckoo_hash_table *table)\n{\n    recreate(table->max_size * 2, table);\n}",
+          "refill": "static inline void refill(struct cuckoo_hash_table *table)\n{\n    recreate(table->max_size + 1, table);\n}",
+          "get_first_entry": "static inline struct cuckoo_entry *get_first_entry(o_key_t key, struct cuckoo_hash_table *table)\n{\n    hash_t h = hash(key);\n    hash_t hh = h % table->max_size;\n    insert_log(3, 1, \"Looking for key = %s with hash = %u(%u) in the first array.\", key, hh, h);\n    struct cuckoo_entry *ret = &table->first_arr[hh];\n    insert_log(3, 1, \"Found key = %s, data = %s, marker = %u.\", ret->key ? ret->key : \"empty\",\n               ret->data ? ret->data : \"empty\", ret->marker);\n    return ret;\n}",
+          "get_first_entry_c": "static inline const struct cuckoo_entry *get_first_entry_c(o_key_t key, const struct cuckoo_hash_table *table)\n{\n    hash_t h = hash(key);\n    hash_t hh = h % table->max_size;\n    insert_log(3, 1, \"Looking for key = %s with hash = %u(%u) in the first array.\", key, hh, h);\n    const struct cuckoo_entry *ret = &table->first_arr[hh];\n    insert_log(3, 1, \"Found key = %s, data = %s, marker = %u.\", ret->key ? ret->key : \"empty\",\n               ret->data ? ret->data : \"empty\", ret->marker);\n    return ret;\n}",
+          "get_second_entry": "static inline struct cuckoo_entry *get_second_entry(o_key_t key, struct cuckoo_hash_table *table)\n{\n    hash_t h = hash(key);\n    hash_t hh = h % table->max_size;\n    insert_log(3, 1, \"Looking for key = %s with hash = %u(%u) in the second array.\", key, hh, h);\n    struct cuckoo_entry *ret = &table->second_arr[hh];\n    insert_log(3, 1, \"Found key = %s, data = %s, marker = %u.\", ret->key ? ret->key : \"empty\",\n               ret->data ? ret->data : \"empty\", ret->marker);\n    return ret;\n}",
+          "get_second_entry_c": "static inline const struct cuckoo_entry *get_second_entry_c(o_key_t key, const struct cuckoo_hash_table *table)\n{\n    hash_t h = hash(key);\n    hash_t hh = h % table->max_size;\n    insert_log(3, 1, \"Looking for key = %s with hash = %u(%u) in the second array.\", key, hh, h);\n    const struct cuckoo_entry *ret = &table->second_arr[hh];\n    insert_log(3, 1, \"Found key = %s, data = %s, marker = %u.\", ret->key ? ret->key : \"empty\",\n               ret->data ? ret->data : \"empty\", ret->marker);\n    return ret;\n}",
+          "swap_key_data_entry": "static inline void swap_key_data_entry(o_key_t *key, o_data_t *data, struct cuckoo_entry *entry)\n{\n    insert_log(3, 2, \"Swapping key = %s, data = %s with key = %s, data = %s.\", *key, *data, entry->key, entry->data);\n    do\n    {\n        ((void)sizeof((key && data && entry) ? 1 : 0), __extension__({\n             if (key && data && entry)\n                 ;\n             else\n                 __assert_fail(\"key && data && entry\",\n                               \"/home/bbzs/code/reporeflectrust/data/project/CBench/Graph-recogniser/src/cuckoohash.c\",\n                               141, __extension__ __PRETTY_FUNCTION__);\n         }));\n    } while (0);\n    o_key_t swap_key = entry->key;\n    o_data_t swap_data = entry->data;\n    entry->key = *key;\n    entry->data = *data;\n    *key = swap_key;\n    *data = swap_data;\n}",
+          "try_to_store": "static inline int try_to_store(o_key_t key, o_data_t data, struct cuckoo_entry *entry)\n{\n    insert_log(3, 0, \"Trying to store key = %s, data = %s ...\", key, data);\n    if (entry->key == empty_key)\n    {\n        insert_log(3, 0, \"...success.\");\n        entry->key = key;\n        entry->data = data;\n        return 1;\n    }\n    else\n    {\n        insert_log(3, 0, \"...failure.\");\n        do\n        {\n            ((void)sizeof((compare_keys(entry->key, key) != 0) ? 1 : 0), __extension__({\n                 if (compare_keys(entry->key, key) != 0)\n                     ;\n                 else\n                     __assert_fail(\n                         \"compare_keys(entry->key, key) != 0\",\n                         \"/home/bbzs/code/reporeflectrust/data/project/CBench/Graph-recogniser/src/cuckoohash.c\", 164,\n                         __extension__ __PRETTY_FUNCTION__);\n             }));\n        } while (0);\n        return 0;\n    }\n}",
+          "cuckoo_insert": "void cuckoo_insert(o_key_t key, o_data_t data, struct cuckoo_hash_table *table)\n{\n    insert_log(3, 4, \"Inserting key = %s, data = %s.\", key, data);\n    table->cur_marker++;\n    insert_log(3, 3, \"Table size = %u, max size = %u and the new marker = %u.\", table->cur_size, table->max_size,\n               table->cur_marker);\n    if (1. + table->cur_size > table->max_size * load_factor)\n    {\n        insert_log(3, 4, \"Table fillness is above the load factor and it needs to be resized.\");\n        resize(table);\n        insert_log(3, 2, \"Finished with resizing, continuing with key = %s, data = %s.\", key, data);\n    }\n    table->cur_size++;\n    struct cuckoo_entry *first_entry = get_first_entry(key, table);\n    if (try_to_store(key, data, first_entry))\n        return;\n    struct cuckoo_entry *second_entry = get_second_entry(key, table);\n    if (try_to_store(key, data, second_entry))\n        return;\n    for (;;)\n    {\n        swap_key_data_entry(&key, &data, first_entry);\n        first_entry->marker = table->cur_marker;\n        second_entry = get_second_entry(key, table);\n        if (second_entry->marker == table->cur_marker)\n        {\n            insert_log(3, 5, \"A cycle has been detected and the table needs to be recreated.\");\n            refill(table);\n            cuckoo_insert(key, data, table);\n            break;\n        }\n        if (try_to_store(key, data, second_entry))\n            break;\n        swap_key_data_entry(&key, &data, second_entry);\n        second_entry->marker = table->cur_marker;\n        first_entry = get_first_entry(key, table);\n        if (first_entry->marker == table->cur_marker)\n        {\n            insert_log(3, 5, \"A cycle has been detected and the table needs to be recreated.\");\n            refill(table);\n            cuckoo_insert(key, data, table);\n            break;\n        }\n        if (try_to_store(key, data, first_entry))\n            break;\n    }\n}",
+          "cuckoo_find": "o_data_t cuckoo_find(o_key_t key, const struct cuckoo_hash_table *table)\n{\n    insert_log(3, 3, \"Looking for key = %s.\", key);\n    const struct cuckoo_entry *entry = get_first_entry_c(key, table);\n    if (entry->key != empty_key && compare_keys(entry->key, key) == 0)\n    {\n        insert_log(3, 2, \"The key is found in the first array. Returning data = %s.\", entry->data);\n        return entry->data;\n    }\n    insert_log(3, 2, \"The key is not found in the first array.\");\n    entry = get_second_entry_c(key, table);\n    do\n    {\n        ((void)sizeof((entry->key != empty_key && compare_keys(entry->key, key) == 0) ? 1 : 0), __extension__({\n             if (entry->key != empty_key && compare_keys(entry->key, key) == 0)\n                 ;\n             else\n                 __assert_fail(\"entry->key != empty_key && compare_keys(entry->key, key) == 0\",\n                               \"/home/bbzs/code/reporeflectrust/data/project/CBench/Graph-recogniser/src/cuckoohash.c\",\n                               231, __extension__ __PRETTY_FUNCTION__);\n         }));\n    } while (0);\n    insert_log(3, 2, \"The key is found in the second array. Returning data = %s.\", entry->data);\n    return entry->data;\n}",
+          "free_cuckoo_hash_table": "void free_cuckoo_hash_table(struct cuckoo_hash_table *table)\n{\n    insert_log(3, 5, \"Deleting hash table with current size = %u, maximum size = %u.\", table->cur_size,\n               table->max_size);\n    free(table->first_arr);\n    free(table->second_arr);\n    free(table);\n}"
+        },
+        "typedefs": {
+          "hash_t": "typedef unsigned hash_t;",
+          "o_key_t": "typedef const char *o_key_t;",
+          "o_data_t": "typedef const char *o_data_t;"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,132 @@
+{
+  "project_name": "Simple-Config",
+  "files": {
+    "config.i": {
+      "relative_path": "config.i",
+      "original_file": "config.c",
+      "includes": [
+        "config.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "CfgError": "typedef struct\n{\n    int off;\n    int col;\n    int row;\n    char msg[64];\n} CfgError;",
+          "CfgColor": "typedef struct\n{\n    uint8_t r;\n    uint8_t g;\n    uint8_t b;\n    uint8_t a;\n} CfgColor;",
+          "CfgEntry": "typedef struct\n{\n    CfgValType type;\n    char key[32 + 1];\n    CfgVal val;\n} CfgEntry;",
+          "Cfg": "typedef struct\n{\n    CfgEntry *entries;\n    int count;\n    int capacity;\n} Cfg;",
+          "Scanner": "typedef struct\n{\n    const char *src;\n    int len;\n    int cur;\n} Scanner;"
+        },
+        "unions": {
+          "CfgVal": "typedef union {\n    char string[64 + 1];\n    _Bool boolean;\n    int integer;\n    float floating;\n    CfgColor color;\n} CfgVal;"
+        },
+        "enums": {
+          "CfgValType": "typedef enum\n{\n    CFG_TYPE_STRING,\n    CFG_TYPE_BOOL,\n    CFG_TYPE_INT,\n    CFG_TYPE_FLOAT,\n    CFG_TYPE_COLOR,\n} CfgValType;"
+        },
+        "functions": {
+          "init_scanner": "static void init_scanner(Scanner *s, const char *src, int src_len)\n{\n    s->src = src;\n    s->len = src_len;\n    s->cur = 0;\n}",
+          "is_at_end": "static _Bool is_at_end(Scanner *s)\n{\n    return s->cur >= s->len;\n}",
+          "cur": "static int cur(Scanner *s)\n{\n    return s->cur;\n}",
+          "set_cur": "static void set_cur(Scanner *s, int n)\n{\n    s->cur = n;\n}",
+          "peek": "static char peek(Scanner *s)\n{\n    return s->src[s->cur];\n}",
+          "peek_next": "static char peek_next(Scanner *s)\n{\n    if (s->cur >= s->len - 1)\n        return '\\0';\n    return s->src[s->cur + 1];\n}",
+          "advance": "static char advance(Scanner *s)\n{\n    return s->src[s->cur++];\n}",
+          "advance2": "static char advance2(Scanner *s, int n)\n{\n    for (int i = 0; i < n - 1; i++)\n        s->cur++;\n    return s->src[s->cur++];\n}",
+          "skip_whitespace": "static void skip_whitespace(Scanner *s)\n{\n    while (!is_at_end(s) && ((*__ctype_b_loc())[(int)((peek(s)))] & (unsigned short int)_ISspace))\n        advance(s);\n}",
+          "skip_blank": "static void skip_blank(Scanner *s)\n{\n    while (!is_at_end(s) && ((*__ctype_b_loc())[(int)((peek(s)))] & (unsigned short int)_ISspace) && peek(s) != '\\n')\n        advance(s);\n}",
+          "skip_comment": "static void skip_comment(Scanner *s)\n{\n    while (!is_at_end(s) && peek(s) == '#')\n    {\n        do\n            advance(s);\n        while (!is_at_end(s) && peek(s) != '\\n');\n    }\n}",
+          "skip_whitespace_and_comments": "void skip_whitespace_and_comments(Scanner *s)\n{\n    while (!is_at_end(s) && (((*__ctype_b_loc())[(int)((peek(s)))] & (unsigned short int)_ISspace) || peek(s) == '#'))\n    {\n        skip_whitespace(s);\n        skip_comment(s);\n    }\n}",
+          "copy_slice_into": "static void copy_slice_into(Scanner *s, int src_off, int src_len, char *dst, int max)\n{\n    ((void)sizeof((src_len < max) ? 1 : 0), __extension__({\n         if (src_len < max)\n             ;\n         else\n             __assert_fail(\"src_len < max\",\n                           \"/home/bbzs/code/reporeflectrust/data/project/CBench/Simple-Config/config.c\", 107,\n                           __extension__ __PRETTY_FUNCTION__);\n     }));\n    memcpy(dst, s->src + src_off, src_len);\n    dst[src_len] = '\\0';\n}",
+          "match_literal": "static _Bool match_literal(Scanner *s, int offset, const char *literal, int len)\n{\n    if (offset + len > s->len)\n        return 0;\n    return !strncmp(s->src + offset, literal, len);\n}",
+          "consume_literal": "static _Bool consume_literal(Scanner *s, int offset, const char *literal, int len)\n{\n    if (match_literal(s, offset, literal, len))\n    {\n        advance2(s, len);\n        return 1;\n    }\n    return 0;\n}",
+          "is_key": "static _Bool is_key(char ch)\n{\n    return ((*__ctype_b_loc())[(int)((ch))] & (unsigned short int)_ISalpha) || ch == '.' || ch == '_';\n}",
+          "is_string": "static _Bool is_string(char ch)\n{\n    return ((*__ctype_b_loc())[(int)((ch))] & (unsigned short int)_ISalnum) ||\n           ((*__ctype_b_loc())[(int)((ch))] & (unsigned short int)_ISblank) ||\n           (((*__ctype_b_loc())[(int)((ch))] & (unsigned short int)_ISpunct) && ch != '\"');\n}",
+          "init_error": "static void init_error(CfgError *err)\n{\n    err->off = -1;\n    err->col = -1;\n    err->row = -1;\n    err->msg[0] = '\\0';\n}",
+          "error": "static int error(Scanner *s, CfgError *err, const char *fmt, ...)\n{\n    const char prefix[] = \"\";\n    const int prefix_len = sizeof(prefix) - 1;\n    err->off = cur(s);\n    err->row = 1;\n    err->col = 1;\n    for (int i = 0; i < cur(s); i++)\n    {\n        err->col++;\n        if (s->src[i] == '\\n')\n        {\n            err->row++;\n            err->col = 1;\n        }\n    }\n    va_list vargs;\n    __builtin_va_start(vargs, fmt);\n    snprintf(err->msg, 64, prefix);\n    vsnprintf(err->msg + prefix_len, 64 - prefix_len, fmt, vargs);\n    __builtin_va_end(vargs);\n    return -1;\n}",
+          "cfg_fprint_error": "void cfg_fprint_error(FILE *stream, CfgError *err)\n{\n    if (err->row == -1 && err->col == -1)\n        fprintf(stream, \"Error: %s\\n\", err->msg);\n    else\n        fprintf(stream, \"Error at %d:%d :: %s\\n\", err->row, err->col, err->msg);\n}",
+          "parse_string": "static int parse_string(Scanner *s, CfgEntry *entry, CfgError *err)\n{\n    advance(s);\n    int val_offset = cur(s);\n    while (!is_at_end(s) && is_string(peek(s)))\n        advance(s);\n    if (is_at_end(s) || peek(s) != '\"')\n        return error(s, err, \"closing '\\\"' expected\");\n    int val_len = cur(s) - val_offset;\n    if (val_len > 64)\n        return error(s, err, \"value too long\");\n    advance(s);\n    copy_slice_into(s, val_offset, val_len, entry->val.string, sizeof(entry->val.string));\n    entry->type = CFG_TYPE_STRING;\n    return 0;\n}",
+          "consume_int": "static int consume_int(Scanner *s, int *number, CfgError *err)\n{\n    int sign = 1;\n    int num = 0;\n    if (!is_at_end(s) && peek(s) == '-' && ((*__ctype_b_loc())[(int)((peek_next(s)))] & (unsigned short int)_ISdigit))\n    {\n        advance(s);\n        sign = -1;\n    }\n    if (!is_at_end(s) && !((*__ctype_b_loc())[(int)((peek(s)))] & (unsigned short int)_ISdigit))\n        return error(s, err, \"number expected\");\n    while (!is_at_end(s) && ((*__ctype_b_loc())[(int)((peek(s)))] & (unsigned short int)_ISdigit))\n    {\n        int digit = advance(s) - '0';\n        if (num > (0x7fffffff - digit) / 10)\n            return error(s, err, \"number too large\");\n        num = num * 10 + digit;\n    }\n    *number = sign * num;\n    return 0;\n}",
+          "consume_float": "static int consume_float(Scanner *s, float *number, CfgError *err)\n{\n    int sign = 1;\n    int int_part = 0;\n    int fract_part = 0;\n    if (!is_at_end(s) && peek(s) == '-' && ((*__ctype_b_loc())[(int)((peek_next(s)))] & (unsigned short int)_ISdigit))\n    {\n        advance(s);\n        sign = -1;\n    }\n    if (!is_at_end(s) && !((*__ctype_b_loc())[(int)((peek(s)))] & (unsigned short int)_ISdigit))\n        return error(s, err, \"number expected\");\n    while (!is_at_end(s) && ((*__ctype_b_loc())[(int)((peek(s)))] & (unsigned short int)_ISdigit))\n    {\n        int digit = advance(s) - '0';\n        if (int_part > (0x7fffffff - digit) / 10)\n            return error(s, err, \"number too large\");\n        int_part = int_part * 10 + digit;\n    }\n    if (!is_at_end(s) && peek(s) != '.')\n        return error(s, err, \"float expected\");\n    advance(s);\n    int div = 1;\n    while (!is_at_end(s) && ((*__ctype_b_loc())[(int)((peek(s)))] & (unsigned short int)_ISdigit))\n    {\n        int digit = advance(s) - '0';\n        if (fract_part > (0x7fffffff - digit) / 10)\n            return error(s, err, \"number too large\");\n        fract_part = fract_part * 10 + digit;\n        if (div > 0x7fffffff / 10)\n            return error(s, err, \"number too large\");\n        div *= 10;\n    }\n    float floating = int_part + ((float)fract_part / div);\n    *number = sign * floating;\n    return 0;\n}",
+          "match_float": "static _Bool match_float(Scanner *s)\n{\n    int restore = cur(s);\n    _Bool is_float = 0;\n    if (!is_at_end(s) && peek(s) == '-' && ((*__ctype_b_loc())[(int)((peek_next(s)))] & (unsigned short int)_ISdigit))\n        advance(s);\n    while (!is_at_end(s) && ((*__ctype_b_loc())[(int)((peek(s)))] & (unsigned short int)_ISdigit))\n        advance(s);\n    if (!is_at_end(s) && peek(s) == '.')\n        is_float = 1;\n    set_cur(s, restore);\n    return is_float;\n}",
+          "parse_number": "static int parse_number(Scanner *s, CfgEntry *entry, CfgError *err)\n{\n    if (match_float(s))\n    {\n        float number;\n        if (consume_float(s, &number, err) != 0)\n            return -1;\n        entry->val.floating = number;\n        entry->type = CFG_TYPE_FLOAT;\n    }\n    else\n    {\n        int number;\n        if (consume_int(s, &number, err) != 0)\n            return -1;\n        entry->val.integer = number;\n        entry->type = CFG_TYPE_INT;\n    }\n    return 0;\n}",
+          "parse_rgba": "static int parse_rgba(Scanner *s, CfgEntry *entry, CfgError *err)\n{\n    if (!consume_literal(s, cur(s), \"rgba\", 4))\n        return error(s, err, \"invalid literal\");\n    skip_blank(s);\n    if (is_at_end(s) || peek(s) != '(')\n        return error(s, err, \"'(' expected\");\n    advance(s);\n    uint8_t rgb[3];\n    for (int i = 0; i < 3; i++)\n    {\n        skip_blank(s);\n        if (match_float(s))\n            return error(s, err,\n                         \"red, blue and green must be \"\n                         \"integers in range [0, 255]\");\n        int number;\n        if (consume_int(s, &number, err) != 0)\n            return -1;\n        if (number < 0 || number > 255)\n            return error(s, err,\n                         \"red, blue and green must be \"\n                         \"integers in range [0, 255]\");\n        rgb[i] = (uint8_t)number;\n        skip_blank(s);\n        if (is_at_end(s) || peek(s) != ',')\n            return error(s, err, \"',' expected\");\n        advance(s);\n    }\n    skip_blank(s);\n    uint8_t alpha;\n    if (match_float(s))\n    {\n        float number;\n        if (consume_float(s, &number, err) != 0)\n            return -1;\n        if (number < 0 || number > 1)\n            return error(s, err, \"alpha must be in range [0, 1]\");\n        alpha = number * 255;\n    }\n    else\n    {\n        int number;\n        if (consume_int(s, &number, err) != 0)\n            return -1;\n        if (number < 0 || number > 1)\n            return error(s, err, \"alpha must be in range [0, 1]\");\n        alpha = number * 255;\n    }\n    skip_blank(s);\n    if (is_at_end(s) || peek(s) != ')')\n        return error(s, err, \"')' expected\");\n    advance(s);\n    entry->val.color = (CfgColor){\n        .r = rgb[0],\n        .g = rgb[1],\n        .b = rgb[2],\n        .a = alpha,\n    };\n    entry->type = CFG_TYPE_COLOR;\n    return 0;\n}",
+          "parse_true": "static int parse_true(Scanner *s, CfgEntry *entry, CfgError *err)\n{\n    if (!consume_literal(s, cur(s), \"true\", 4))\n        return error(s, err, \"invalid literal\");\n    entry->val.boolean = 1;\n    entry->type = CFG_TYPE_BOOL;\n    return 0;\n}",
+          "parse_false": "static int parse_false(Scanner *s, CfgEntry *entry, CfgError *err)\n{\n    if (!consume_literal(s, cur(s), \"false\", 5))\n        return error(s, err, \"invalid literal\");\n    entry->val.boolean = 0;\n    entry->type = CFG_TYPE_BOOL;\n    return 0;\n}",
+          "parse_literal": "static int parse_literal(Scanner *s, CfgEntry *entry, CfgError *err)\n{\n    switch (peek(s))\n    {\n    case 't':\n        return parse_true(s, entry, err);\n    case 'f':\n        return parse_false(s, entry, err);\n    case 'r':\n        return parse_rgba(s, entry, err);\n    default:\n        return error(s, err, \"invalid literal\");\n    }\n}",
+          "parse_value": "static int parse_value(Scanner *s, CfgEntry *entry, CfgError *err)\n{\n    skip_blank(s);\n    if (is_at_end(s) || peek(s) == '\\n')\n        return error(s, err, \"missing value\");\n    char c = peek(s);\n    if (c == '\"')\n        return parse_string(s, entry, err);\n    else if (((*__ctype_b_loc())[(int)((c))] & (unsigned short int)_ISalpha))\n        return parse_literal(s, entry, err);\n    else if (((*__ctype_b_loc())[(int)((c))] & (unsigned short int)_ISdigit) ||\n             (c == '-' && ((*__ctype_b_loc())[(int)((peek_next(s)))] & (unsigned short int)_ISdigit)))\n        return parse_number(s, entry, err);\n    else\n        return error(s, err, \"invalid value\");\n}",
+          "parse_key": "static int parse_key(Scanner *s, CfgEntry *entry, CfgError *err)\n{\n    if (is_at_end(s) || !is_key(peek(s)))\n        return error(s, err, \"missing key\");\n    int key_offset = cur(s);\n    do\n        advance(s);\n    while (!is_at_end(s) && is_key(peek(s)));\n    int key_len = cur(s) - key_offset;\n    if (key_len > 32)\n        return error(s, err, \"key too long\");\n    copy_slice_into(s, key_offset, key_len, entry->key, sizeof(entry->key));\n    return 0;\n}",
+          "consume_colon": "static int consume_colon(Scanner *s, CfgError *err)\n{\n    skip_blank(s);\n    if (is_at_end(s) || peek(s) != ':')\n        return error(s, err, \"':' expected\");\n    advance(s);\n    return 0;\n}",
+          "parse_entry": "static int parse_entry(Scanner *s, CfgEntry *entry, CfgError *err)\n{\n    if (parse_key(s, entry, err) != 0)\n        return -1;\n    if (consume_colon(s, err) != 0)\n        return -1;\n    if (parse_value(s, entry, err) != 0)\n        return -1;\n    skip_blank(s);\n    if (!is_at_end(s) && peek(s) == '#')\n        skip_comment(s);\n    if (!is_at_end(s) && peek(s) != '\\n')\n        return error(s, err, \"unexpected character '%c'\", peek(s));\n    if (!is_at_end(s))\n        advance(s);\n    return 0;\n}",
+          "cfg_parse": "int cfg_parse(const char *src, int src_len, Cfg *cfg, CfgError *err)\n{\n    Scanner s;\n    init_scanner(&s, src, src_len);\n    init_error(err);\n    cfg->count = 0;\n    skip_whitespace_and_comments(&s);\n    while (!is_at_end(&s) && cfg->count < cfg->capacity)\n    {\n        CfgEntry *entry = &cfg->entries[cfg->count];\n        if (parse_entry(&s, entry, err) != 0)\n            return -1;\n        cfg->count++;\n        skip_whitespace_and_comments(&s);\n    }\n    return 0;\n}",
+          "read_file": "static char *read_file(const char *filename, int *count, char *err)\n{\n    FILE *file = fopen(filename, \"rb\");\n    if (!file)\n    {\n        snprintf(err, 64, \"failed to open file\");\n        return ((void *)0);\n    }\n    fseek(file, 0, 2);\n    size_t file_size = (size_t)ftell(file);\n    rewind(file);\n    char *src = malloc(file_size + 1);\n    if (src == ((void *)0))\n    {\n        snprintf(err, 64, \"memory allocation failed\");\n        return ((void *)0);\n    }\n    size_t bytes_read = fread(src, sizeof(char), file_size, file);\n    fclose(file);\n    if (bytes_read != file_size)\n    {\n        free(src);\n        snprintf(err, 64, \"failed to read file\");\n        return ((void *)0);\n    }\n    *count = file_size;\n    return src;\n}",
+          "cfg_parse_file": "int cfg_parse_file(const char *filename, Cfg *cfg, CfgError *err)\n{\n    init_error(err);\n    size_t len = strlen(filename);\n    if (len < 5)\n    {\n        snprintf(err->msg, 64, \"invalid filename\");\n        return -1;\n    }\n    const char *ext = filename + (len - (sizeof(\".cfg\") - 1));\n    if (strcmp(ext, \".cfg\") != 0)\n    {\n        snprintf(err->msg, 64, \"invalid file extension\");\n        return -1;\n    }\n    int src_len;\n    char *src = read_file(filename, &src_len, err->msg);\n    if (src == ((void *)0))\n        return -1;\n    int res = cfg_parse(src, src_len, cfg, err);\n    free(src);\n    return res;\n}",
+          "get_val": "static void *get_val(Cfg *cfg, const char *key, void *fallback, CfgValType type)\n{\n    for (int i = cfg->count - 1; i >= 0; i--)\n    {\n        if (cfg->entries[i].type == type && !strcmp(key, cfg->entries[i].key))\n            return &(cfg->entries[i].val);\n    }\n    return fallback;\n}",
+          "cfg_get_string": "char *cfg_get_string(Cfg *cfg, const char *key, char *fallback)\n{\n    return (char *)get_val(cfg, key, fallback, CFG_TYPE_STRING);\n}",
+          "cfg_get_bool": "_Bool cfg_get_bool(Cfg *cfg, const char *key, _Bool fallback)\n{\n    return *(_Bool *)get_val(cfg, key, &fallback, CFG_TYPE_BOOL);\n}",
+          "cfg_get_int": "int cfg_get_int(Cfg *cfg, const char *key, int fallback)\n{\n    return *(int *)get_val(cfg, key, &fallback, CFG_TYPE_INT);\n}",
+          "cfg_get_int_min": "int cfg_get_int_min(Cfg *cfg, const char *key, int fallback, int min)\n{\n    int value = cfg_get_int(cfg, key, fallback);\n    if (value < min)\n        value = fallback;\n    return value;\n}",
+          "cfg_get_int_max": "int cfg_get_int_max(Cfg *cfg, const char *key, int fallback, int max)\n{\n    int value = cfg_get_int(cfg, key, fallback);\n    if (value > max)\n        value = fallback;\n    return value;\n}",
+          "cfg_get_int_range": "int cfg_get_int_range(Cfg *cfg, const char *key, int fallback, int min, int max)\n{\n    int value = cfg_get_int(cfg, key, fallback);\n    if (value < min || value > max)\n        value = fallback;\n    return value;\n}",
+          "cfg_get_float": "float cfg_get_float(Cfg *cfg, const char *key, float fallback)\n{\n    return *(float *)get_val(cfg, key, &fallback, CFG_TYPE_FLOAT);\n}",
+          "cfg_get_float_min": "float cfg_get_float_min(Cfg *cfg, const char *key, float fallback, float min)\n{\n    float value = cfg_get_float(cfg, key, fallback);\n    if (value < min)\n        value = fallback;\n    return value;\n}",
+          "cfg_get_float_max": "float cfg_get_float_max(Cfg *cfg, const char *key, float fallback, float max)\n{\n    float value = cfg_get_float(cfg, key, fallback);\n    if (value > max)\n        value = fallback;\n    return value;\n}",
+          "cfg_get_float_range": "float cfg_get_float_range(Cfg *cfg, const char *key, float fallback, float min, float max)\n{\n    float value = cfg_get_float(cfg, key, fallback);\n    if (value < min || value > max)\n        value = fallback;\n    return value;\n}",
+          "cfg_get_color": "CfgColor cfg_get_color(Cfg *cfg, const char *key, CfgColor fallback)\n{\n    return *(CfgColor *)get_val(cfg, key, &fallback, CFG_TYPE_COLOR);\n}",
+          "cfg_fprint": "void cfg_fprint(FILE *stream, Cfg *cfg)\n{\n    for (int i = 0; i < cfg->count; i++)\n    {\n        fprintf(stream, \"%s: \", cfg->entries[i].key);\n        switch (cfg->entries[i].type)\n        {\n        case CFG_TYPE_STRING:\n            fprintf(stream, \"\\\"%s\\\"\\n\", cfg->entries[i].val.string);\n            break;\n        case CFG_TYPE_BOOL:\n            fprintf(stream, \"%s\\n\", cfg->entries[i].val.boolean ? \"true\" : \"false\");\n            break;\n        case CFG_TYPE_INT:\n            fprintf(stream, \"%d\\n\", cfg->entries[i].val.integer);\n            break;\n        case CFG_TYPE_FLOAT:\n            fprintf(stream, \"%f\\n\", cfg->entries[i].val.floating);\n            break;\n        case CFG_TYPE_COLOR:;\n            CfgColor c = cfg->entries[i].val.color;\n            fprintf(stream, \"rgba(%d, %d, %d, %d)\\n\", c.r, c.g, c.b, c.a);\n            break;\n        }\n    }\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "example.i": {
+      "relative_path": "example.i",
+      "original_file": "example.c",
+      "includes": [
+        "config.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "CfgError": "typedef struct\n{\n    int off;\n    int col;\n    int row;\n    char msg[64];\n} CfgError;",
+          "CfgColor": "typedef struct\n{\n    uint8_t r;\n    uint8_t g;\n    uint8_t b;\n    uint8_t a;\n} CfgColor;",
+          "CfgEntry": "typedef struct\n{\n    CfgValType type;\n    char key[32 + 1];\n    CfgVal val;\n} CfgEntry;",
+          "Cfg": "typedef struct\n{\n    CfgEntry *entries;\n    int count;\n    int capacity;\n} Cfg;"
+        },
+        "unions": {
+          "CfgVal": "typedef union {\n    char string[64 + 1];\n    _Bool boolean;\n    int integer;\n    float floating;\n    CfgColor color;\n} CfgVal;"
+        },
+        "enums": {
+          "CfgValType": "typedef enum\n{\n    CFG_TYPE_STRING,\n    CFG_TYPE_BOOL,\n    CFG_TYPE_INT,\n    CFG_TYPE_FLOAT,\n    CFG_TYPE_COLOR,\n} CfgValType;"
+        },
+        "functions": {
+          "main": "int main(int argc, char *argv[])\n{\n    if (argc != 2)\n    {\n        fprintf(stderr, \"Error: missing config file\\n\");\n        return 1;\n    }\n    int capacity = 64;\n    CfgEntry *entries = malloc(capacity * sizeof(CfgEntry));\n    if (entries == ((void *)0))\n    {\n        fprintf(stderr, \"Error: memory allocation failed\\n\");\n        return 1;\n    }\n    CfgError err;\n    Cfg cfg = {.entries = entries, .capacity = capacity};\n    int res = cfg_parse_file(argv[1], &cfg, &err);\n    if (res != 0)\n    {\n        cfg_fprint_error(stderr, &err);\n        free(entries);\n        return 1;\n    }\n    char *font = cfg_get_string(&cfg, \"font\", \"Noto Sans Mono\");\n    int font_size = cfg_get_int(&cfg, \"font.size\", 12);\n    float zoom = cfg_get_float(&cfg, \"zoom\", 1.0);\n    _Bool line_num = cfg_get_bool(&cfg, \"lineNumbers\", 1);\n    CfgColor bg = cfg_get_color(&cfg, \"bg.color\",\n                                (CfgColor){\n                                    .r = 255,\n                                    .g = 255,\n                                    .b = 255,\n                                    .a = 1,\n                                });\n    fprintf(stdout, \"font: %s\\n\", font);\n    fprintf(stdout, \"font.size: %d\\n\", font_size);\n    fprintf(stdout, \"zoom: %f\\n\", zoom);\n    fprintf(stdout, \"lineNumbers: %s\\n\", line_num ? \"true\" : \"false\");\n    fprintf(stdout, \"bg.color: rgba(%d, %d, %d, %d)\\n\", bg.r, bg.g, bg.b, bg.a);\n    free(entries);\n    return 0;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "fuzz/fuzz.i": {
+      "relative_path": "fuzz/fuzz.i",
+      "original_file": "fuzz/fuzz.c",
+      "includes": [
+        "../config.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "CfgError": "typedef struct\n{\n    int off;\n    int col;\n    int row;\n    char msg[64];\n} CfgError;",
+          "CfgColor": "typedef struct\n{\n    uint8_t r;\n    uint8_t g;\n    uint8_t b;\n    uint8_t a;\n} CfgColor;",
+          "CfgEntry": "typedef struct\n{\n    CfgValType type;\n    char key[32 + 1];\n    CfgVal val;\n} CfgEntry;",
+          "Cfg": "typedef struct\n{\n    CfgEntry *entries;\n    int count;\n    int capacity;\n} Cfg;"
+        },
+        "unions": {
+          "CfgVal": "typedef union {\n    char string[64 + 1];\n    _Bool boolean;\n    int integer;\n    float floating;\n    CfgColor color;\n} CfgVal;"
+        },
+        "enums": {
+          "CfgValType": "typedef enum\n{\n    CFG_TYPE_STRING,\n    CFG_TYPE_BOOL,\n    CFG_TYPE_INT,\n    CFG_TYPE_FLOAT,\n    CFG_TYPE_COLOR,\n} CfgValType;"
+        },
+        "functions": {
+          "LLVMFuzzerTestOneInput": "int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size)\n{\n    int capacity = 512;\n    CfgEntry *entries = malloc(capacity * sizeof(CfgEntry));\n    if (entries == ((void *)0))\n        return 1;\n    CfgError err;\n    Cfg cfg = {.entries = entries, .capacity = capacity};\n    int res = cfg_parse(Data, Size, &cfg, &err);\n    free(entries);\n    return 0;\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

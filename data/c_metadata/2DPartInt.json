@@ -1,0 +1,65 @@
+{
+  "project_name": "2DPartInt",
+  "files": {
+    "src/collisions.i": {
+      "relative_path": "src/collisions.i",
+      "original_file": "src/collisions.c",
+      "includes": [
+        "data.h",
+        "functions.h",
+        "collisions.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "Particle": "struct Particle\n{\n    double x_coordinate;\n    double y_coordinate;\n    double radius;\n    Particle *next;\n    int idx;\n}",
+          "ParticleProperties": "typedef struct\n{\n    double mass;\n    double kn;\n    double ks;\n} ParticleProperties;",
+          "Vector": "typedef struct\n{\n    double x_component;\n    double y_component;\n} Vector;",
+          "Contact": "typedef struct\n{\n    size_t p1_idx;\n    size_t p2_idx;\n    double overlap;\n} Contact;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "find_col": "int find_col(const double x, const int x_squares, const double square_length)\n{\n    double x_left_limit = -(x_squares * square_length / 2);\n    double diff = x_left_limit - x;\n    if (diff > 0)\n        return -2;\n    int col_ind = floor(fabs(diff) / square_length);\n    if (col_ind >= x_squares)\n        return -1;\n    return col_ind;\n}",
+          "find_row": "int find_row(const double y, const int y_squares, const double square_length)\n{\n    int row_ind = floor(((double)y) / square_length);\n    if (row_ind >= y_squares)\n        return -1;\n    if (row_ind < 0)\n        return -2;\n    return row_ind;\n}",
+          "find_square": "int find_square(const double x, const double y, const int x_squares, const int y_squares, const double square_length)\n{\n    int row_ind = find_row(y, y_squares, square_length);\n    int col_ind = find_col(x, x_squares, square_length);\n    if (col_ind < 0 || row_ind < 0)\n    {\n        return -1;\n    }\n    return row_ind * x_squares + col_ind;\n}",
+          "compute_contacts": "size_t compute_contacts(Particle const *const *const grid, const int x_squares, const int y_squares,\n                        const double square_length, Contact *contacts)\n{\n    size_t k = 0;\n    for (int row = 0; row < y_squares; row++)\n    {\n        for (int col = 0; col < x_squares; col++)\n        {\n            size_t square_idx = row * x_squares + col;\n            if (!grid[square_idx])\n                continue;\n            Particle *first = (Particle *)grid[square_idx];\n            Particle *p = (Particle *)grid[square_idx];\n            while (p)\n            {\n                Particle *other = first;\n                while (other)\n                {\n                    if (other != p)\n                    {\n                        const double overlap = compute_overlap(p, other);\n                        if (overlap > 0)\n                        {\n                            contacts[k].p1_idx = p->idx;\n                            contacts[k].p2_idx = other->idx;\n                            contacts[k].overlap = overlap;\n                            k++;\n                        }\n                    }\n                    other = other->next;\n                }\n                int left_col = find_col(p->x_coordinate - p->radius * 2, x_squares, square_length);\n                if (left_col == -2)\n                    left_col = 0;\n                int right_col = find_col(p->x_coordinate + p->radius * 2, x_squares, square_length);\n                if (right_col == -1)\n                    right_col = x_squares - 1;\n                int bottom_row = find_row(p->y_coordinate - p->radius * 2, y_squares, square_length);\n                if (bottom_row == -2)\n                    bottom_row = 0;\n                int top_row = find_row(p->y_coordinate + p->radius * 2, y_squares, square_length);\n                if (top_row == -1)\n                    top_row = y_squares - 1;\n                for (int neighbor_row = bottom_row; neighbor_row <= top_row; neighbor_row++)\n                {\n                    for (int neighbor_col = left_col; neighbor_col <= right_col; neighbor_col++)\n                    {\n                        size_t neighbor_square_idx = neighbor_row * x_squares + neighbor_col;\n                        other = (Particle *)grid[neighbor_square_idx];\n                        if (other == ((void *)0))\n                            continue;\n                        if (neighbor_square_idx == square_idx)\n                            continue;\n                        while (other)\n                        {\n                            const double overlap = compute_overlap(p, other);\n                            if (overlap > 0)\n                            {\n                                contacts[k].p1_idx = p->idx;\n                                contacts[k].p2_idx = other->idx;\n                                contacts[k].overlap = overlap;\n                                k++;\n                            }\n                            other = other->next;\n                        }\n                    }\n                }\n                p = p->next;\n            }\n        }\n    }\n    return k;\n}",
+          "fill_grid": "void fill_grid(const size_t num_particles, const int x_squares, const int y_squares, const double square_length,\n               Particle const *const particles, Particle **const grid, Particle **const grid_lasts)\n{\n    for (size_t i = 0; i < num_particles; i++)\n    {\n        Particle *p = (Particle *)&particles[i];\n        p->next = ((void *)0);\n        int square_ind = find_square(p->x_coordinate, p->y_coordinate, x_squares, y_squares, square_length);\n        if (square_ind < 0)\n            continue;\n        if (!grid_lasts[square_ind])\n        {\n            grid[square_ind] = p;\n            grid_lasts[square_ind] = p;\n        }\n        else\n        {\n            grid_lasts[square_ind]->next = p;\n            grid_lasts[square_ind] = p;\n        }\n    }\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/functions.i": {
+      "relative_path": "src/functions.i",
+      "original_file": "src/functions.c",
+      "includes": [
+        "data.h",
+        "functions.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "Particle": "struct Particle\n{\n    double x_coordinate;\n    double y_coordinate;\n    double radius;\n    Particle *next;\n    int idx;\n}",
+          "ParticleProperties": "typedef struct\n{\n    double mass;\n    double kn;\n    double ks;\n} ParticleProperties;",
+          "Vector": "typedef struct\n{\n    double x_component;\n    double y_component;\n} Vector;",
+          "Contact": "typedef struct\n{\n    size_t p1_idx;\n    size_t p2_idx;\n    double overlap;\n} Contact;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "compute_distance": "inline double compute_distance(const Particle *p1, const Particle *p2)\n{\n    const double x_diff = p1->x_coordinate - p2->x_coordinate;\n    const double y_diff = p1->y_coordinate - p2->y_coordinate;\n    return sqrt((x_diff * x_diff) + (y_diff * y_diff));\n}",
+          "compute_overlap": "inline double compute_overlap(const Particle *p1, const Particle *p2)\n{\n    const double d = p1->radius + p2->radius;\n    const double distance = compute_distance(p1, p2);\n    return d - distance;\n}",
+          "compute_acceleration": "inline void compute_acceleration(const size_t particle_index, const ParticleProperties *particles_properties,\n                                 const Vector *forces, Vector *accelerations)\n{\n    accelerations[particle_index].x_component =\n        forces[particle_index].x_component / particles_properties[particle_index].mass;\n    accelerations[particle_index].y_component =\n        forces[particle_index].y_component / particles_properties[particle_index].mass;\n}",
+          "apply_gravity": "inline void apply_gravity(const size_t size, const ParticleProperties *particles_properties, Vector *forces)\n{\n    for (size_t i = 0; i < size; ++i)\n    {\n        forces[i].y_component -= (particles_properties[i].mass * 9.81d);\n    }\n}",
+          "collide_two_particles": "void collide_two_particles(const double dt, const double distance, const Particle *p1, const Particle *p2,\n                           const Vector *velocity_p1, const Vector *velocity_p2,\n                           const ParticleProperties *properties_p2, double *previous_normal, double *previous_tangent,\n                           Vector *force_p2)\n{\n    const Vector normal = {.x_component = (p1->x_coordinate - p2->x_coordinate) / distance,\n                           .y_component = (p1->y_coordinate - p2->y_coordinate) / distance};\n    const double velocity_x_diff = velocity_p2->x_component - velocity_p1->x_component;\n    const double velocity_y_diff = velocity_p2->y_component - velocity_p1->y_component;\n    const double normal_velocity = (normal.x_component * velocity_x_diff) + (normal.y_component * velocity_y_diff);\n    const double tangent_velocity = (normal.y_component * velocity_x_diff) - (normal.x_component * velocity_y_diff);\n    const double dfn = normal_velocity * properties_p2->kn * dt;\n    const double dfs = tangent_velocity * properties_p2->ks * dt;\n    double Fn_1_2 = *previous_normal + dfn;\n    double Fs_1_2 = *previous_tangent + dfs;\n    if (Fn_1_2 < 0)\n    {\n        Fn_1_2 = 0;\n        Fs_1_2 = 0;\n    }\n    const double Fs_1_2_max = Fn_1_2 * 0.5773502691896257;\n    if (fabs(Fs_1_2) > Fs_1_2_max)\n    {\n        Fs_1_2 = (fabs(Fs_1_2_max) * fabs(Fs_1_2)) / Fs_1_2;\n    }\n    force_p2->x_component += (-normal.x_component * Fn_1_2) - (normal.y_component * Fs_1_2);\n    force_p2->y_component += (-normal.y_component * Fn_1_2) + (normal.x_component * Fs_1_2);\n    *previous_normal = Fn_1_2;\n    *previous_tangent = Fs_1_2;\n}",
+          "compute_forces": "inline void compute_forces(const double dt, const size_t particles_size, const size_t contacts_size,\n                           const Particle *particles, const ParticleProperties *properties, const Contact *contacts,\n                           const Vector *velocities, double *normal_forces, double *tangent_forces, Vector *forces)\n{\n    for (size_t i = 0; i < contacts_size; ++i)\n    {\n        const size_t p1_idx = contacts[i].p1_idx;\n        const size_t p2_idx = contacts[i].p2_idx;\n        const size_t p2_p1_idx = (p1_idx * particles_size) + p2_idx;\n        const Particle *p1 = &particles[p1_idx];\n        const Particle *p2 = &particles[p2_idx];\n        const double distance = compute_distance(p1, p2);\n        collide_two_particles(dt, distance, p1, p2, &velocities[p1_idx], &velocities[p2_idx], &properties[p2_idx],\n                              &normal_forces[p2_p1_idx], &tangent_forces[p2_p1_idx], &forces[p2_idx]);\n    }\n    apply_gravity(particles_size, properties, forces);\n}",
+          "compute_velocity": "inline void compute_velocity(const double dt, const size_t particle_index, const Vector *accelerations,\n                             Vector *velocities)\n{\n    velocities[particle_index].x_component =\n        velocities[particle_index].x_component + accelerations[particle_index].x_component * dt;\n    velocities[particle_index].y_component =\n        velocities[particle_index].y_component + accelerations[particle_index].y_component * dt;\n}",
+          "compute_displacement": "inline void compute_displacement(const double dt, const size_t particle_index, const Vector *velocities,\n                                 Vector *displacements)\n{\n    displacements[particle_index].x_component =\n        displacements[particle_index].x_component + velocities[particle_index].x_component * dt;\n    displacements[particle_index].y_component =\n        displacements[particle_index].y_component + velocities[particle_index].y_component * dt;\n}",
+          "displace_particle": "inline void displace_particle(const size_t particle_index, const Vector *displacements, Particle *particles)\n{\n    particles[particle_index].x_coordinate += (displacements[particle_index].x_component * 1000);\n    particles[particle_index].y_coordinate += (displacements[particle_index].y_component * 1000);\n}",
+          "fix_displacement": "inline void fix_displacement(const size_t particle_index, Vector *velocities, Particle *particles)\n{\n    double diff = particles[particle_index].y_coordinate - particles[particle_index].radius;\n    if (diff < 0)\n    {\n        particles[particle_index].y_coordinate = particles[particle_index].radius;\n        velocities[particle_index].y_component = 0;\n    }\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

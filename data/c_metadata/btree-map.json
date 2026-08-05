@@ -1,0 +1,50 @@
+{
+  "project_name": "btree-map",
+  "files": {
+    "src/btree.i": {
+      "relative_path": "src/btree.i",
+      "original_file": "src/btree.c",
+      "includes": [
+        "btree.h",
+        "string.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "value_t": "typedef struct value\n{\n    uint8_t *value;\n    size_t len;\n} value_t;",
+          "btree_key_t": "typedef struct btree_key\n{\n    uint8_t *key;\n    size_t len;\n} btree_key_t;",
+          "entry_t": "typedef struct entry\n{\n    btree_key_t key;\n    value_t value;\n} entry_t;",
+          "entry_list_t": "typedef struct entry_list\n{\n    entry_t *entries;\n    size_t len;\n    size_t cap;\n} entry_list_t;",
+          "node_t": "typedef struct node node_t;",
+          "btree_t": "typedef struct btree btree_t;",
+          "node": "struct node\n{\n    uint32_t key_hash;\n    uint8_t p_key[10];\n    size_t key_len;\n    value_t value;\n    node_t *child_left;\n    node_t *child_right;\n}",
+          "btree": "struct btree\n{\n    node_t *node;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "__attribute__": "void *__attribute__((weak)) btree_malloc(size_t size)\n{\n    void *ptr = malloc(size);\n    memset(ptr, 0, size);\n    return ptr;\n}",
+          "btree_free": "void __attribute__((weak)) btree_free(void *ptr)\n{\n    free(ptr);\n    ptr = ((void *)0);\n}",
+          "min_size": "size_t min_size(size_t a, size_t b)\n{\n    if (a < b)\n    {\n        return a;\n    }\n    return b;\n}",
+          "calc_key_hash": "uint32_t __attribute__((weak)) calc_key_hash(void *key, size_t key_len)\n{\n    uint32_t key_sum = 0;\n    uint8_t *byte_key = (uint8_t *)key;\n    for (size_t i = 0; i < key_len; i++)\n    {\n        key_sum = key_sum % (4294967295U);\n        key_sum += (byte_key[i] * (i + 1)) % (4294967295U);\n    }\n    return key_sum;\n}",
+          "new_btree": "btree_t *new_btree()\n{\n    btree_t *bt = btree_malloc(sizeof(btree_t));\n    bt->node = ((void *)0);\n    return bt;\n}",
+          "new_node": "node_t *new_node(void *key, size_t key_len, void *value, size_t value_len)\n{\n    node_t *node = btree_malloc(sizeof(node_t));\n    node->key_len = min_size(10, key_len);\n    memcpy(node->p_key, key, node->key_len);\n    node->value.value = btree_malloc(value_len);\n    node->value.len = value_len;\n    memcpy(node->value.value, value, node->value.len);\n    node->key_hash = calc_key_hash(node->p_key, node->key_len);\n    return node;\n}",
+          "free_node": "void free_node(node_t *self)\n{\n    if (self == ((void *)0))\n    {\n        return;\n    }\n    btree_free(self->value.value);\n    free_node(self->child_left);\n    free_node(self->child_right);\n    btree_free(self);\n}",
+          "add_node": "void add_node(node_t *self, node_t *n_node)\n{\n    if (n_node->key_hash > self->key_hash)\n    {\n        if (self->child_right == ((void *)0))\n        {\n            self->child_right = n_node;\n            return;\n        }\n        add_node(self->child_right, n_node);\n        return;\n    }\n    if (n_node->key_hash == self->key_hash)\n    {\n        if (memcmp(self->p_key, n_node->p_key, n_node->key_len) == 0)\n        {\n            self->value.len = n_node->value.len;\n            memcpy(self->value.value, n_node->value.value, n_node->value.len);\n            free_node(n_node);\n            return;\n        }\n    }\n    if (self->child_left == ((void *)0))\n    {\n        self->child_left = n_node;\n        return;\n    }\n    add_node(self->child_left, n_node);\n    return;\n}",
+          "find_value": "value_t *find_value(node_t *self, uint32_t key_hash, void *key, size_t key_len)\n{\n    key_len = min_size(10, key_len);\n    if (self->key_hash == key_hash)\n    {\n        if (memcmp(self->p_key, key, key_len) == 0)\n        {\n            return &self->value;\n        }\n    }\n    if (key_hash > self->key_hash)\n    {\n        if (self->child_right == ((void *)0))\n        {\n            return ((void *)0);\n        }\n        return find_value(self->child_right, key_hash, key, key_len);\n    }\n    if (self->child_left == ((void *)0))\n    {\n        return ((void *)0);\n    }\n    return find_value(self->child_left, key_hash, key, key_len);\n}",
+          "list_node_entries": "void list_node_entries(node_t *self, entry_list_t *list)\n{\n    if (self == ((void *)0))\n    {\n        return;\n    }\n    list_node_entries(self->child_left, list);\n    if (list->len >= list->cap)\n    {\n        return;\n    }\n    entry_t *entry = btree_malloc(sizeof(entry_t));\n    entry->key.key = btree_malloc(self->key_len);\n    entry->key.len = self->key_len;\n    memcpy(entry->key.key, self->p_key, self->key_len);\n    entry->value.value = btree_malloc(self->value.len);\n    entry->value.len = self->value.len;\n    memcpy(entry->value.value, self->value.value, self->value.len);\n    list->entries[list->len] = *entry;\n    list->len += 1;\n    list_node_entries(self->child_right, list);\n}",
+          "get_node_count": "size_t get_node_count(node_t *self)\n{\n    if (self == ((void *)0))\n    {\n        return 0;\n    }\n    return 1 + get_node_count(self->child_left) + get_node_count(self->child_right);\n}",
+          "add_entry": "void add_entry(btree_t *self, void *key, size_t key_len, void *value, size_t value_len)\n{\n    node_t *n_node = new_node(key, key_len, value, value_len);\n    if (self->node == ((void *)0))\n    {\n        self->node = n_node;\n        return;\n    }\n    add_node(self->node, n_node);\n}",
+          "find_entry": "value_t *find_entry(btree_t *self, void *key, size_t key_len)\n{\n    if (self->node == ((void *)0))\n    {\n        return ((void *)0);\n    }\n    key_len = min_size(10, key_len);\n    uint32_t key_hash = calc_key_hash(key, key_len);\n    return find_value(self->node, key_hash, key, key_len);\n}",
+          "delete_node": "node_t *delete_node(node_t *root, uint32_t key_hash, void *key, size_t key_len)\n{\n    if (root == ((void *)0))\n    {\n        return ((void *)0);\n    }\n    key_len = min_size(10, key_len);\n    if (key_hash < root->key_hash)\n    {\n        root->child_left = delete_node(root->child_left, key_hash, key, key_len);\n    }\n    else if (key_hash > root->key_hash)\n    {\n        root->child_right = delete_node(root->child_right, key_hash, key, key_len);\n    }\n    else\n    {\n        if (memcmp(root->p_key, key, key_len) == 0)\n        {\n            if (root->child_left == ((void *)0))\n            {\n                node_t *temp = root->child_right;\n                btree_free(root);\n                return temp;\n            }\n            else if (root->child_right == ((void *)0))\n            {\n                node_t *temp = root->child_left;\n                btree_free(root);\n                return temp;\n            }\n            node_t *temp = root->child_right;\n            while (temp && temp->child_left != ((void *)0))\n            {\n                temp = temp->child_left;\n            }\n            root->key_hash = temp->key_hash;\n            memcpy(root->p_key, temp->p_key, temp->key_len);\n            root->key_len = temp->key_len;\n            memcpy(root->value.value, temp->value.value, temp->value.len);\n            root->value.len = temp->value.len;\n            root->child_right = delete_node(root->child_right, temp->key_hash, temp->p_key, temp->key_len);\n        }\n    }\n    return root;\n}",
+          "remove_entry": "void remove_entry(btree_t *self, void *key, size_t key_len)\n{\n    if (self == ((void *)0))\n    {\n        return;\n    }\n    key_len = min_size(10, key_len);\n    uint32_t key_hash = calc_key_hash(key, key_len);\n    self->node = delete_node(self->node, key_hash, key, key_len);\n}",
+          "list_entries": "entry_list_t *list_entries(btree_t *self)\n{\n    if (self == ((void *)0))\n    {\n        return ((void *)0);\n    }\n    entry_list_t *list = btree_malloc(sizeof(entry_list_t));\n    list->len = 0;\n    list->cap = get_entry_count(self);\n    list->entries = btree_malloc(sizeof(entry_t) * list->cap);\n    list_node_entries(self->node, list);\n    return list;\n}",
+          "get_entry_count": "size_t get_entry_count(btree_t *self)\n{\n    if (self == ((void *)0))\n    {\n        return 0;\n    }\n    return get_node_count(self->node);\n}",
+          "free_tree": "void free_tree(btree_t **self)\n{\n    free_node((*self)->node);\n    btree_free(*self);\n    (*self) = ((void *)0);\n    return;\n}",
+          "free_entry_list": "void free_entry_list(entry_list_t **list)\n{\n    for (size_t i = 0; i < (*list)->len; i++)\n    {\n        btree_free((*list)->entries[i].key.key);\n        btree_free((*list)->entries[i].value.value);\n    }\n    btree_free((*list)->entries);\n    btree_free(*list);\n    (*list) = ((void *)0);\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

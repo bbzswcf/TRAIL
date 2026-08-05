@@ -1,0 +1,230 @@
+{
+  "project_name": "c-aces",
+  "files": {
+    "src/Channel.i": {
+      "relative_path": "src/Channel.i",
+      "original_file": "src/Channel.c",
+      "includes": [
+        "include/Channel.h",
+        "include/Common.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "Parameters": "typedef struct\n{\n    uint64_t dim;\n    uint64_t N;\n} Parameters;",
+          "Channel": "typedef struct\n{\n    uint64_t p;\n    uint64_t q;\n    uint64_t w;\n} Channel;",
+          "Xgcd": "typedef struct\n{\n    uint64_t gcd;\n    int64_t a;\n    int64_t b;\n} Xgcd;",
+          "Pair": "typedef struct\n{\n    uint64_t first;\n    uint64_t second;\n} Pair;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "max": "static inline uint64_t max(uint64_t a, uint64_t b)\n{\n    return a > b ? a : b;\n}",
+          "min": "static inline uint64_t min(uint64_t a, uint64_t b)\n{\n    return a < b ? a : b;\n}",
+          "clamp": "static inline uint64_t clamp(uint64_t min_value, uint64_t max_value, uint64_t value)\n{\n    return max(min_value, min(max_value, value));\n}",
+          "init_channel": "int init_channel(Channel *channel, uint64_t p, uint64_t q, uint64_t w)\n{\n    channel->w = w;\n    channel->p = p;\n    channel->q = q;\n    if (!(pow(p, 2) < q && are_coprime(p, q)))\n        channel->q = (uint64_t)pow(p + 1, 2);\n    return 0;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/Aces-internal.i": {
+      "relative_path": "src/Aces-internal.i",
+      "original_file": "src/Aces-internal.c",
+      "includes": [
+        "include/Aces-internal.h",
+        "include/Common.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "Parameters": "typedef struct\n{\n    uint64_t dim;\n    uint64_t N;\n} Parameters;",
+          "Channel": "typedef struct\n{\n    uint64_t p;\n    uint64_t q;\n    uint64_t w;\n} Channel;",
+          "Matrix2D": "typedef struct\n{\n    size_t dim;\n    uint64_t *data;\n} Matrix2D;",
+          "Matrix3D": "typedef struct\n{\n    Matrix2D *data;\n    size_t size;\n} Matrix3D;",
+          "Polynomial": "typedef struct\n{\n    Coeff *coeffs;\n    size_t size;\n} Polynomial;",
+          "PolyArray": "typedef struct\n{\n    Polynomial *polies;\n    size_t size;\n} PolyArray;",
+          "Xgcd": "typedef struct\n{\n    uint64_t gcd;\n    int64_t a;\n    int64_t b;\n} Xgcd;",
+          "Pair": "typedef struct\n{\n    uint64_t first;\n    uint64_t second;\n} Pair;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "matrix2d_row": "static inline uint64_t *matrix2d_row(Matrix2D *matrix, size_t row)\n{\n    return matrix->data + row * matrix->dim;\n}",
+          "matrix2d_get": "static inline uint64_t matrix2d_get(Matrix2D *matrix, size_t row, size_t col)\n{\n    size_t dim = matrix->dim;\n    return matrix->data[row * dim + col];\n}",
+          "matrix2d_set": "static inline void matrix2d_set(Matrix2D *matrix, size_t row, size_t col, uint64_t value)\n{\n    size_t dim = matrix->dim;\n    matrix->data[row * dim + col] = value;\n}",
+          "max": "static inline uint64_t max(uint64_t a, uint64_t b)\n{\n    return a > b ? a : b;\n}",
+          "min": "static inline uint64_t min(uint64_t a, uint64_t b)\n{\n    return a < b ? a : b;\n}",
+          "clamp": "static inline uint64_t clamp(uint64_t min_value, uint64_t max_value, uint64_t value)\n{\n    return max(min_value, min(max_value, value));\n}",
+          "generate_error": "int generate_error(uint64_t q, uint64_t message, Polynomial *rm)\n{\n    for (size_t i = 0; i < rm->size; ++i)\n        rm->coeffs[i] = randrange(0, q);\n    Coeff shift = (rm->coeffs[rm->size - 1] + ((Coeff)message - (Coeff)coef_sum(rm))) % (Coeff)q;\n    rm->coeffs[rm->size - 1] = shift > 0 ? shift : shift + (Coeff)q;\n    return 0;\n}",
+          "generate_vanisher": "uint64_t generate_vanisher(uint64_t p, uint64_t q, Polynomial *e)\n{\n    int64_t k = randrange(0, 1) < 0.5 ? 0 : 1;\n    for (size_t i = 0; i < e->size; ++i)\n        e->coeffs[i] = randrange(0, q);\n    Coeff shift = (e->coeffs[e->size - 1] + (Coeff)p * k - coef_sum(e)) % (Coeff)q;\n    e->coeffs[e->size - 1] = shift > 0 ? shift : shift + (Coeff)q;\n    return k;\n}",
+          "generate_linear": "uint64_t generate_linear(uint64_t p, uint64_t q, Polynomial *b)\n{\n    int64_t k = randrange(0, p);\n    for (size_t i = 0; i < b->size; ++i)\n        b->coeffs[i] = randrange(0, q);\n    Coeff shift = (b->coeffs[b->size - 1] + k - coef_sum(b)) % (Coeff)q;\n    b->coeffs[b->size - 1] = shift > 0 ? shift : shift + (Coeff)q;\n    return k;\n}",
+          "generate_u": "int generate_u(const Channel *channel, const Parameters *param, Polynomial *u)\n{\n    uint64_t nonzeros = randrange(param->dim / 2, param->dim - 1);\n    uint64_t zeroes = param->dim - nonzeros;\n    u->coeffs[0] = 1;\n    for (size_t i = 1; i < param->dim;)\n    {\n        if (nonzeros > 1)\n        {\n            u->coeffs[i++] = randrange(0, channel->q);\n            nonzeros--;\n        }\n        else\n        {\n            break;\n        }\n        if (zeroes > 0)\n        {\n            uint64_t samp = clamp(0, zeroes, normal_rand(zeroes / 2, zeroes / 2));\n            uint64_t zero = randrange(0, samp);\n            for (size_t j = 0; j < zero; ++j)\n                u->coeffs[i++] = 0;\n            zeroes -= zero;\n        }\n    }\n    u->coeffs[param->dim] = 0;\n    u->coeffs[param->dim] = (int64_t)channel->q - (int64_t)coef_sum(u);\n    return 0;\n}",
+          "generate_secret": "int generate_secret(const Channel *channel, const Parameters *param, const Polynomial *u, PolyArray *secret,\n                    Matrix3D *lambda)\n{\n    Matrix2D m;\n    Matrix2D invm;\n    m.dim = param->dim;\n    invm.dim = param->dim;\n    size_t required_mem = m.dim * m.dim;\n    uint64_t mem[2 * required_mem];\n    m.data = mem;\n    invm.data = mem + required_mem;\n    fill_random_invertible_pairs(&m, &invm, channel->q, 600);\n    secret->size = m.dim;\n    for (size_t i = 0; i < m.dim; ++i)\n    {\n        for (size_t j = 0; j < m.dim; ++j)\n        {\n            secret->polies[i].coeffs[j] = matrix2d_get(&m, j, i);\n        }\n    }\n    Matrix2D *arr = &m;\n    Polynomial a_ij_poly;\n    Coeff miim[2 * secret->size];\n    for (size_t i = 0; i < secret->size; ++i)\n    {\n        for (size_t j = 0; j < secret->size; ++j)\n        {\n            set_polynomial(&a_ij_poly, miim, 2 * secret->size);\n            poly_mul(&secret->polies[i], &secret->polies[j], &a_ij_poly, channel->q);\n            poly_mod(&a_ij_poly, u, channel->q);\n            for (size_t row = 0; row < arr->dim; row++)\n            {\n                matrix2d_set(arr, row, j, a_ij_poly.coeffs[arr->dim - row - 1]);\n            }\n        }\n        matrix2d_multiply(&invm, arr, matrix3d_get(lambda, i), channel->q);\n    }\n    return 0;\n}",
+          "generate_f0": "int generate_f0(const Channel *channel, const Parameters *param, PolyArray *f0)\n{\n    (void)param;\n    for (size_t i = 0; i < f0->size; ++i)\n    {\n        for (size_t j = 0; j < f0->polies[i].size; j++)\n            f0->polies[i].coeffs[j] = randrange(0, channel->q - 1);\n    }\n    return 0;\n}",
+          "generate_f1": "int generate_f1(const Channel *channel, const Parameters *param, const PolyArray *f0, const PolyArray *x,\n                const Polynomial *u, Polynomial *f1)\n{\n    Polynomial tmp;\n    Coeff mem[param->dim * 2];\n    Polynomial f_pre;\n    Coeff f_pre_mem[param->dim * 2];\n    set_polynomial(&f_pre, f_pre_mem, param->dim * 2);\n    set_zero(&f_pre);\n    for (size_t i = 0; i < param->dim; ++i)\n    {\n        set_polynomial(&tmp, mem, param->dim * 2);\n        poly_mul(&f0->polies[i], &x->polies[i], &tmp, channel->q);\n        poly_add(&f_pre, &tmp, &f_pre, channel->q);\n    }\n    poly_mod(&f_pre, u, channel->q);\n    size_t diff = f1->size - f_pre.size;\n    f1->coeffs += diff;\n    f1->size -= diff;\n    memcpy(f1->coeffs, f_pre.coeffs, f_pre.size * sizeof(Coeff));\n    return 0;\n}"
+        },
+        "typedefs": {
+          "Transformer": "typedef int (*Transformer)(Matrix2D *m, Matrix2D *invm, uint64_t mod);",
+          "Coeff": "typedef int64_t Coeff;"
+        }
+      }
+    },
+    "src/Common.i": {
+      "relative_path": "src/Common.i",
+      "original_file": "src/Common.c",
+      "includes": [
+        "include/Common.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "Xgcd": "typedef struct\n{\n    uint64_t gcd;\n    int64_t a;\n    int64_t b;\n} Xgcd;",
+          "Pair": "typedef struct\n{\n    uint64_t first;\n    uint64_t second;\n} Pair;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "max": "static inline uint64_t max(uint64_t a, uint64_t b)\n{\n    return a > b ? a : b;\n}",
+          "min": "static inline uint64_t min(uint64_t a, uint64_t b)\n{\n    return a < b ? a : b;\n}",
+          "clamp": "static inline uint64_t clamp(uint64_t min_value, uint64_t max_value, uint64_t value)\n{\n    return max(min_value, min(max_value, value));\n}",
+          "rand_val": "static double rand_val()\n{\n    return (double)rand() / (double)2147483647;\n}",
+          "normal_rand": "double normal_rand(double mean, double stddev)\n{\n    double u, r, theta;\n    double x;\n    double norm_rv;\n    u = 0.0;\n    while (u == 0.0)\n        u = rand_val();\n    r = sqrt(-2.0 * log(u));\n    theta = 0.0;\n    while (theta == 0.0)\n        theta = 2.0 * 3.14159265 * rand_val();\n    x = r * cos(theta);\n    norm_rv = (x * stddev) + mean;\n    return norm_rv;\n}",
+          "gcd": "uint64_t gcd(uint64_t x, uint64_t y)\n{\n    while (x != y)\n    {\n        if (x > y)\n            x -= y;\n        else\n            y -= x;\n    }\n    return x;\n}",
+          "xgcd": "Xgcd xgcd(uint64_t x, uint64_t y)\n{\n    int64_t prev_a = 1;\n    int64_t a = 0;\n    int64_t prev_b = 0;\n    int64_t b = 1;\n    while (y != 0)\n    {\n        int64_t q = (int64_t)(x / y);\n        int64_t temp = (int64_t)(x % y);\n        x = y;\n        y = (uint64_t)temp;\n        temp = a;\n        a = prev_a - (q * a);\n        prev_a = temp;\n        temp = b;\n        b = prev_b - (q * b);\n        prev_b = temp;\n    }\n    Xgcd result = {.gcd = x, .a = prev_a, .b = prev_b};\n    return result;\n}",
+          "are_coprime": "int are_coprime(uint64_t x, uint64_t y)\n{\n    return !(gcd(x, y) > 1);\n}",
+          "randrange": "uint64_t randrange(uint64_t lower, uint64_t upper)\n{\n    return (rand() % (upper - lower + 1)) + lower;\n}",
+          "randinverse": "Pair randinverse(uint64_t value)\n{\n    uint64_t a = randrange(2, value - 1);\n    while (!are_coprime(a, value))\n        a = randrange(2, value - 1);\n    Xgcd result = xgcd(a, value);\n    Pair p = {.first = a, .second = result.a > 0 ? (uint64_t)result.a : (uint64_t)(result.a + (int64_t)value)};\n    return p;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/Aces.i": {
+      "relative_path": "src/Aces.i",
+      "original_file": "src/Aces.c",
+      "includes": [
+        "include/Aces.h",
+        "include/Aces-internal.h",
+        "include/Common.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "Parameters": "typedef struct\n{\n    uint64_t dim;\n    uint64_t N;\n} Parameters;",
+          "Channel": "typedef struct\n{\n    uint64_t p;\n    uint64_t q;\n    uint64_t w;\n} Channel;",
+          "Matrix2D": "typedef struct\n{\n    size_t dim;\n    uint64_t *data;\n} Matrix2D;",
+          "Matrix3D": "typedef struct\n{\n    Matrix2D *data;\n    size_t size;\n} Matrix3D;",
+          "Polynomial": "typedef struct\n{\n    Coeff *coeffs;\n    size_t size;\n} Polynomial;",
+          "PolyArray": "typedef struct\n{\n    Polynomial *polies;\n    size_t size;\n} PolyArray;",
+          "PublicKey": "typedef struct\n{\n    Polynomial u;\n    Matrix3D lambda;\n} PublicKey;",
+          "PrivateKey": "typedef struct\n{\n    PolyArray x;\n    PolyArray f0;\n    Polynomial f1;\n} PrivateKey;",
+          "SharedInfo": "typedef struct\n{\n    Channel channel;\n    Parameters param;\n    PublicKey pk;\n} SharedInfo;",
+          "Aces": "typedef struct\n{\n    SharedInfo shared_info;\n    PrivateKey private_key;\n} Aces;",
+          "CipherMessage": "typedef struct\n{\n    PolyArray c1;\n    Polynomial c2;\n    uint64_t level;\n} CipherMessage;",
+          "Xgcd": "typedef struct\n{\n    uint64_t gcd;\n    int64_t a;\n    int64_t b;\n} Xgcd;",
+          "Pair": "typedef struct\n{\n    uint64_t first;\n    uint64_t second;\n} Pair;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "matrix2d_row": "static inline uint64_t *matrix2d_row(Matrix2D *matrix, size_t row)\n{\n    return matrix->data + row * matrix->dim;\n}",
+          "matrix2d_get": "static inline uint64_t matrix2d_get(Matrix2D *matrix, size_t row, size_t col)\n{\n    size_t dim = matrix->dim;\n    return matrix->data[row * dim + col];\n}",
+          "matrix2d_set": "static inline void matrix2d_set(Matrix2D *matrix, size_t row, size_t col, uint64_t value)\n{\n    size_t dim = matrix->dim;\n    matrix->data[row * dim + col] = value;\n}",
+          "max": "static inline uint64_t max(uint64_t a, uint64_t b)\n{\n    return a > b ? a : b;\n}",
+          "min": "static inline uint64_t min(uint64_t a, uint64_t b)\n{\n    return a < b ? a : b;\n}",
+          "clamp": "static inline uint64_t clamp(uint64_t min_value, uint64_t max_value, uint64_t value)\n{\n    return max(min_value, min(max_value, value));\n}",
+          "set_aces": "int set_aces(Aces *aces, size_t dim, void *memory, size_t size)\n{\n    size_t required = sizeof(Coeff) * (2 * dim + 1 + 2 * dim * dim) + sizeof(Matrix2D) * dim +\n                      sizeof(Polynomial) * 2 * dim + sizeof(uint64_t) * dim * dim * dim;\n    if (size < required)\n        return -1;\n    uint8_t *mem = (uint8_t *)memory;\n    Coeff *u_mem = (Coeff *)mem;\n    mem += ((dim + 1) * sizeof(Coeff));\n    set_polynomial(&aces->shared_info.pk.u, u_mem, dim + 1);\n    Matrix2D *lambda_mat = (Matrix2D *)mem;\n    mem += dim * sizeof(Matrix2D);\n    uint64_t *lambda_mem = (uint64_t *)mem;\n    mem += dim * dim * dim * sizeof(uint64_t);\n    for (size_t i = 0; i < dim; ++i)\n    {\n        lambda_mat[i].dim = dim;\n        lambda_mat[i].data = lambda_mem + (i * dim * dim);\n    }\n    aces->shared_info.pk.lambda.size = dim;\n    aces->shared_info.pk.lambda.data = lambda_mat;\n    Polynomial *x_polies = (Polynomial *)mem;\n    mem += dim * sizeof(Polynomial);\n    Coeff *x_mem = (Coeff *)mem;\n    mem += dim * dim * sizeof(Coeff);\n    for (size_t i = 0; i < dim; ++i)\n    {\n        set_polynomial(&x_polies[i], x_mem + i * dim, dim);\n    }\n    aces->private_key.x.size = dim;\n    aces->private_key.x.polies = x_polies;\n    Polynomial *f0_polies = (Polynomial *)mem;\n    mem += dim * sizeof(Polynomial);\n    Coeff *f0_mem = (Coeff *)mem;\n    mem += dim * dim * sizeof(Coeff);\n    for (size_t i = 0; i < dim; ++i)\n    {\n        set_polynomial(&f0_polies[i], f0_mem + i * dim, dim);\n    }\n    aces->private_key.f0.size = dim;\n    aces->private_key.f0.polies = f0_polies;\n    Coeff *f1_mem = (Coeff *)mem;\n    mem += dim * sizeof(Coeff);\n    set_polynomial(&aces->private_key.f1, f1_mem, dim);\n    return 0;\n}",
+          "init_aces": "int init_aces(uint64_t p, uint64_t q, uint64_t dim, Aces *aces)\n{\n    aces->shared_info.param.dim = dim;\n    aces->shared_info.param.N = 1;\n    init_channel(&aces->shared_info.channel, p, q, 1);\n    generate_u(&aces->shared_info.channel, &aces->shared_info.param, &aces->shared_info.pk.u);\n    generate_secret(&aces->shared_info.channel, &aces->shared_info.param, &aces->shared_info.pk.u, &aces->private_key.x,\n                    &aces->shared_info.pk.lambda);\n    generate_f0(&aces->shared_info.channel, &aces->shared_info.param, &aces->private_key.f0);\n    generate_f1(&aces->shared_info.channel, &aces->shared_info.param, &aces->private_key.f0, &aces->private_key.x,\n                &aces->shared_info.pk.u, &aces->private_key.f1);\n    return 0;\n}",
+          "aces_encrypt": "int aces_encrypt(const Aces *aces, const uint64_t *message, size_t size, CipherMessage *result)\n{\n    if (size > 1)\n        return -1;\n    const size_t dim = aces->shared_info.param.dim;\n    Coeff mem[3 * dim];\n    Polynomial r_m;\n    Polynomial e;\n    Polynomial b;\n    set_polynomial(&r_m, mem, dim);\n    set_polynomial(&e, mem + dim, dim);\n    set_polynomial(&b, mem + 2 * dim, dim);\n    generate_error(aces->shared_info.channel.q, *message, &r_m);\n    generate_vanisher(aces->shared_info.channel.p, aces->shared_info.channel.q, &e);\n    generate_linear(aces->shared_info.channel.p, aces->shared_info.channel.q, &b);\n    Coeff tmp_mem[2 * dim];\n    Polynomial tmp;\n    for (size_t i = 0; i < dim; ++i)\n    {\n        set_polynomial(&tmp, tmp_mem, 2 * dim);\n        poly_mul(&b, &aces->private_key.f0.polies[i], &tmp, aces->shared_info.channel.q);\n        poly_mod(&tmp, &aces->shared_info.pk.u, aces->shared_info.channel.q);\n        memcpy(result->c1.polies[i].coeffs, tmp.coeffs, tmp.size * sizeof(Coeff));\n    }\n    set_polynomial(&tmp, tmp_mem, 2 * dim);\n    poly_add(&aces->private_key.f1, &e, &result->c2, aces->shared_info.channel.q);\n    poly_mul(&result->c2, &b, &tmp, aces->shared_info.channel.q);\n    poly_add(&tmp, &r_m, &tmp, aces->shared_info.channel.q);\n    poly_mod(&tmp, &aces->shared_info.pk.u, aces->shared_info.channel.q);\n    memcpy(result->c2.coeffs, tmp.coeffs, tmp.size * sizeof(Coeff));\n    result->level = aces->shared_info.channel.p;\n    return 0;\n}",
+          "aces_decrypt": "int aces_decrypt(const Aces *aces, const CipherMessage *message, size_t size, uint64_t *result)\n{\n    if (size > 1)\n        return -1;\n    const size_t dim = aces->shared_info.param.dim;\n    Coeff c0Tx_mem[2 * dim];\n    Polynomial c0Tx;\n    set_polynomial(&c0Tx, c0Tx_mem, 2 * dim);\n    set_zero(&c0Tx);\n    Coeff tmp_mem[2 * dim];\n    Polynomial tmp;\n    for (size_t i = 0; i < dim; ++i)\n    {\n        set_polynomial(&tmp, tmp_mem, 2 * dim);\n        poly_mul(&message->c1.polies[i], &aces->private_key.x.polies[i], &tmp, aces->shared_info.channel.q);\n        poly_add(&tmp, &c0Tx, &c0Tx, aces->shared_info.channel.q);\n    }\n    poly_fit(&c0Tx, aces->shared_info.channel.q);\n    poly_sub(&message->c2, &c0Tx, &c0Tx, aces->shared_info.channel.q);\n    *result = (coef_sum(&c0Tx) % aces->shared_info.channel.q) % aces->shared_info.channel.p;\n    return 0;\n}",
+          "aces_add": "int aces_add(const CipherMessage *a, const CipherMessage *b, const SharedInfo *info, CipherMessage *result)\n{\n    for (size_t i = 0; i < info->param.dim; ++i)\n    {\n        poly_add(&a->c1.polies[i], &b->c1.polies[i], &result->c1.polies[i], info->channel.q);\n        poly_mod(&result->c1.polies[i], &info->pk.u, info->channel.q);\n    }\n    poly_add(&a->c2, &b->c2, &result->c2, info->channel.q);\n    poly_mod(&result->c2, &info->pk.u, info->channel.q);\n    result->level = a->level + b->level;\n    return 0;\n}",
+          "aces_mul": "int aces_mul(const CipherMessage *a, const CipherMessage *b, const SharedInfo *info, CipherMessage *result)\n{\n    (void)a;\n    (void)b;\n    (void)info;\n    (void)result;\n    return 0;\n}",
+          "aces_refresh": "int aces_refresh(const SharedInfo *info, CipherMessage *a, uint64_t k)\n{\n    poly_sub_scaler(&a->c2, k * info->channel.p, &a->c2, info->channel.q);\n    a->level -= k;\n    return 0;\n}"
+        },
+        "typedefs": {
+          "Transformer": "typedef int (*Transformer)(Matrix2D *m, Matrix2D *invm, uint64_t mod);",
+          "Coeff": "typedef int64_t Coeff;"
+        }
+      }
+    },
+    "src/Matrix.i": {
+      "relative_path": "src/Matrix.i",
+      "original_file": "src/Matrix.c",
+      "includes": [
+        "include/Matrix.h",
+        "include/Common.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "Matrix2D": "typedef struct\n{\n    size_t dim;\n    uint64_t *data;\n} Matrix2D;",
+          "Matrix3D": "typedef struct\n{\n    Matrix2D *data;\n    size_t size;\n} Matrix3D;",
+          "Xgcd": "typedef struct\n{\n    uint64_t gcd;\n    int64_t a;\n    int64_t b;\n} Xgcd;",
+          "Pair": "typedef struct\n{\n    uint64_t first;\n    uint64_t second;\n} Pair;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "matrix2d_row": "static inline uint64_t *matrix2d_row(Matrix2D *matrix, size_t row)\n{\n    return matrix->data + row * matrix->dim;\n}",
+          "matrix2d_get": "static inline uint64_t matrix2d_get(Matrix2D *matrix, size_t row, size_t col)\n{\n    size_t dim = matrix->dim;\n    return matrix->data[row * dim + col];\n}",
+          "matrix2d_set": "static inline void matrix2d_set(Matrix2D *matrix, size_t row, size_t col, uint64_t value)\n{\n    size_t dim = matrix->dim;\n    matrix->data[row * dim + col] = value;\n}",
+          "max": "static inline uint64_t max(uint64_t a, uint64_t b)\n{\n    return a > b ? a : b;\n}",
+          "min": "static inline uint64_t min(uint64_t a, uint64_t b)\n{\n    return a < b ? a : b;\n}",
+          "clamp": "static inline uint64_t clamp(uint64_t min_value, uint64_t max_value, uint64_t value)\n{\n    return max(min_value, min(max_value, value));\n}",
+          "matrix3d_get": "Matrix2D *matrix3d_get(Matrix3D *lambda, size_t idx)\n{\n    return &lambda->data[idx];\n}",
+          "matrix2d_multiply": "int matrix2d_multiply(Matrix2D *m, Matrix2D *invm, Matrix2D *result, uint64_t mod)\n{\n    size_t dim = m->dim;\n    for (size_t i = 0; i < dim; i++)\n    {\n        for (size_t j = 0; j < dim; j++)\n        {\n            matrix2d_set(result, i, j, 0);\n            for (size_t k = 0; k < dim; k++)\n            {\n                matrix2d_set(result, i, j,\n                             matrix2d_get(result, i, j) + matrix2d_get(m, i, k) * matrix2d_get(invm, k, j));\n            }\n            matrix2d_set(result, i, j, matrix2d_get(result, i, j) % mod);\n        }\n    }\n    return 0;\n}",
+          "swap_transform": "int swap_transform(Matrix2D *m, Matrix2D *invm, __attribute__((unused)) uint64_t mod)\n{\n    size_t dim = m->dim;\n    uint64_t tmp;\n    uint64_t tmp_row[dim];\n    size_t source = randrange(1, dim - 1);\n    size_t target = randrange(0, source - 1);\n    for (size_t row = 0; row < dim; ++row)\n    {\n        tmp = matrix2d_get(m, row, source);\n        matrix2d_set(m, row, source, matrix2d_get(m, row, target));\n        matrix2d_set(m, row, target, tmp);\n    }\n    memcpy(tmp_row, matrix2d_row(invm, source), sizeof(uint64_t) * dim);\n    memcpy(matrix2d_row(invm, source), matrix2d_row(invm, target), sizeof(uint64_t) * dim);\n    memcpy(matrix2d_row(invm, target), tmp_row, sizeof(uint64_t) * dim);\n    return 0;\n}",
+          "linear_mix_transform": "int linear_mix_transform(Matrix2D *m, Matrix2D *invm, uint64_t mod)\n{\n    size_t dim = m->dim;\n    size_t scale = randrange(1, mod - 1);\n    size_t source = randrange(1, dim - 1);\n    size_t target = randrange(0, source - 1);\n    for (size_t row = 0; row < dim; ++row)\n    {\n        matrix2d_set(m, row, target, (matrix2d_get(m, row, target) + matrix2d_get(m, row, source) * scale) % mod);\n        matrix2d_set(invm, source, row,\n                     (matrix2d_get(invm, source, row) + matrix2d_get(invm, target, row) * (mod - scale)) % mod);\n    }\n    return 0;\n}",
+          "scale_transform": "int scale_transform(Matrix2D *m, Matrix2D *invm, uint64_t mod)\n{\n    size_t dim = m->dim;\n    Pair scale = randinverse(mod);\n    for (size_t idx = 0; idx < dim * dim; ++idx)\n    {\n        m->data[idx] = (m->data[idx] * scale.first) % mod;\n        invm->data[idx] = (invm->data[idx] * scale.second) % mod;\n    }\n    return 1;\n}",
+          "matrix2d_eye": "int matrix2d_eye(Matrix2D *m)\n{\n    size_t dim = m->dim;\n    memset(m->data, 0, dim * dim * sizeof(uint64_t));\n    for (size_t row = 0; row < dim; ++row)\n        matrix2d_set(m, row, row, 1);\n    return 0;\n}",
+          "fill_random_invertible_pairs": "int fill_random_invertible_pairs(Matrix2D *m, Matrix2D *invm, uint64_t mod, size_t iterations)\n{\n    const Transformer transformers[3] = {&swap_transform, &scale_transform, &linear_mix_transform};\n    matrix2d_eye(m);\n    matrix2d_eye(invm);\n    for (size_t i = 0; i < iterations; ++i)\n    {\n        size_t select = randrange(0, 3 - 1);\n        transformers[select](m, invm, mod);\n    }\n    return 0;\n}"
+        },
+        "typedefs": {
+          "Transformer": "typedef int (*Transformer)(Matrix2D *m, Matrix2D *invm, uint64_t mod);"
+        }
+      }
+    },
+    "src/Polynomial.i": {
+      "relative_path": "src/Polynomial.i",
+      "original_file": "src/Polynomial.c",
+      "includes": [
+        "include/Polynomial.h",
+        "include/Common.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "Polynomial": "typedef struct\n{\n    Coeff *coeffs;\n    size_t size;\n} Polynomial;",
+          "PolyArray": "typedef struct\n{\n    Polynomial *polies;\n    size_t size;\n} PolyArray;",
+          "Xgcd": "typedef struct\n{\n    uint64_t gcd;\n    int64_t a;\n    int64_t b;\n} Xgcd;",
+          "Pair": "typedef struct\n{\n    uint64_t first;\n    uint64_t second;\n} Pair;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "max": "static inline uint64_t max(uint64_t a, uint64_t b)\n{\n    return a > b ? a : b;\n}",
+          "min": "static inline uint64_t min(uint64_t a, uint64_t b)\n{\n    return a < b ? a : b;\n}",
+          "clamp": "static inline uint64_t clamp(uint64_t min_value, uint64_t max_value, uint64_t value)\n{\n    return max(min_value, min(max_value, value));\n}",
+          "poly_free": "void poly_free(Polynomial *poly)\n{\n    free(poly->coeffs);\n    poly->coeffs = ((void *)0);\n    poly->size = 0;\n}",
+          "get_polynomial": "int get_polynomial(Polynomial *p, size_t size)\n{\n    p->size = size;\n    p->coeffs = (Coeff *)malloc(p->size * sizeof(Coeff));\n    if (p->coeffs == ((void *)0))\n        return -1;\n    return 0;\n}",
+          "get_polyarray": "int get_polyarray(PolyArray *p, size_t size)\n{\n    p->size = size;\n    p->polies = (Polynomial *)malloc(p->size * sizeof(Polynomial));\n    if (p->polies == ((void *)0))\n        return -1;\n    return 0;\n}",
+          "set_polynomial": "int set_polynomial(Polynomial *p, Coeff *coeffs, size_t size)\n{\n    p->size = size;\n    p->coeffs = coeffs;\n    return 0;\n}",
+          "set_zero": "int set_zero(const Polynomial *p)\n{\n    memset(p->coeffs, 0, p->size * sizeof(Coeff));\n    return 0;\n}",
+          "coef_sum": "int64_t coef_sum(const Polynomial *poly)\n{\n    if (!poly || poly->size == 0)\n        return 0;\n    int64_t sum = 0;\n    for (size_t i = 0; i < poly->size; ++i)\n        sum += poly->coeffs[i];\n    return sum;\n}",
+          "poly_degree": "uint64_t poly_degree(const Polynomial *poly)\n{\n    if (poly->size == 0)\n        return 0;\n    for (size_t i = 0; i < poly->size; ++i)\n    {\n        if (poly->coeffs[i] != 0)\n            return poly->size - i - 1;\n    }\n    return 0;\n}",
+          "poly_fit": "int poly_fit(Polynomial *poly, uint64_t mod)\n{\n    if (!poly || poly->size == 0)\n        return -1;\n    uint64_t degree = poly_degree(poly);\n    uint64_t idx = poly->size - 1 - degree;\n    for (size_t i = 0; i + idx < poly->size; ++i)\n        poly->coeffs[i] = poly->coeffs[i + idx] % mod;\n    poly->size -= idx;\n    return 0;\n}",
+          "poly_mul": "int poly_mul(const Polynomial *poly1, const Polynomial *poly2, Polynomial *result, uint64_t mod)\n{\n    set_zero(result);\n    uint64_t deg1 = poly1->size - 1;\n    uint64_t deg2 = poly2->size - 1;\n    uint64_t res_deg = result->size - deg2 - deg1 - 1;\n    for (size_t i = 0; i < poly1->size; i++)\n    {\n        for (size_t j = 0; j < poly2->size; j++)\n        {\n            result->coeffs[res_deg + i + j] += (poly1->coeffs[i] * poly2->coeffs[j]) % mod;\n        }\n    }\n    poly_fit(result, mod);\n    return 0;\n}",
+          "poly_equal": "int poly_equal(const Polynomial *poly1, const Polynomial *poly2)\n{\n    if (poly1->size != poly2->size)\n        return 0;\n    return 0 == memcmp(poly1->coeffs, poly2->coeffs, poly1->size * sizeof(Coeff));\n}",
+          "poly_add": "int poly_add(const Polynomial *poly1, const Polynomial *poly2, Polynomial *result, uint64_t mod)\n{\n    if (poly1->size > result->size || poly2->size > result->size || mod == 0)\n        return -1;\n    if (poly1->size != poly2->size)\n    {\n        size_t size = result->size;\n        size_t diff1 = size - poly1->size;\n        size_t diff2 = size - poly2->size;\n        for (size_t i = 0; i < size; ++i)\n        {\n            result->coeffs[i] =\n                ((i >= diff1 ? poly1->coeffs[i - diff1] : 0) + (i >= diff2 ? poly2->coeffs[i - diff2] : 0)) % mod;\n        }\n        return 0;\n    }\n    for (size_t i = 0; i < poly1->size; ++i)\n        result->coeffs[i] = (poly1->coeffs[i] + poly2->coeffs[i]) % mod;\n    return 0;\n}",
+          "poly_sub": "int poly_sub(const Polynomial *poly1, const Polynomial *poly2, Polynomial *result, uint64_t mod)\n{\n    if (poly1->size > result->size || poly2->size > result->size || mod == 0)\n        return -1;\n    if (poly1->size != poly2->size)\n    {\n        size_t size = result->size;\n        size_t diff1 = size - poly1->size;\n        size_t diff2 = size - poly2->size;\n        for (size_t i = 0; i < size; ++i)\n        {\n            result->coeffs[i] =\n                ((i >= diff1 ? poly1->coeffs[i - diff1] : 0) - (i >= diff2 ? poly2->coeffs[i - diff2] : 0)) % mod;\n        }\n        return 0;\n    }\n    for (size_t i = 0; i < poly1->size; ++i)\n        result->coeffs[i] = (poly1->coeffs[i] - poly2->coeffs[i]) % mod;\n    return 0;\n}",
+          "poly_lshift": "int poly_lshift(const Polynomial *poly1, const Polynomial *poly2, Polynomial *result, uint64_t mod)\n{\n    if (poly2->coeffs[0] != 1)\n        return -1;\n    uint64_t degree1 = poly_degree(poly1);\n    uint64_t degree2 = poly_degree(poly2);\n    if (degree1 < degree2)\n        return -1;\n    Coeff a_d = poly1->coeffs[0];\n    for (size_t i = 0; i < poly1->size; ++i)\n    {\n        if (i < poly2->size)\n        {\n            int64_t res = (int64_t)(poly1->coeffs[i] - poly2->coeffs[i] * a_d) % (int64_t)mod;\n            result->coeffs[i] = res < 0 ? (Coeff)(res + (int64_t)mod) : (Coeff)res;\n        }\n        else\n            result->coeffs[i] = poly1->coeffs[i];\n    }\n    poly_fit(result, mod);\n    return 0;\n}",
+          "poly_mod": "int poly_mod(Polynomial *poly1, const Polynomial *poly2, uint64_t mod)\n{\n    while (poly_lshift(poly1, poly2, poly1, mod) == 0)\n    {\n    }\n    return 0;\n}",
+          "poly_sub_scaler": "int poly_sub_scaler(const Polynomial *poly, uint64_t scaler, Polynomial *result, uint64_t mod)\n{\n    for (size_t i = 0; i < poly->size; ++i)\n        result->coeffs[i] = (poly->coeffs[i] - scaler) % mod;\n    return 0;\n}",
+          "poly_add_scaler": "int poly_add_scaler(const Polynomial *poly, uint64_t scaler, Polynomial *result, uint64_t mod)\n{\n    for (size_t i = 0; i < poly->size; ++i)\n        result->coeffs[i] = (poly->coeffs[i] + scaler) % mod;\n    return 0;\n}"
+        },
+        "typedefs": {
+          "Coeff": "typedef int64_t Coeff;"
+        }
+      }
+    }
+  }
+}

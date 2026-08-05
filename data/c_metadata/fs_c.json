@@ -1,0 +1,48 @@
+{
+  "project_name": "fs_c",
+  "files": {
+    "fs.i": {
+      "relative_path": "fs.i",
+      "original_file": "fs.c",
+      "includes": [
+        "fs.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "fs_stats": "typedef struct stat fs_stats;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "fs_error": "void fs_error(const char *prefix)\n{\n    char fmt[256];\n    sprintf(fmt, \"fs: %s: error\", prefix);\n    perror(fmt);\n}",
+          "fs_open": "FILE *fs_open(const char *path, const char *flags)\n{\n    return fopen(path, flags);\n}",
+          "fs_close": "int fs_close(FILE *file)\n{\n    return fclose(file);\n}",
+          "fs_rename": "int fs_rename(const char *from, const char *to)\n{\n    return rename(from, to);\n}",
+          "fs_stat": "fs_stats *fs_stat(const char *path)\n{\n    fs_stats *stats = (fs_stats *)malloc(sizeof(fs_stats));\n    int e = stat(path, stats);\n    if (-1 == e)\n    {\n        free(stats);\n        return ((void *)0);\n    }\n    return stats;\n}",
+          "fs_fstat": "fs_stats *fs_fstat(FILE *file)\n{\n    if (((void *)0) == file)\n        return ((void *)0);\n    fs_stats *stats = (fs_stats *)malloc(sizeof(fs_stats));\n    int fd = fileno(file);\n    int e = fstat(fd, stats);\n    if (-1 == e)\n    {\n        free(stats);\n        return ((void *)0);\n    }\n    return stats;\n}",
+          "fs_lstat": "fs_stats *fs_lstat(const char *path)\n{\n    fs_stats *stats = (fs_stats *)malloc(sizeof(fs_stats));\n    int e = lstat(path, stats);\n    if (-1 == e)\n    {\n        free(stats);\n        return ((void *)0);\n    }\n    return stats;\n}",
+          "fs_ftruncate": "int fs_ftruncate(FILE *file, int len)\n{\n    int fd = fileno(file);\n    return ftruncate(fd, (off_t)len);\n}",
+          "fs_truncate": "int fs_truncate(const char *path, int len)\n{\n    return truncate(path, (off_t)len);\n}",
+          "fs_chown": "int fs_chown(const char *path, int uid, int gid)\n{\n    return chown(path, (uid_t)uid, (gid_t)gid);\n}",
+          "fs_fchown": "int fs_fchown(FILE *file, int uid, int gid)\n{\n    int fd = fileno(file);\n    return fchown(fd, (uid_t)uid, (gid_t)gid);\n}",
+          "fs_lchown": "int fs_lchown(const char *path, int uid, int gid)\n{\n    return lchown(path, (uid_t)uid, (gid_t)gid);\n}",
+          "fs_size": "size_t fs_size(const char *path)\n{\n    size_t size;\n    FILE *file = fs_open(path, \"r\");\n    if (((void *)0) == file)\n        return -1;\n    fseek(file, 0, 2);\n    size = ftell(file);\n    fs_close(file);\n    return size;\n}",
+          "fs_fsize": "size_t fs_fsize(FILE *file)\n{\n    unsigned long pos = ftell(file);\n    rewind(file);\n    fseek(file, 0, 2);\n    size_t size = ftell(file);\n    fseek(file, pos, 0);\n    return size;\n}",
+          "fs_read": "char *fs_read(const char *path)\n{\n    FILE *file = fs_open(path, \"r\");\n    if (((void *)0) == file)\n        return ((void *)0);\n    char *data = fs_fread(file);\n    fclose(file);\n    return data;\n}",
+          "fs_nread": "char *fs_nread(const char *path, int len)\n{\n    FILE *file = fs_open(path, \"r\");\n    if (((void *)0) == file)\n        return ((void *)0);\n    char *buffer = fs_fnread(file, len);\n    fs_close(file);\n    return buffer;\n}",
+          "fs_fread": "char *fs_fread(FILE *file)\n{\n    size_t fsize = fs_fsize(file);\n    return fs_fnread(file, fsize);\n}",
+          "fs_fnread": "char *fs_fnread(FILE *file, int len)\n{\n    char *buffer = (char *)malloc(sizeof(char) * (len + 1));\n    size_t n = fread(buffer, 1, len, file);\n    buffer[n] = '\\0';\n    return buffer;\n}",
+          "fs_write": "int fs_write(const char *path, const char *buffer)\n{\n    return fs_nwrite(path, buffer, strlen(buffer));\n}",
+          "fs_nwrite": "int fs_nwrite(const char *path, const char *buffer, int len)\n{\n    FILE *file = fs_open(path, \"w\");\n    if (((void *)0) == file)\n        return -1;\n    int result = fs_fnwrite(file, buffer, len);\n    fclose(file);\n    return result;\n}",
+          "fs_fwrite": "int fs_fwrite(FILE *file, const char *buffer)\n{\n    return fs_fnwrite(file, buffer, strlen(buffer));\n}",
+          "fs_fnwrite": "int fs_fnwrite(FILE *file, const char *buffer, int len)\n{\n    return (int)fwrite(buffer, 1, len, file);\n}",
+          "fs_mkdir": "int fs_mkdir(const char *path, int mode)\n{\n    return mkdir(path, (mode_t)mode);\n}",
+          "fs_rmdir": "int fs_rmdir(const char *path)\n{\n    return rmdir(path);\n}",
+          "fs_exists": "int fs_exists(const char *path)\n{\n    struct stat b;\n    return stat(path, &b);\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

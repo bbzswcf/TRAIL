@@ -1,0 +1,72 @@
+__pycache__/
+*.py[cod]
+*.so
+.Python
+.vscode
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+.pdm-python
+
+# Project caches
+.tmp/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+pdm.lock
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Logs and OS files
+logs/
+*.log
+full_dataset_run.pid
+logs/*.pid
+logs/**/*.pid
+logs/*.out
+logs/**/*.out
+logs/*.log.nohup
+logs/**/*.log.nohup
+logs/*.nohup.out
+logs/**/*.nohup.out
+logs/*.supervisor.out
+logs/**/*.supervisor.out
+logs/*.nohup.log
+logs/**/*.nohup.log
+run_pids/
+.env
+.DS_Store
+
+# Local LLM tracking id (each developer fills in their own)
+.llm_logid
+
+# Outputs
+output/
+
+# Datasets / embedded repos / local paper / local docs / local baselines
+data/
+paper/
+docs/
+reference_baseline/
+TRANSLATION_WORKFLOW.md
+
+# Published insight banks
+snapshots/insights/*
+!snapshots/insights/gpt_final_insight_bank.json
+!snapshots/insights/deepseek_final_insight_bank.json
+!snapshots/insights/kimi_final_insight_bank.json
+
+# Local experiment results
+EXPERIMENT_RESULTS.md
+experiment_results/
+
+# pdm.lock
+pdm.lock

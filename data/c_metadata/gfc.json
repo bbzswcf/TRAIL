@@ -1,0 +1,32 @@
+{
+  "project_name": "gfc",
+  "files": {
+    "src/gfc.i": {
+      "relative_path": "src/gfc.i",
+      "original_file": "src/gfc.c",
+      "includes": [
+        "gfc.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "GFC": "struct GFC\n{\n    uint64_t M;\n    uint64_t r;\n    uint64_t a;\n    uint64_t b;\n    uint32_t *speck_exp;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "speck_expand": "void speck_expand(uint32_t const K[4], uint32_t S[27])\n{\n    uint32_t i, b = K[0];\n    uint32_t a[4 - 1];\n    for (i = 0; i < (4 - 1); i++)\n    {\n        a[i] = K[i + 1];\n    }\n    S[0] = b;\n    for (i = 0; i < 27 - 1; i++)\n    {\n        (a[i % (4 - 1)] = ((a[i % (4 - 1)] >> 8) | (a[i % (4 - 1)] << ((sizeof(uint32_t) * 8) - 8))),\n         a[i % (4 - 1)] += b, a[i % (4 - 1)] ^= i, b = ((b << 3) | (b >> ((sizeof(uint32_t) * 8) - 3))),\n         b ^= a[i % (4 - 1)]);\n        S[i + 1] = b;\n    }\n}",
+          "speck_encrypt": "void speck_encrypt(uint32_t const pt[2], uint32_t ct[2], uint32_t const K[27])\n{\n    uint32_t i;\n    ct[0] = pt[0];\n    ct[1] = pt[1];\n    for (i = 0; i < 27; i++)\n    {\n        (ct[1] = ((ct[1] >> 8) | (ct[1] << ((sizeof(uint32_t) * 8) - 8))), ct[1] += ct[0], ct[1] ^= K[i],\n         ct[0] = ((ct[0] << 3) | (ct[0] >> ((sizeof(uint32_t) * 8) - 3))), ct[0] ^= ct[1]);\n    }\n}",
+          "F": "uint64_t F(const GFC *gfc, const uint64_t j, const uint64_t R)\n{\n    uint64_t enc;\n    const uint32_t *key = gfc->speck_exp + (j - 1) * 27;\n    speck_encrypt((const uint32_t *)&R, (uint32_t *)&enc, key);\n    return enc;\n}",
+          "fe": "uint64_t fe(const GFC *gfc, const uint64_t m)\n{\n    uint64_t L, R, tmp;\n    L = m % gfc->a;\n    R = m / gfc->a;\n    for (uint64_t j = 1; j <= gfc->r; j++)\n    {\n        if (j & 1)\n        {\n            tmp = (L + F(gfc, j, R)) % gfc->a;\n        }\n        else\n        {\n            tmp = (L + F(gfc, j, R)) % gfc->b;\n        }\n        L = R;\n        R = tmp;\n    }\n    if (gfc->r & 1)\n    {\n        return gfc->a * L + R;\n    }\n    else\n    {\n        return gfc->a * R + L;\n    }\n}",
+          "fe_inv": "uint64_t fe_inv(const GFC *gfc, const uint64_t m)\n{\n    uint64_t L, R, tmp;\n    if (gfc->r & 1)\n    {\n        R = m % gfc->a;\n        L = m / gfc->a;\n    }\n    else\n    {\n        L = m % gfc->a;\n        R = m / gfc->a;\n    }\n    for (uint64_t j = gfc->r; j >= 1; j--)\n    {\n        if (j & 1)\n        {\n            tmp = (R + gfc->a - (F(gfc, j, L) % gfc->a)) % gfc->a;\n        }\n        else\n        {\n            tmp = (R + gfc->b - (F(gfc, j, L) % gfc->b)) % gfc->b;\n        }\n        R = L;\n        L = tmp;\n    }\n    return gfc->a * R + L;\n}",
+          "gfc_init": "GFC *gfc_init(uint64_t range, uint64_t rounds, uint64_t seed)\n{\n    GFC *gfc = calloc(1, sizeof(GFC));\n    if (gfc == ((void *)0))\n    {\n        return ((void *)0);\n    }\n    gfc->M = range;\n    gfc->r = rounds;\n    const double tmp = ceil(sqrt((double)range));\n    gfc->a = (uint64_t)tmp;\n    gfc->b = (uint64_t)tmp;\n    gfc->speck_exp = calloc(gfc->r * 27, sizeof(uint32_t));\n    for (uint64_t i = 0; i < gfc->r; i++)\n    {\n        const uint64_t key[2] = {seed, i};\n        speck_expand((const uint32_t *)key, gfc->speck_exp + i * 27);\n    }\n    return gfc;\n}",
+          "gfc_destroy": "void gfc_destroy(GFC *gfc)\n{\n    free(gfc->speck_exp);\n    free(gfc);\n}",
+          "gfc_decrypt": "uint64_t gfc_decrypt(const GFC *gfc, const uint64_t m)\n{\n    uint64_t c = fe_inv(gfc, m);\n    while (c >= gfc->M)\n    {\n        c = fe_inv(gfc, c);\n    }\n    return c;\n}",
+          "gfc_encrypt": "uint64_t gfc_encrypt(const GFC *gfc, const uint64_t m)\n{\n    uint64_t c = fe(gfc, m);\n    while (c >= gfc->M)\n    {\n        c = fe(gfc, c);\n    }\n    return c;\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

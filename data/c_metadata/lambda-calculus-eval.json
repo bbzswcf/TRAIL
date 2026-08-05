@@ -1,0 +1,291 @@
+{
+  "project_name": "lambda-calculus-eval",
+  "files": {
+    "hash-table/hash_table.i": {
+      "relative_path": "hash-table/hash_table.i",
+      "original_file": "hash-table/hash_table.c",
+      "includes": [
+        "hash_table.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "AstNode": "struct AstNode\n{\n    AstNodeType type;\n    AstNodeUnion node;\n}",
+          "LambdaExpression": "typedef struct\n{\n    char *parameter;\n    char *type;\n    AstNode *body;\n} LambdaExpression;",
+          "Application": "typedef struct\n{\n    AstNode *function;\n    AstNode *argument;\n} Application;",
+          "Variable": "typedef struct\n{\n    char *name;\n    char *type;\n} Variable;",
+          "HashNode": "typedef struct HashNode\n{\n    char *key;\n    struct AstNode *value;\n    struct HashNode *next;\n} HashNode;",
+          "HashTable": "typedef struct HashTable\n{\n    HashNode *table[2000];\n} HashTable;"
+        },
+        "unions": {
+          "AstNodeUnion": "typedef union {\n    LambdaExpression *lambda_expr;\n    Application *application;\n    Variable *variable;\n} AstNodeUnion;"
+        },
+        "enums": {
+          "tokens_t": "typedef enum\n{\n    L_PAREN,\n    R_PAREN,\n    LAMBDA,\n    DOT,\n    VARIABLE,\n    ERROR,\n    WHITESPACE,\n    NEWLINE,\n    EQ,\n    QUOTE,\n    COLON,\n} tokens_t;",
+          "AstNodeType": "typedef enum\n{\n    LAMBDA_EXPR,\n    APPLICATION,\n    VAR,\n    DEFINITION,\n} AstNodeType;"
+        },
+        "functions": {
+          "hash": "unsigned int hash(const char *key)\n{\n    unsigned long hash = 5381;\n    int c;\n    while ((c = *key++))\n        hash = ((hash << 5) + hash) + c;\n    return hash % 2000;\n}",
+          "insert": "void insert(HashTable *hashTable, const char *key, struct AstNode *value)\n{\n    unsigned int index = hash(key);\n    HashNode *newNode = (HashNode *)malloc(sizeof(HashNode));\n    newNode->key = strdup(key);\n    newNode->value = value;\n    newNode->next = ((void *)0);\n    if (hashTable->table[index] == ((void *)0))\n    {\n        hashTable->table[index] = newNode;\n    }\n    else\n    {\n        HashNode *current = hashTable->table[index];\n        while (current->next != ((void *)0))\n            current = current->next;\n        current->next = newNode;\n    }\n}",
+          "table_exists": "_Bool table_exists(HashTable *hashTable, const char *key)\n{\n    unsigned int index = hash(key);\n    HashNode *node = hashTable->table[index];\n    return node != ((void *)0);\n}",
+          "search": "AstNode *search(HashTable *hashTable, const char *key)\n{\n    if (key == ((void *)0))\n    {\n        return ((void *)0);\n    }\n    unsigned int index = hash(key);\n    HashNode *current = hashTable->table[index];\n    while (current != ((void *)0))\n    {\n        if (strcmp(current->key, key) == 0)\n        {\n            return current->value;\n        }\n        current = current->next;\n    }\n    return ((void *)0);\n}",
+          "delete_c": "void delete_c(HashTable *hashTable, const char *key)\n{\n    unsigned int index = hash(key);\n    HashNode *current = hashTable->table[index];\n    HashNode *prev = ((void *)0);\n    while (current != ((void *)0))\n    {\n        if (strcmp(current->key, key) == 0)\n        {\n            if (prev == ((void *)0))\n                hashTable->table[index] = current->next;\n            else\n                prev->next = current->next;\n            free(current->key);\n            free(current);\n            return;\n        }\n        prev = current;\n        current = current->next;\n    }\n}",
+          "createHashTable": "HashTable *createHashTable()\n{\n    HashTable *hashTable = (HashTable *)malloc(sizeof(HashTable));\n    memset(hashTable->table, 0, sizeof(hashTable->table));\n    return hashTable;\n}",
+          "destroyHashTable": "void destroyHashTable(HashTable *hashTable)\n{\n    for (int i = 0; i < 2000; i++)\n    {\n        HashNode *current = hashTable->table[i];\n        while (current != ((void *)0))\n        {\n            HashNode *temp = current;\n            current = current->next;\n            if (temp->value != ((void *)0))\n            {\n                free(temp->value);\n            }\n            free(temp->key);\n            free(temp);\n        }\n    }\n    free(hashTable);\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/config.i": {
+      "relative_path": "src/config.i",
+      "original_file": "src/config.c",
+      "includes": [
+        "config.h",
+        "common.h",
+        "io.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "Options": "typedef struct\n{\n    FILE *file;\n    _Bool step_by_step_reduction;\n    reduction_order_t reduction_order;\n} Options;",
+          "AstNode": "struct AstNode\n{\n    AstNodeType type;\n    AstNodeUnion node;\n}",
+          "LambdaExpression": "typedef struct\n{\n    char *parameter;\n    char *type;\n    AstNode *body;\n} LambdaExpression;",
+          "Application": "typedef struct\n{\n    AstNode *function;\n    AstNode *argument;\n} Application;",
+          "Variable": "typedef struct\n{\n    char *name;\n    char *type;\n} Variable;"
+        },
+        "unions": {
+          "AstNodeUnion": "typedef union {\n    LambdaExpression *lambda_expr;\n    Application *application;\n    Variable *variable;\n} AstNodeUnion;"
+        },
+        "enums": {
+          "reduction_order_t": "typedef enum\n{\n    APPLICATIVE,\n    NORMAL,\n} reduction_order_t;",
+          "option_type_t": "typedef enum\n{\n    FILENAME,\n    STEP_REDUCTION,\n    REDUCTION_ORDER,\n    CONFIG_ERROR,\n} option_type_t;",
+          "tokens_t": "typedef enum\n{\n    L_PAREN,\n    R_PAREN,\n    LAMBDA,\n    DOT,\n    VARIABLE,\n    ERROR,\n    WHITESPACE,\n    NEWLINE,\n    EQ,\n    QUOTE,\n    COLON,\n} tokens_t;",
+          "AstNodeType": "typedef enum\n{\n    LAMBDA_EXPR,\n    APPLICATION,\n    VAR,\n    DEFINITION,\n} AstNodeType;"
+        },
+        "functions": {
+          "trim": "void trim(char *str)\n{\n    int start = 0, end = strlen(str) - 1;\n    while (((*__ctype_b_loc())[(int)((str[start]))] & (unsigned short int)_ISspace))\n    {\n        start++;\n    }\n    while (end > start && ((*__ctype_b_loc())[(int)((str[end]))] & (unsigned short int)_ISspace))\n    {\n        end--;\n    }\n    if (start > 0 || end < (strlen(str) - 1))\n    {\n        memmove(str, str + start, end - start + 1);\n        str[end - start + 1] = '\\0';\n    }\n}",
+          "get_config_type": "option_type_t get_config_type(char *key)\n{\n    if (strcmp(key, \"file\") == 0)\n    {\n        return FILENAME;\n    }\n    else if (strcmp(key, \"step_by_step_reduction\") == 0)\n    {\n        return STEP_REDUCTION;\n    }\n    else if (strcmp(key, \"reduction_order\") == 0)\n    {\n        return REDUCTION_ORDER;\n    }\n    else\n    {\n        const char *error_msg = format(\"ERROR: Invalid key '%s' at config file.\", key);\n        error(error_msg, \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/config.c\", 36,\n              __func__);\n    }\n    return CONFIG_ERROR;\n}",
+          "parse_config": "void parse_config(char *line, char **key, char **value)\n{\n    char *eq_pos = strchr(line, '=');\n    if (eq_pos == ((void *)0))\n    {\n        const char *error_msg = format(\"Malformed config file at line: %s . Expected = sign.\\n\", line);\n        error(error_msg, \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/config.c\", 46,\n              __func__);\n    }\n    *key = strtok(line, \"=\");\n    trim(*key);\n    *value = strtok(((void *)0), \"=\");\n    trim(*value);\n}",
+          "get_config_from_file": "Options get_config_from_file()\n{\n    char *line = ((void *)0);\n    size_t len = 0;\n    FILE *config_file = get_file(\"config\", \"r\");\n    Options options;\n    options.reduction_order = APPLICATIVE;\n    options.step_by_step_reduction = 0;\n    options.file = ((void *)0);\n    while (getline(&line, &len, config_file) != -1)\n    {\n        char *key, *value;\n        parse_config(line, &key, &value);\n        option_type_t cfg = get_config_type(key);\n        switch (cfg)\n        {\n        case FILENAME: {\n            options.file = get_file(value, \"r\");\n            break;\n        }\n        case STEP_REDUCTION: {\n            if (strcmp(value, \"true\") == 0)\n            {\n                options.step_by_step_reduction = 1;\n                break;\n            }\n            options.step_by_step_reduction = 0;\n            break;\n        }\n        case REDUCTION_ORDER: {\n            if (strcmp(value, \"applicative\") == 0)\n            {\n                options.reduction_order = APPLICATIVE;\n                break;\n            }\n            else if (strcmp(value, \"normal\") == 0)\n            {\n                options.reduction_order = NORMAL;\n                break;\n            }\n            else\n            {\n                const char *error_msg = \"ERROR: reduction order in cfg file should be 'normal' \"\n                                        \"or 'applicative'.\";\n                error(error_msg,\n                      \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/config.c\", 93,\n                      __func__);\n            }\n        }\n        case CONFIG_ERROR: {\n            const char *error_msg = format(\"Unrecognized key: %s\", key);\n            error(error_msg, \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/config.c\",\n                  98, __func__);\n        }\n        }\n    }\n    if (options.file == ((void *)0))\n    {\n        const char *error_msg = \"ERROR: File cannot be null in cfg file.\\n\";\n        error(error_msg, \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/config.c\", 104,\n              __func__);\n    }\n    return options;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/typechecker.i": {
+      "relative_path": "src/typechecker.i",
+      "original_file": "src/typechecker.c",
+      "includes": [
+        "common.h",
+        "typechecker.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "AstNode": "struct AstNode\n{\n    AstNodeType type;\n    AstNodeUnion node;\n}",
+          "LambdaExpression": "typedef struct\n{\n    char *parameter;\n    char *type;\n    AstNode *body;\n} LambdaExpression;",
+          "Application": "typedef struct\n{\n    AstNode *function;\n    AstNode *argument;\n} Application;",
+          "Variable": "typedef struct\n{\n    char *name;\n    char *type;\n} Variable;",
+          "Type": "typedef struct Type\n{\n    AstNode *expr;\n    char *type;\n    char *return_type;\n} Type;",
+          "TypeEnv": "typedef struct TypeEnv\n{\n    Type *type;\n    struct TypeEnv *next;\n} TypeEnv;"
+        },
+        "unions": {
+          "AstNodeUnion": "typedef union {\n    LambdaExpression *lambda_expr;\n    Application *application;\n    Variable *variable;\n} AstNodeUnion;"
+        },
+        "enums": {
+          "tokens_t": "typedef enum\n{\n    L_PAREN,\n    R_PAREN,\n    LAMBDA,\n    DOT,\n    VARIABLE,\n    ERROR,\n    WHITESPACE,\n    NEWLINE,\n    EQ,\n    QUOTE,\n    COLON,\n} tokens_t;",
+          "AstNodeType": "typedef enum\n{\n    LAMBDA_EXPR,\n    APPLICATION,\n    VAR,\n    DEFINITION,\n} AstNodeType;"
+        },
+        "functions": {
+          "assert_": "void assert_(_Bool expr, char *error_msg)\n{\n    if (expr)\n        return;\n    error(error_msg, \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/typechecker.c\", 32,\n          __func__);\n}",
+          "typecheck": "Type *typecheck(AstNode *expr, TypeEnv *env)\n{\n    if (expr->type == VAR)\n    {\n        char *type = get_type_from_expr(expr);\n        Type *t = create_type(type, ((void *)0), expr);\n        add_to_env(&env, t);\n        return t;\n    }\n    else if (expr->type == APPLICATION)\n    {\n        Type *func_type = typecheck(expr->node.application->function, env);\n        Type *arg_type = typecheck(expr->node.application->argument, env);\n        assert_(type_equal(func_type, arg_type), \"Type mismatch.\");\n        return func_type;\n    }\n    else if (expr->type == LAMBDA_EXPR)\n    {\n        char *type = get_type_from_expr(expr);\n        Type *t = create_type(type, ((void *)0), expr);\n        add_to_env(&env, t);\n        return t;\n    }\n    return ((void *)0);\n}",
+          "type_equal": "_Bool type_equal(Type *a, Type *b)\n{\n    if (a == ((void *)0) || b == ((void *)0))\n    {\n        return 0;\n    }\n    _Bool type_eql = strcmp(a->type, b->type) == 0;\n    _Bool return_eql = 0;\n    if (a->return_type == ((void *)0) && b->return_type == ((void *)0))\n    {\n        return_eql = 1;\n    }\n    else if (a->return_type == ((void *)0) || b->return_type == ((void *)0))\n    {\n        return_eql = 0;\n    }\n    else\n    {\n        return_eql = strcmp(a->return_type, b->return_type) == 0;\n    }\n    return type_eql && return_eql;\n}",
+          "get_type_from_expr": "char *get_type_from_expr(AstNode *expr)\n{\n    if (expr->type == VAR)\n    {\n        return expr->node.variable->type;\n    }\n    else if (expr->type == LAMBDA_EXPR)\n    {\n        return expr->node.lambda_expr->type;\n    }\n    return ((void *)0);\n}",
+          "p_print_type": "void p_print_type(Type *t)\n{\n    if (t == ((void *)0))\n    {\n        printf(\"(type null)\\n\");\n        return;\n    }\n    if (t->type != ((void *)0))\n    {\n        printf(\"Type: %s\\n\", t->type);\n    }\n    if (t->return_type != ((void *)0))\n    {\n        printf(\"Return type: %s\\n\", t->return_type);\n    }\n}",
+          "create_type": "Type *create_type(char *type, char *return_type, AstNode *expr)\n{\n    Type *t = malloc(sizeof(Type));\n    do\n    {\n        if ((t) == ((void *)0))\n        {\n            fprintf(stderr, \"ERROR: Null pointer encountered at %s:%d in %s\\n\",\n                    \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/typechecker.c\", 100,\n                    __func__);\n            abort();\n        }\n    } while (0);\n    t->return_type = return_type;\n    t->type = type;\n    t->expr = expr;\n    return t;\n}",
+          "parse_function_type": "Type *parse_function_type(char *type)\n{\n    Type *t = malloc(sizeof(Type));\n    do\n    {\n        if ((t) == ((void *)0))\n        {\n            fprintf(stderr, \"ERROR: Null pointer encountered at %s:%d in %s\\n\",\n                    \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/typechecker.c\", 109,\n                    __func__);\n            abort();\n        }\n    } while (0);\n    t->return_type = ((void *)0);\n    t->type = type;\n    t->expr = ((void *)0);\n    return t;\n}",
+          "expr_type_equal": "_Bool expr_type_equal(Type *t, AstNode *expr)\n{\n    if (t->expr != expr)\n    {\n        return 0;\n    }\n    char *type = get_type_from_expr(expr);\n    do\n    {\n        if ((type) == ((void *)0))\n        {\n            fprintf(stderr, \"ERROR: Null pointer encountered at %s:%d in %s\\n\",\n                    \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/typechecker.c\", 122,\n                    __func__);\n            abort();\n        }\n    } while (0);\n    Type *parsed_type = parse_function_type(type);\n    if (strcmp(t->type, parsed_type->type) != 0)\n    {\n        return 0;\n    }\n    if (parsed_type->return_type == ((void *)0))\n    {\n        if (t->return_type == ((void *)0))\n            return 1;\n        return 0;\n    }\n    if (strcmp(t->return_type, parsed_type->return_type) != 0)\n    {\n        return 0;\n    }\n    return 1;\n}",
+          "add_to_env": "void add_to_env(TypeEnv **env, Type *type)\n{\n    TypeEnv *new_env = malloc(sizeof(TypeEnv));\n    do\n    {\n        if ((new_env) == ((void *)0))\n        {\n            fprintf(stderr, \"ERROR: Null pointer encountered at %s:%d in %s\\n\",\n                    \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/typechecker.c\", 144,\n                    __func__);\n            abort();\n        }\n    } while (0);\n    new_env->type = type;\n    new_env->next = *env;\n    *env = new_env;\n}",
+          "lookup_type": "Type *lookup_type(TypeEnv *env, AstNode *expr)\n{\n    while (env != ((void *)0))\n    {\n        if (expr_type_equal(env->type, expr))\n        {\n            return env->type;\n        }\n        env = env->next;\n    }\n    return ((void *)0);\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/common.i": {
+      "relative_path": "src/common.i",
+      "original_file": "src/common.c",
+      "includes": [
+        "common.h"
+      ],
+      "declarations": {
+        "globals": {
+          "verbose_mode": "static _Bool verbose_mode = 0;"
+        },
+        "structs": {
+          "AstNode": "struct AstNode\n{\n    AstNodeType type;\n    AstNodeUnion node;\n}",
+          "LambdaExpression": "typedef struct\n{\n    char *parameter;\n    char *type;\n    AstNode *body;\n} LambdaExpression;",
+          "Application": "typedef struct\n{\n    AstNode *function;\n    AstNode *argument;\n} Application;",
+          "Variable": "typedef struct\n{\n    char *name;\n    char *type;\n} Variable;"
+        },
+        "unions": {
+          "AstNodeUnion": "typedef union {\n    LambdaExpression *lambda_expr;\n    Application *application;\n    Variable *variable;\n} AstNodeUnion;"
+        },
+        "enums": {
+          "tokens_t": "typedef enum\n{\n    L_PAREN,\n    R_PAREN,\n    LAMBDA,\n    DOT,\n    VARIABLE,\n    ERROR,\n    WHITESPACE,\n    NEWLINE,\n    EQ,\n    QUOTE,\n    COLON,\n} tokens_t;",
+          "AstNodeType": "typedef enum\n{\n    LAMBDA_EXPR,\n    APPLICATION,\n    VAR,\n    DEFINITION,\n} AstNodeType;"
+        },
+        "functions": {
+          "set_verbose": "void set_verbose(_Bool verbose)\n{\n    verbose_mode = verbose;\n}",
+          "print_ast_verbose": "void print_ast_verbose(AstNode *n)\n{\n    if (verbose_mode == 0)\n    {\n        return;\n    }\n    char *lambda_ast = ast_to_string(n);\n    printf(\"%s\\n\", lambda_ast);\n}",
+          "print_verbose": "void print_verbose(const char *format, ...)\n{\n    if (verbose_mode == 0)\n    {\n        return;\n    }\n    printf(\"\\n\");\n    va_list args;\n    __builtin_va_start(args, format);\n    vprintf(format, args);\n    __builtin_va_end(args);\n}",
+          "error": "void error(const char *msg, const char *file, int line, const char *func)\n{\n    fprintf(stderr, \"ERROR: %s at %s:%d in %s()\\n\", msg, file, line, func);\n    exit(1);\n}",
+          "format": "char *format(const char *fmt, ...)\n{\n    va_list args;\n    __builtin_va_start(args, fmt);\n    int size = vsnprintf(((void *)0), 0, fmt, args);\n    __builtin_va_end(args);\n    if (size < 0)\n    {\n        return ((void *)0);\n    }\n    char *str = (char *)malloc(size + 1);\n    if (!str)\n    {\n        return ((void *)0);\n    }\n    __builtin_va_start(args, fmt);\n    vsnprintf(str, size + 1, fmt, args);\n    __builtin_va_end(args);\n    return str;\n}",
+          "append_to_buffer": "void append_to_buffer(char **buffer, size_t *buffer_size, size_t *length, const char *str)\n{\n    size_t str_len = strlen(str);\n    while (*length + str_len + 1 >= *buffer_size)\n    {\n        *buffer_size *= 2;\n        *buffer = realloc(*buffer, *buffer_size);\n    }\n    strcpy(*buffer + *length, str);\n    *length += str_len;\n}",
+          "append_ast_to_buffer": "void append_ast_to_buffer(char **buffer, size_t *buffer_size, size_t *length, AstNode *node)\n{\n    if (node == ((void *)0))\n    {\n        return;\n    }\n    switch (node->type)\n    {\n    case LAMBDA_EXPR:\n        append_to_buffer(buffer, buffer_size, length, \"(@\");\n        append_to_buffer(buffer, buffer_size, length, node->node.lambda_expr->parameter);\n        append_to_buffer(buffer, buffer_size, length, \" : \");\n        append_to_buffer(buffer, buffer_size, length, node->node.lambda_expr->type);\n        append_to_buffer(buffer, buffer_size, length, \" .\");\n        append_ast_to_buffer(buffer, buffer_size, length, node->node.lambda_expr->body);\n        append_to_buffer(buffer, buffer_size, length, \") \");\n        break;\n    case APPLICATION:\n        append_to_buffer(buffer, buffer_size, length, \"(\");\n        append_ast_to_buffer(buffer, buffer_size, length, node->node.application->function);\n        append_ast_to_buffer(buffer, buffer_size, length, node->node.application->argument);\n        append_to_buffer(buffer, buffer_size, length, \") \");\n        break;\n    case VAR:\n        append_to_buffer(buffer, buffer_size, length, \"(\");\n        append_to_buffer(buffer, buffer_size, length, node->node.variable->name);\n        if (node->node.variable->type != ((void *)0))\n        {\n            append_to_buffer(buffer, buffer_size, length, \" : \");\n            append_to_buffer(buffer, buffer_size, length, node->node.variable->type);\n        }\n        append_to_buffer(buffer, buffer_size, length, \") \");\n        break;\n    case DEFINITION:\n        append_to_buffer(buffer, buffer_size, length, \"(\");\n        append_to_buffer(buffer, buffer_size, length, node->node.variable->name);\n        append_to_buffer(buffer, buffer_size, length, \") \");\n        break;\n    default:\n        append_to_buffer(buffer, buffer_size, length, \"(UNKNOWN) \");\n    }\n}",
+          "ast_to_string": "char *ast_to_string(AstNode *node)\n{\n    size_t buffer_size = 1024;\n    char *buffer = malloc(buffer_size);\n    buffer[0] = '\\0';\n    size_t length = 0;\n    append_ast_to_buffer(&buffer, &buffer_size, &length, node);\n    return buffer;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/parser.i": {
+      "relative_path": "src/parser.i",
+      "original_file": "src/parser.c",
+      "includes": [
+        "parser.h",
+        "common.h",
+        "../hash-table/hash_table.h",
+        "io.h",
+        "reducer.h"
+      ],
+      "declarations": {
+        "globals": {
+          "n": "static int n = 1;"
+        },
+        "structs": {
+          "AstNode": "struct AstNode\n{\n    AstNodeType type;\n    AstNodeUnion node;\n}",
+          "LambdaExpression": "typedef struct\n{\n    char *parameter;\n    char *type;\n    AstNode *body;\n} LambdaExpression;",
+          "Application": "typedef struct\n{\n    AstNode *function;\n    AstNode *argument;\n} Application;",
+          "Variable": "typedef struct\n{\n    char *name;\n    char *type;\n} Variable;",
+          "HashNode": "typedef struct HashNode\n{\n    char *key;\n    struct AstNode *value;\n    struct HashNode *next;\n} HashNode;",
+          "HashTable": "typedef struct HashTable\n{\n    HashNode *table[2000];\n} HashTable;",
+          "Options": "typedef struct\n{\n    FILE *file;\n    _Bool step_by_step_reduction;\n    reduction_order_t reduction_order;\n} Options;"
+        },
+        "unions": {
+          "AstNodeUnion": "typedef union {\n    LambdaExpression *lambda_expr;\n    Application *application;\n    Variable *variable;\n} AstNodeUnion;"
+        },
+        "enums": {
+          "tokens_t": "typedef enum\n{\n    L_PAREN,\n    R_PAREN,\n    LAMBDA,\n    DOT,\n    VARIABLE,\n    ERROR,\n    WHITESPACE,\n    NEWLINE,\n    EQ,\n    QUOTE,\n    COLON,\n} tokens_t;",
+          "AstNodeType": "typedef enum\n{\n    LAMBDA_EXPR,\n    APPLICATION,\n    VAR,\n    DEFINITION,\n} AstNodeType;",
+          "reduction_order_t": "typedef enum\n{\n    APPLICATIVE,\n    NORMAL,\n} reduction_order_t;",
+          "option_type_t": "typedef enum\n{\n    FILENAME,\n    STEP_REDUCTION,\n    REDUCTION_ORDER,\n    CONFIG_ERROR,\n} option_type_t;"
+        },
+        "functions": {
+          "parse_token": "tokens_t parse_token(char token)\n{\n    if (token == '(')\n    {\n        return L_PAREN;\n    }\n    else if (token == ')')\n    {\n        return R_PAREN;\n    }\n    else if (token == '@')\n    {\n        return LAMBDA;\n    }\n    else if (token == '.')\n    {\n        return DOT;\n    }\n    else if (is_variable(token))\n    {\n        return VARIABLE;\n    }\n    else if (token == ' ')\n    {\n        return WHITESPACE;\n    }\n    else if (token == '\\n')\n    {\n        return NEWLINE;\n    }\n    else if (token == '=')\n    {\n        return EQ;\n    }\n    else if (token == '\"')\n    {\n        return QUOTE;\n    }\n    else if (token == ':')\n    {\n        return COLON;\n    }\n    return ERROR;\n}",
+          "p_print_token": "void p_print_token(tokens_t token)\n{\n    switch (token)\n    {\n    case L_PAREN:\n        printf(\"( \");\n        return;\n    case R_PAREN:\n        printf(\") \");\n        return;\n    case LAMBDA:\n        printf(\"@ \");\n        return;\n    case DOT:\n        printf(\". \");\n        return;\n    case VARIABLE:\n        printf(\"VARIABLE \");\n        return;\n    case WHITESPACE:\n        printf(\"WHITESPACE \");\n        return;\n    case NEWLINE:\n        printf(\"NEWLINE \");\n        return;\n    case EQ:\n        printf(\"= \");\n        return;\n    default:\n        printf(\"ERROR \");\n        return;\n    }\n}",
+          "p_print_astNode_type": "void p_print_astNode_type(AstNode *n)\n{\n    switch (n->type)\n    {\n    case 0:\n        printf(\"AstNode Type: LAMBDA_EXPR\\n\");\n        break;\n    case 1:\n        printf(\"AstNode Type: APPLICATION\\n\");\n        break;\n    case 2:\n        printf(\"AstNode Type: VAR\\n\");\n        break;\n    case DEFINITION:\n        printf(\"AstNode Type: DEFINITION\\n\");\n        break;\n    }\n}",
+          "print_ast": "void print_ast(AstNode *node)\n{\n    if (node == ((void *)0))\n    {\n        return;\n    }\n    switch (node->type)\n    {\n    case LAMBDA_EXPR:\n        printf(\"(LAMBDA %s : %s\", node->node.lambda_expr->parameter, node->node.lambda_expr->type);\n        print_ast(node->node.lambda_expr->body);\n        printf(\") \");\n        break;\n    case APPLICATION:\n        printf(\"(APP \");\n        print_ast(node->node.application->function);\n        print_ast(node->node.application->argument);\n        printf(\") \");\n        break;\n    case VAR:\n        printf(\"(VAR %s \", node->node.variable->name);\n        if (node->node.variable->type != ((void *)0))\n        {\n            printf(\": %s\", node->node.variable->type);\n        }\n        printf(\")\");\n        break;\n    case DEFINITION:\n        printf(\"(DEFINITION %s) \", node->node.variable->name);\n        break;\n    default:\n        printf(\"(UNKNOWN) \");\n    }\n}",
+          "is_variable": "_Bool is_variable(char token)\n{\n    int cmp = (int)token;\n    if (cmp == '_')\n        return 1;\n    if ((cmp >= 97 && cmp <= 122) || (cmp >= 65 && cmp <= 90))\n    {\n        return 1;\n    }\n    return 0;\n}",
+          "peek": "char peek(FILE *in)\n{\n    char c = fgetc(in);\n    ungetc(c, in);\n    return c;\n}",
+          "peek_print": "void peek_print(FILE *in, int n)\n{\n    char buffer[n + 1];\n    int i;\n    for (i = 0; i < n; i++)\n    {\n        int c = fgetc(in);\n        if (c == (-1))\n        {\n            break;\n        }\n        buffer[i] = (char)c;\n    }\n    buffer[i] = '\\0';\n    printf(\"%s\", buffer);\n    for (i--; i >= 0; i--)\n    {\n        ungetc(buffer[i], in);\n    }\n}",
+          "consume": "void consume(tokens_t t, FILE *in, char *expected)\n{\n    char c = next(in);\n    tokens_t p = parse_token(c);\n    if (p != t)\n    {\n        expect(expected, c);\n    }\n}",
+          "create_variable": "AstNode *create_variable(char *name, char *type)\n{\n    AstNode *var = (AstNode *)malloc(sizeof(AstNode));\n    do\n    {\n        if ((var) == ((void *)0))\n        {\n            fprintf(stderr, \"ERROR: Null pointer encountered at %s:%d in %s\\n\",\n                    \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/parser.c\", 177,\n                    __func__);\n            abort();\n        }\n    } while (0);\n    var->type = VAR;\n    var->node.variable = (Variable *)malloc(sizeof(Variable));\n    var->node.variable->name = name;\n    var->node.variable->type = type;\n    return var;\n}",
+          "create_application": "AstNode *create_application(AstNode *function, AstNode *argument)\n{\n    AstNode *app = (AstNode *)malloc(sizeof(AstNode));\n    do\n    {\n        if ((app) == ((void *)0))\n        {\n            fprintf(stderr, \"ERROR: Null pointer encountered at %s:%d in %s\\n\",\n                    \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/parser.c\", 187,\n                    __func__);\n            abort();\n        }\n    } while (0);\n    app->type = APPLICATION;\n    app->node.application = (Application *)malloc(sizeof(Application));\n    app->node.application->function = function;\n    app->node.application->argument = argument;\n    return app;\n}",
+          "create_lambda": "AstNode *create_lambda(char *variable, AstNode *body, char *type)\n{\n    AstNode *lambda = (AstNode *)malloc(sizeof(AstNode));\n    do\n    {\n        if ((lambda) == ((void *)0))\n        {\n            fprintf(stderr, \"ERROR: Null pointer encountered at %s:%d in %s\\n\",\n                    \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/parser.c\", 197,\n                    __func__);\n            abort();\n        }\n    } while (0);\n    lambda->type = LAMBDA_EXPR;\n    lambda->node.lambda_expr = (LambdaExpression *)malloc(sizeof(LambdaExpression));\n    lambda->node.lambda_expr->parameter = variable;\n    lambda->node.lambda_expr->body = body;\n    lambda->node.lambda_expr->type = type;\n    return lambda;\n}",
+          "alpha_convert": "char *alpha_convert(char *old)\n{\n    int digits = (int)log10(abs(n)) + 1;\n    char *new = malloc(strlen(old) + digits + 2);\n    do\n    {\n        if ((new) == ((void *)0))\n        {\n            fprintf(stderr, \"ERROR: Null pointer encountered at %s:%d in %s\\n\",\n                    \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/parser.c\", 220,\n                    __func__);\n            abort();\n        }\n    } while (0);\n    char num_str[digits + 1];\n    strcpy(new, old);\n    sprintf(num_str, \"_%d\", n);\n    strcat(new, num_str);\n    n++;\n    return new;\n}",
+          "is_used": "_Bool is_used(HashTable *table, char *variable)\n{\n    return table_exists(table, variable);\n}",
+          "parse_space_chars": "void parse_space_chars(FILE *in)\n{\n    char c = peek(in);\n    while (c == ' ' || c == '\\n' || c == '\\t')\n    {\n        next(in);\n        c = peek(in);\n    }\n}",
+          "parse_lambda": "AstNode *parse_lambda(HashTable *table, FILE *in)\n{\n    char parameter;\n    tokens_t param;\n    if (parse_token(peek(in)) != VARIABLE)\n    {\n        expect(\"A variable\", parameter);\n    }\n    char *var = parse_variable(in);\n    char *new_var = ((void *)0);\n    if (is_used(table, var))\n    {\n        if (search(table, var) != ((void *)0))\n        {\n            const char *error_msg =\n                format(\"A definition with name %s already exists. Cannot use same name for lambda abstraction.\\n\", var);\n            error(error_msg, \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/parser.c\",\n                  259, __func__);\n        }\n        new_var = alpha_convert(var);\n        insert(table, new_var, ((void *)0));\n    }\n    else\n    {\n        insert(table, var, ((void *)0));\n    }\n    parse_space_chars(in);\n    consume(COLON, in, \":\");\n    parse_space_chars(in);\n    if (parse_token(peek(in)) != VARIABLE)\n    {\n        error(\"Lambda abstractions should be typed.\",\n              \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/parser.c\", 274, __func__);\n    }\n    char *type = parse_type(table, in);\n    consume(DOT, in, \".\");\n    AstNode *body = parse_expression(table, in);\n    if (new_var != ((void *)0))\n    {\n        replace(body, var, new_var);\n        print_verbose(\"Alpha converted %s to %s\\n\", var, new_var);\n        return create_lambda(new_var, body, type);\n    }\n    return create_lambda(var, body, type);\n}",
+          "parse_expression": "AstNode *parse_expression(HashTable *table, FILE *in)\n{\n    while (parse_token(peek(in)) == WHITESPACE || parse_token(peek(in)) == NEWLINE)\n    {\n        next(in);\n    }\n    tokens_t scanned = parse_token(peek(in));\n    if (scanned == ERROR)\n    {\n        printf(\"Error: %c is  a valid token\\n\", peek(in));\n        exit(1);\n    }\n    if (scanned == LAMBDA)\n    {\n        next(in);\n        return parse_lambda(table, in);\n    }\n    else if (scanned == L_PAREN)\n    {\n        next(in);\n        AstNode *expr = parse_expression(table, in);\n        print_ast(expr);\n        tokens_t next_token = parse_token(peek(in));\n        if (next_token == WHITESPACE)\n        {\n            AstNode *expr_2 = parse_expression(table, in);\n            AstNode *application = (AstNode *)malloc(sizeof(AstNode));\n            application->type = APPLICATION;\n            application->node.application = (Application *)malloc(sizeof(Application));\n            application->node.application->function = expr;\n            application->node.application->argument = expr_2;\n            consume(R_PAREN, in, \")\");\n            return application;\n        }\n        consume(R_PAREN, in, \")\");\n        return expr;\n    }\n    else if (scanned == VARIABLE)\n    {\n        char *var_name = parse_variable(in);\n        if (strcmp(var_name, \"def\") == 0)\n        {\n            parse_definition(table, in);\n            if (peek(in) != (-1))\n            {\n                return parse_expression(table, in);\n            }\n            return ((void *)0);\n        }\n        else if (strcmp(var_name, \"import\") == 0)\n        {\n            parse_import(table, in);\n            if (peek(in) != (-1))\n            {\n                return parse_expression(table, in);\n            }\n        }\n        else if (strcmp(var_name, \"type\") == 0)\n        {\n            parse_type_definition(table, in);\n            if (peek(in) != (-1))\n            {\n                return parse_expression(table, in);\n            }\n        }\n        char *type = ((void *)0);\n        parse_space_chars(in);\n        if (!table_exists(table, var_name))\n        {\n            if (parse_token(peek(in)) != COLON)\n            {\n                const char *error_msg = format(\"Constant Variable %s is not typed. Please provide a type.\\n\", var_name);\n                error(error_msg,\n                      \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/parser.c\", 363,\n                      __func__);\n            }\n            consume(COLON, in, \":\");\n            parse_space_chars(in);\n            type = parse_type(table, in);\n        }\n        AstNode *variable = create_variable(var_name, type);\n        if (search(table, var_name) != ((void *)0))\n        {\n            variable->type = DEFINITION;\n        }\n        return variable;\n    }\n    return ((void *)0);\n}",
+          "parse_import": "void parse_import(HashTable *table, FILE *in)\n{\n    char next_token;\n    tokens_t n;\n    consume(WHITESPACE, in, \"a whitespace\");\n    consume(QUOTE, in, \"\\\"\");\n    char *file_path = malloc(100 * sizeof(char));\n    do\n    {\n        if ((file_path) == ((void *)0))\n        {\n            fprintf(stderr, \"ERROR: Null pointer encountered at %s:%d in %s\\n\",\n                    \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/parser.c\", 389,\n                    __func__);\n            abort();\n        }\n    } while (0);\n    next_token = next(in);\n    n = parse_token(next_token);\n    file_path[0] = '\\0';\n    int current_length = 0;\n    while (n != QUOTE)\n    {\n        if (current_length < 100 - 1)\n        {\n            file_path[current_length] = next_token;\n            current_length++;\n            file_path[current_length] = '\\0';\n        }\n        else\n        {\n            const char *error_msg = \"File path is too long. Please make sure it is less than 100 characters.\";\n            error(error_msg, \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/parser.c\",\n                  405, __func__);\n        }\n        next_token = next(in);\n        n = parse_token(next_token);\n    }\n    if (n != QUOTE)\n    {\n        expect(\"a closing quote\", next_token);\n    }\n    FILE *imported_file = get_file(file_path, \"r\");\n    do\n    {\n        if ((imported_file) == ((void *)0))\n        {\n            fprintf(stderr, \"ERROR: Null pointer encountered at %s:%d in %s\\n\",\n                    \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/parser.c\", 417,\n                    __func__);\n            abort();\n        }\n    } while (0);\n    char imported_tkn;\n    while ((imported_tkn = peek(imported_file)) != (-1))\n    {\n        tokens_t scanned = parse_token(imported_tkn);\n        parse_space_chars(imported_file);\n        if (scanned == VARIABLE)\n        {\n            char *var_name = parse_variable(imported_file);\n            if (strcmp(var_name, \"def\") == 0)\n            {\n                parse_definition(table, imported_file);\n            }\n            else if (strcmp(var_name, \"type\") == 0)\n            {\n                parse_type_definition(table, imported_file);\n            }\n            else\n            {\n                const char *error_msg = format(\"Expected a definition in the imported file, but got %s\\n\", var_name);\n                error(error_msg,\n                      \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/parser.c\", 431,\n                      __func__);\n            }\n        }\n    }\n    return;\n}",
+          "parse_definition": "void parse_definition(HashTable *table, FILE *in)\n{\n    char next_token;\n    tokens_t n;\n    consume(WHITESPACE, in, \"a whitespace\");\n    if (parse_token(peek(in)) != VARIABLE)\n    {\n        expect(\"a variable\", next_token);\n    }\n    char *def_name = parse_variable(in);\n    consume(WHITESPACE, in, \"a whitespace\");\n    consume(EQ, in, \"=\");\n    consume(WHITESPACE, in, \"a whitespace\");\n    AstNode *definition = parse_expression(table, in);\n    insert(table, def_name, definition);\n}",
+          "is_uppercase": "_Bool is_uppercase(char c)\n{\n    return c >= 'A' && c <= 'Z';\n}",
+          "parse_type_definition": "void parse_type_definition(HashTable *types_table, FILE *in)\n{\n    char next_token = next(in);\n    tokens_t n = parse_token(next_token);\n    if (n != WHITESPACE)\n    {\n        expect(\" \", next_token);\n    }\n    next_token = peek(in);\n    n = parse_token(next_token);\n    if (n != VARIABLE)\n    {\n        expect(\"a type definition\", next_token);\n    }\n    if (!is_uppercase(next_token))\n    {\n        error(\"Type names must start with an uppercase letter\",\n              \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/parser.c\", 480, __func__);\n    }\n    char *type_name = parse_variable(in);\n    if (table_exists(types_table, type_name))\n    {\n        const char *error_msg = format(\"Type %s was already defined.\\n\", type_name);\n        error(error_msg, \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/parser.c\", 486,\n              __func__);\n    }\n    insert(types_table, type_name, ((void *)0));\n}",
+          "parse_type": "char *parse_type(HashTable *types_table, FILE *in)\n{\n    char *type_name = malloc(256 * sizeof(char));\n    int index = 0;\n    char token = next(in);\n    if (!is_uppercase(token))\n    {\n        error(\"Types should start with an uppercase letter.\",\n              \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/parser.c\", 498, __func__);\n    }\n    type_name[index] = token;\n    index++;\n    while (is_variable(peek(in)))\n    {\n        type_name[index] = next(in);\n        index++;\n    }\n    if (!table_exists(types_table, type_name))\n    {\n        const char *error_msg = format(\"Type %s was not defined.\\n\", type_name);\n        error(error_msg, \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/parser.c\", 511,\n              __func__);\n    }\n    return type_name;\n}",
+          "parse_variable": "char *parse_variable(FILE *in)\n{\n    char *variable_name = malloc(256 * sizeof(char));\n    int index = 0;\n    while (is_variable(peek(in)))\n    {\n        variable_name[index] = next(in);\n        index++;\n    }\n    return variable_name;\n}",
+          "expect": "void expect(char *expected, char received)\n{\n    printf(\"Syntax Error: Expected %s , received %c \\n\", expected, received);\n    exit(1);\n}",
+          "free_ast": "void free_ast(AstNode *node)\n{\n    if (node == ((void *)0))\n    {\n        return;\n    }\n    switch (node->type)\n    {\n    case LAMBDA_EXPR:\n        if (node->node.lambda_expr != ((void *)0))\n        {\n            free(node->node.lambda_expr->parameter);\n            free_ast(node->node.lambda_expr->body);\n            free(node->node.lambda_expr);\n        }\n        break;\n    case APPLICATION:\n        if (node->node.application != ((void *)0))\n        {\n            free_ast(node->node.application->function);\n            free_ast(node->node.application->argument);\n            free(node->node.application);\n        }\n        break;\n    case VAR:\n        if (node->node.variable != ((void *)0))\n        {\n            free(node->node.variable->name);\n            free(node->node.variable);\n        }\n        break;\n    default:\n        break;\n    }\n    free(node);\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/reducer.i": {
+      "relative_path": "src/reducer.i",
+      "original_file": "src/reducer.c",
+      "includes": [
+        "reducer.h",
+        "common.h",
+        "../hash-table/hash_table.h",
+        "config.h"
+      ],
+      "declarations": {
+        "globals": {
+          "reduction_order": "static reduction_order_t reduction_order = APPLICATIVE;"
+        },
+        "structs": {
+          "AstNode": "struct AstNode\n{\n    AstNodeType type;\n    AstNodeUnion node;\n}",
+          "LambdaExpression": "typedef struct\n{\n    char *parameter;\n    char *type;\n    AstNode *body;\n} LambdaExpression;",
+          "Application": "typedef struct\n{\n    AstNode *function;\n    AstNode *argument;\n} Application;",
+          "Variable": "typedef struct\n{\n    char *name;\n    char *type;\n} Variable;",
+          "HashNode": "typedef struct HashNode\n{\n    char *key;\n    struct AstNode *value;\n    struct HashNode *next;\n} HashNode;",
+          "HashTable": "typedef struct HashTable\n{\n    HashNode *table[2000];\n} HashTable;",
+          "Options": "typedef struct\n{\n    FILE *file;\n    _Bool step_by_step_reduction;\n    reduction_order_t reduction_order;\n} Options;"
+        },
+        "unions": {
+          "AstNodeUnion": "typedef union {\n    LambdaExpression *lambda_expr;\n    Application *application;\n    Variable *variable;\n} AstNodeUnion;"
+        },
+        "enums": {
+          "tokens_t": "typedef enum\n{\n    L_PAREN,\n    R_PAREN,\n    LAMBDA,\n    DOT,\n    VARIABLE,\n    ERROR,\n    WHITESPACE,\n    NEWLINE,\n    EQ,\n    QUOTE,\n    COLON,\n} tokens_t;",
+          "AstNodeType": "typedef enum\n{\n    LAMBDA_EXPR,\n    APPLICATION,\n    VAR,\n    DEFINITION,\n} AstNodeType;",
+          "reduction_order_t": "typedef enum\n{\n    APPLICATIVE,\n    NORMAL,\n} reduction_order_t;",
+          "option_type_t": "typedef enum\n{\n    FILENAME,\n    STEP_REDUCTION,\n    REDUCTION_ORDER,\n    CONFIG_ERROR,\n} option_type_t;"
+        },
+        "functions": {
+          "set_reduction_order": "void set_reduction_order(reduction_order_t t)\n{\n    reduction_order = t;\n}",
+          "print_reduction_order": "void print_reduction_order(reduction_order_t t)\n{\n    switch (t)\n    {\n    case APPLICATIVE:\n        printf(\"Applicative\");\n        break;\n    case NORMAL:\n        printf(\"Normal\");\n        break;\n    }\n    printf(\"\\n\");\n}",
+          "reduce": "AstNode *reduce(HashTable *table, AstNode *n)\n{\n    print_verbose(\"Order of reduction is: \");\n    print_reduction_order(reduction_order);\n    print_verbose(\"-------------------------------------------\\n\");\n    expand_definitions(table, n);\n    print_verbose(\"Expanded expression:\\n\");\n    print_ast_verbose(n);\n    AstNode *reduced = reduce_ast(table, n);\n    print_verbose(\"Final reduced expression:\\n\");\n    print_ast_verbose(reduced);\n    print_verbose(\"-------------------------------------------\\n\");\n    return reduced;\n}",
+          "expand_definitions": "void expand_definitions(HashTable *table, AstNode *n)\n{\n    if (n->type == LAMBDA_EXPR)\n    {\n        expand_definitions(table, n->node.lambda_expr->body);\n    }\n    else if (n->type == APPLICATION)\n    {\n        expand_definitions(table, n->node.application->function);\n        expand_definitions(table, n->node.application->argument);\n    }\n    else if (n->type == DEFINITION)\n    {\n        char *def_name = n->node.variable->name;\n        AstNode *expanded_def = search(table, def_name);\n        do\n        {\n            if ((expanded_def) == ((void *)0))\n            {\n                fprintf(stderr, \"ERROR: Null pointer encountered at %s:%d in %s\\n\",\n                        \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/reducer.c\", 48,\n                        __func__);\n                abort();\n            }\n        } while (0);\n        print_verbose(\"Expanding definition of: %s . Term expanded to:\\n\", def_name);\n        print_ast_verbose(expanded_def);\n        n->type = expanded_def->type;\n        n->node.variable = expanded_def->node.variable;\n        n->node.lambda_expr = expanded_def->node.lambda_expr;\n        n->node.application = expanded_def->node.application;\n    }\n}",
+          "replace": "void replace(AstNode *n, char *old, char *new_name)\n{\n    if (n->type == LAMBDA_EXPR)\n    {\n        if (strcmp(n->node.lambda_expr->parameter, old) == 0)\n        {\n            n->node.lambda_expr->parameter = new_name;\n        }\n        replace(n->node.lambda_expr->body, old, new_name);\n    }\n    else if (n->type == APPLICATION)\n    {\n        replace(n->node.application->function, old, new_name);\n        replace(n->node.application->argument, old, new_name);\n    }\n    else if (n->type == VAR)\n    {\n        if (strcmp(n->node.variable->name, old) == 0)\n        {\n            n->node.variable->name = new_name;\n        }\n    }\n}",
+          "reduce_ast": "AstNode *reduce_ast(HashTable *table, AstNode *n)\n{\n    if (n->type == LAMBDA_EXPR)\n    {\n        AstNode *body = n->node.lambda_expr->body;\n        if (reduction_order == APPLICATIVE)\n        {\n            n->node.lambda_expr->body = reduce_ast(table, body);\n        }\n        return n;\n    }\n    else if (n->type == APPLICATION)\n    {\n        AstNode *function = n->node.application->function;\n        AstNode *argument = n->node.application->argument;\n        n->node.application->function = reduce_ast(table, function);\n        if (reduction_order == APPLICATIVE)\n        {\n            n->node.application->argument = reduce_ast(table, argument);\n        }\n        if (n->node.application->function->type == LAMBDA_EXPR)\n        {\n            char *param = n->node.application->function->node.lambda_expr->parameter;\n            AstNode *reduced =\n                substitute(n->node.application->function->node.lambda_expr->body, param, n->node.application->argument);\n            print_verbose(\"Applied substitution to lambda expr of parameter <%s> and resulted in:\\n\", param);\n            print_ast_verbose(reduced);\n            if (reduction_order == APPLICATIVE)\n            {\n                return reduced;\n            }\n            return reduce_ast(table, reduced);\n        }\n        return n;\n    }\n    return n;\n}",
+          "substitute": "AstNode *substitute(AstNode *expression, char *variable, AstNode *replacement)\n{\n    if (expression->type == VAR)\n    {\n        if (strcmp(expression->node.variable->name, variable) == 0)\n        {\n            return deepcopy(replacement);\n        }\n        return expression;\n    }\n    else if (expression->type == LAMBDA_EXPR)\n    {\n        expression->node.lambda_expr->body = substitute(expression->node.lambda_expr->body, variable, replacement);\n        if (expression->node.lambda_expr->parameter != variable)\n        {\n            return expression;\n        }\n        return expression->node.lambda_expr->body;\n    }\n    else if (expression->type == APPLICATION)\n    {\n        expression->node.application->function =\n            substitute(expression->node.application->function, variable, replacement);\n        expression->node.application->argument =\n            substitute(expression->node.application->argument, variable, replacement);\n        return expression;\n    }\n    return expression;\n}",
+          "deepcopy": "AstNode *deepcopy(AstNode *n)\n{\n    if (n->type == VAR)\n    {\n        return deepcopy_var(n->node.variable->name, n->node.variable->type);\n    }\n    else if (n->type == LAMBDA_EXPR)\n    {\n        return deepcopy_lambda_expr(n->node.lambda_expr->parameter, n->node.lambda_expr->body,\n                                    n->node.lambda_expr->type);\n    }\n    else if (n->type == APPLICATION)\n    {\n        return deepcopy_application(n->node.application->function, n->node.application->argument);\n    }\n    return ((void *)0);\n}",
+          "deepcopy_application": "AstNode *deepcopy_application(AstNode *function, AstNode *argument)\n{\n    AstNode *application = (AstNode *)malloc(sizeof(AstNode));\n    application->type = APPLICATION;\n    application->node.application = (Application *)malloc(sizeof(Application));\n    application->node.application->function = deepcopy(function);\n    application->node.application->argument = deepcopy(argument);\n    return application;\n}",
+          "deepcopy_lambda_expr": "AstNode *deepcopy_lambda_expr(char *parameter, AstNode *body, char *type)\n{\n    AstNode *lambda = (AstNode *)malloc(sizeof(AstNode));\n    lambda->type = LAMBDA_EXPR;\n    lambda->node.lambda_expr = (LambdaExpression *)malloc(sizeof(LambdaExpression));\n    lambda->node.lambda_expr->parameter = parameter;\n    lambda->node.lambda_expr->type = type;\n    lambda->node.lambda_expr->body = deepcopy(body);\n    return lambda;\n}",
+          "deepcopy_var": "AstNode *deepcopy_var(char *name, char *type)\n{\n    AstNode *variable = (AstNode *)malloc(sizeof(AstNode));\n    variable->type = VAR;\n    variable->node.variable = (Variable *)malloc(sizeof(Variable));\n    variable->node.variable->name = name;\n    variable->node.variable->type = type;\n    return variable;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/io.i": {
+      "relative_path": "src/io.i",
+      "original_file": "src/io.c",
+      "includes": [
+        "io.h",
+        "common.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "AstNode": "struct AstNode\n{\n    AstNodeType type;\n    AstNodeUnion node;\n}",
+          "LambdaExpression": "typedef struct\n{\n    char *parameter;\n    char *type;\n    AstNode *body;\n} LambdaExpression;",
+          "Application": "typedef struct\n{\n    AstNode *function;\n    AstNode *argument;\n} Application;",
+          "Variable": "typedef struct\n{\n    char *name;\n    char *type;\n} Variable;"
+        },
+        "unions": {
+          "AstNodeUnion": "typedef union {\n    LambdaExpression *lambda_expr;\n    Application *application;\n    Variable *variable;\n} AstNodeUnion;"
+        },
+        "enums": {
+          "tokens_t": "typedef enum\n{\n    L_PAREN,\n    R_PAREN,\n    LAMBDA,\n    DOT,\n    VARIABLE,\n    ERROR,\n    WHITESPACE,\n    NEWLINE,\n    EQ,\n    QUOTE,\n    COLON,\n} tokens_t;",
+          "AstNodeType": "typedef enum\n{\n    LAMBDA_EXPR,\n    APPLICATION,\n    VAR,\n    DEFINITION,\n} AstNodeType;"
+        },
+        "functions": {
+          "create_file": "FILE *create_file(char *path)\n{\n    FILE *file = fopen(path, \"w\");\n    if (file == ((void *)0))\n    {\n        const char *error_msg = format(\"ERROR: Could not create file %s\\n\", path);\n        error(error_msg, \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/io.c\", 10,\n              __func__);\n    }\n    return file;\n}",
+          "get_file": "FILE *get_file(char *path, char *mode)\n{\n    FILE *file = fopen(path, mode);\n    if (file == ((void *)0))\n    {\n        const char *error_msg = format(\"ERROR: Could not open file %s\\n\", path);\n        error(error_msg, \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/io.c\", 19,\n              __func__);\n    }\n    return file;\n}",
+          "write_to_file": "void write_to_file(FILE *file, char *content)\n{\n    do\n    {\n        if ((file) == ((void *)0))\n        {\n            fprintf(stderr, \"ERROR: Null pointer encountered at %s:%d in %s\\n\",\n                    \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/io.c\", 25, __func__);\n            abort();\n        }\n    } while (0);\n    if (fputs(content, file) == (-1))\n    {\n        const char *error_msg =\n            format(\"ERROR: could not write to file at %s:%d\\n\",\n                   \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/io.c\", 28);\n        error(error_msg, \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/io.c\", 29,\n              __func__);\n    }\n    rewind(file);\n}",
+          "delete_file": "void delete_file(char *path)\n{\n    int status = remove(path);\n    if (status != 0)\n    {\n        const char *error_msg =\n            format(\"ERROR: could not delete to file at %s:%d\\n\",\n                   \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/io.c\", 38);\n        error(error_msg, \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/io.c\", 39,\n              __func__);\n    }\n}",
+          "close_file": "void close_file(FILE *file)\n{\n    if (fclose(file) != 0)\n    {\n        const char *error_msg =\n            format(\"ERROR: Could not close file at %s:%d\\n\",\n                   \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/io.c\", 46);\n        error(error_msg, \"/home/bbzs/code/reporeflectrust/data/project/CBench/lambda-calculus-eval/src/io.c\", 47,\n              __func__);\n    }\n}",
+          "next": "char next(FILE *file)\n{\n    int x = fgetc(file);\n    return (char)x;\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

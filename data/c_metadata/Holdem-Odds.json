@@ -1,0 +1,154 @@
+{
+  "project_name": "Holdem-Odds",
+  "files": {
+    "src/deck.i": {
+      "relative_path": "src/deck.i",
+      "original_file": "src/deck.c",
+      "includes": [
+        "cards.h",
+        "deck.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "Card": "typedef struct\n{\n    Rank rank;\n    Suit suit;\n} Card;"
+        },
+        "unions": {},
+        "enums": {
+          "Suit": "typedef enum\n{\n    InvalidSuit,\n    Club,\n    Diamond,\n    Heart,\n    Spade\n} Suit;",
+          "Rank": "typedef enum\n{\n    InvalidRank,\n    Deuce,\n    Trey,\n    Four,\n    Five,\n    Six,\n    Seven,\n    Eight,\n    Nine,\n    Ten,\n    Jack,\n    Queen,\n    King,\n    Ace\n} Rank;"
+        },
+        "functions": {
+          "DeckShuffle": "void DeckShuffle(Card *deck, size_t n, size_t deck_size)\n{\n    for (size_t i = 0; i < n; ++i)\n    {\n        size_t j = rand() % deck_size;\n        CardSwap(&deck[i], &deck[j]);\n    }\n}",
+          "NewDeck": "void NewDeck(Card *deck, const Card *rejects, size_t nb_rejects)\n{\n    size_t i = 0;\n    for (Rank r = Deuce; r <= Ace; ++r)\n    {\n        for (Suit s = Club; s <= Spade; ++s)\n        {\n            Card c = NewCard(r, s);\n            _Bool insert = 1;\n            for (size_t j = 0; j < nb_rejects; ++j)\n            {\n                if (CardEqual(&c, &rejects[j]))\n                {\n                    insert = 0;\n                    break;\n                }\n            }\n            if (insert)\n            {\n                deck[i] = c;\n                i++;\n            }\n        }\n    }\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/hands.i": {
+      "relative_path": "src/hands.i",
+      "original_file": "src/hands.c",
+      "includes": [
+        "bucket.h",
+        "cards.h",
+        "hands.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "Card": "typedef struct\n{\n    Rank rank;\n    Suit suit;\n} Card;",
+          "Bucket": "typedef struct\n{\n    Card cards[4];\n    size_t count;\n} Bucket;"
+        },
+        "unions": {},
+        "enums": {
+          "Suit": "typedef enum\n{\n    InvalidSuit,\n    Club,\n    Diamond,\n    Heart,\n    Spade\n} Suit;",
+          "Rank": "typedef enum\n{\n    InvalidRank,\n    Deuce,\n    Trey,\n    Four,\n    Five,\n    Six,\n    Seven,\n    Eight,\n    Nine,\n    Ten,\n    Jack,\n    Queen,\n    King,\n    Ace\n} Rank;",
+          "HandType": "typedef enum\n{\n    InvalidHand,\n    HighCard,\n    Pair,\n    TwoPair,\n    ThreeOfAKind,\n    Wheel,\n    Straight,\n    Flush,\n    FullHouse,\n    FourOfAKind,\n    WheelFlush,\n    StraightFlush,\n} HandType;"
+        },
+        "functions": {
+          "HandCompare": "int HandCompare(Card *hand1, Card *hand2)\n{\n    HandType hand1_type = HandClassify(hand1);\n    HandType hand2_type = HandClassify(hand2);\n    int diff = hand1_type - hand2_type;\n    if (diff != 0)\n        return diff;\n    for (size_t i = 0; i < 5; ++i)\n    {\n        int cmp = CardCompare(&hand1[i], &hand2[i]);\n        if (cmp != 0)\n            return cmp;\n    }\n    return 0;\n}",
+          "HandSort": "void HandSort(Card *hand)\n{\n    Bucket buckets[13] = {{{{InvalidRank, InvalidSuit}}, 0}};\n    for (size_t i = 0; i < 5; ++i)\n    {\n        size_t bucket_index = hand[i].rank - 1;\n        BucketAdd(&buckets[bucket_index], &hand[i]);\n    }\n    size_t index = 0;\n    for (size_t count = 4; count > 0; --count)\n    {\n        for (size_t j = 13 - 1; j != (size_t)-1; --j)\n        {\n            if (buckets[j].count == count)\n            {\n                memcpy(&hand[index], &buckets[j].cards, sizeof(Card) * count);\n                index += count;\n            }\n        }\n    }\n}",
+          "HandClassify": "HandType HandClassify(Card *cards)\n{\n    if (HandIsFlush(cards))\n    {\n        if (HandIsStraight(cards))\n            return StraightFlush;\n        if (HandIsWheel(cards))\n            return WheelFlush;\n        return Flush;\n    }\n    else\n    {\n        if (HandIsFourOfAKind(cards))\n            return FourOfAKind;\n        if (HandIsFullHouse(cards))\n            return FullHouse;\n        if (HandIsStraight(cards))\n            return Straight;\n        if (HandIsWheel(cards))\n            return Wheel;\n        if (HandIsThreeOfAKind(cards))\n            return ThreeOfAKind;\n        if (HandIsTwoPair(cards))\n            return TwoPair;\n        if (HandIsPair(cards))\n            return Pair;\n        return HighCard;\n    }\n}",
+          "HandIsValid": "_Bool HandIsValid(const Card *cards)\n{\n    for (size_t i = 0; i < 5; ++i)\n        if (!CardIsValid(&cards[i]))\n            return 0;\n    return 1;\n}",
+          "HandIsStraightFlush": "static _Bool HandIsStraightFlush(const Card *cards)\n{\n    return HandIsStraight(cards) && HandIsFlush(cards);\n}",
+          "HandIsWheelFlush": "static _Bool HandIsWheelFlush(const Card *cards)\n{\n    return HandIsWheel(cards) && HandIsFlush(cards);\n}",
+          "HandIsFourOfAKind": "static _Bool HandIsFourOfAKind(const Card *cards)\n{\n    return cards[0].rank == cards[3].rank;\n}",
+          "HandIsFullHouse": "static _Bool HandIsFullHouse(const Card *cards)\n{\n    return cards[0].rank == cards[2].rank && cards[3].rank == cards[4].rank;\n}",
+          "HandIsFlush": "static _Bool HandIsFlush(const Card *cards)\n{\n    for (size_t i = 1; i < 5; ++i)\n        if (cards[i].suit != cards[0].suit)\n            return 0;\n    return 1;\n}",
+          "HandIsStraight": "static _Bool HandIsStraight(const Card *cards)\n{\n    return cards[0].rank == cards[1].rank + 1 && cards[0].rank == cards[4].rank + 4;\n}",
+          "HandIsWheel": "static _Bool HandIsWheel(const Card *cards)\n{\n    return cards[0].rank == Ace && cards[1].rank == Five;\n}",
+          "HandIsThreeOfAKind": "static _Bool HandIsThreeOfAKind(const Card *cards)\n{\n    return cards[0].rank == cards[2].rank;\n}",
+          "HandIsTwoPair": "static _Bool HandIsTwoPair(const Card *cards)\n{\n    return cards[2].rank == cards[3].rank;\n}",
+          "HandIsPair": "static _Bool HandIsPair(const Card *cards)\n{\n    return cards[0].rank == cards[1].rank;\n}",
+          "HandIsHighCard": "static _Bool HandIsHighCard(const Card *cards)\n{\n    (void)cards;\n    return 1;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/cards.i": {
+      "relative_path": "src/cards.i",
+      "original_file": "src/cards.c",
+      "includes": [
+        "cards.h"
+      ],
+      "declarations": {
+        "globals": {
+          "INVALID_CARD": "Card INVALID_CARD = {.rank = InvalidRank, .suit = InvalidSuit};"
+        },
+        "structs": {
+          "Card": "typedef struct\n{\n    Rank rank;\n    Suit suit;\n} Card;"
+        },
+        "unions": {},
+        "enums": {
+          "Suit": "typedef enum\n{\n    InvalidSuit,\n    Club,\n    Diamond,\n    Heart,\n    Spade\n} Suit;",
+          "Rank": "typedef enum\n{\n    InvalidRank,\n    Deuce,\n    Trey,\n    Four,\n    Five,\n    Six,\n    Seven,\n    Eight,\n    Nine,\n    Ten,\n    Jack,\n    Queen,\n    King,\n    Ace\n} Rank;"
+        },
+        "functions": {
+          "indexOf": "size_t indexOf(char c, const char *chars, size_t N)\n{\n    for (size_t i = 0; i < N; ++i)\n    {\n        if (chars[i] == c)\n        {\n            return i + 1;\n        }\n    }\n    return 0;\n}",
+          "CharToRank": "Rank CharToRank(char r)\n{\n    return (Rank)indexOf(r, \"23456789TJQKA\", 13);\n}",
+          "CharToSuit": "Suit CharToSuit(char s)\n{\n    return (Suit)indexOf(s, \"cdhs\", 4);\n}",
+          "NewCard": "Card NewCard(Rank rank, Suit suit)\n{\n    Card card = {.rank = rank, .suit = suit};\n    if (CardIsValid(&card))\n        return card;\n    else\n        return INVALID_CARD;\n}",
+          "NewCardFromChars": "Card NewCardFromChars(char r, char s)\n{\n    Rank rank = CharToRank(r);\n    Suit suit = CharToSuit(s);\n    return NewCard(rank, suit);\n}",
+          "NewCardFromString": "Card NewCardFromString(char *s)\n{\n    if (strlen(s) != 2)\n        return INVALID_CARD;\n    else\n        return NewCardFromChars(s[0], s[1]);\n}",
+          "CardCompare": "int CardCompare(const Card *a, const Card *b)\n{\n    return a->rank - b->rank;\n}",
+          "CardEqual": "_Bool CardEqual(const Card *a, const Card *b)\n{\n    return a->rank == b->rank && a->suit == b->suit;\n}",
+          "CardToString": "void CardToString(char *out, const Card *c)\n{\n    if (!CardIsValid(c))\n    {\n        out[0] = '-';\n        out[1] = '-';\n    }\n    else\n    {\n        out[0] = \"23456789TJQKA\"[(int)c->rank - 1];\n        out[1] = \"cdhs\"[(int)c->suit - 1];\n    }\n    out[2] = '\\0';\n}",
+          "CardIsValid": "_Bool CardIsValid(const Card *c)\n{\n    return (c->rank >= Deuce && c->rank <= Ace && c->suit >= Club && c->suit <= Spade);\n}",
+          "CardSwap": "void CardSwap(Card *a, Card *b)\n{\n    Card t = *a;\n    *a = *b;\n    *b = t;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/bucket.i": {
+      "relative_path": "src/bucket.i",
+      "original_file": "src/bucket.c",
+      "includes": [
+        "bucket.h",
+        "cards.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "Card": "typedef struct\n{\n    Rank rank;\n    Suit suit;\n} Card;",
+          "Bucket": "typedef struct\n{\n    Card cards[4];\n    size_t count;\n} Bucket;"
+        },
+        "unions": {},
+        "enums": {
+          "Suit": "typedef enum\n{\n    InvalidSuit,\n    Club,\n    Diamond,\n    Heart,\n    Spade\n} Suit;",
+          "Rank": "typedef enum\n{\n    InvalidRank,\n    Deuce,\n    Trey,\n    Four,\n    Five,\n    Six,\n    Seven,\n    Eight,\n    Nine,\n    Ten,\n    Jack,\n    Queen,\n    King,\n    Ace\n} Rank;"
+        },
+        "functions": {
+          "BucketAdd": "void BucketAdd(Bucket *bucket, const Card *card)\n{\n    if (bucket->count < 4)\n    {\n        bucket->cards[bucket->count] = *card;\n        bucket->count++;\n    }\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/holdemodds.i": {
+      "relative_path": "src/holdemodds.i",
+      "original_file": "src/holdemodds.c",
+      "includes": [
+        "holdemodds.h",
+        "cards.h",
+        "deck.h",
+        "hands.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "Card": "typedef struct\n{\n    Rank rank;\n    Suit suit;\n} Card;"
+        },
+        "unions": {},
+        "enums": {
+          "Suit": "typedef enum\n{\n    InvalidSuit,\n    Club,\n    Diamond,\n    Heart,\n    Spade\n} Suit;",
+          "Rank": "typedef enum\n{\n    InvalidRank,\n    Deuce,\n    Trey,\n    Four,\n    Five,\n    Six,\n    Seven,\n    Eight,\n    Nine,\n    Ten,\n    Jack,\n    Queen,\n    King,\n    Ace\n} Rank;",
+          "HandType": "typedef enum\n{\n    InvalidHand,\n    HighCard,\n    Pair,\n    TwoPair,\n    ThreeOfAKind,\n    Wheel,\n    Straight,\n    Flush,\n    FullHouse,\n    FourOfAKind,\n    WheelFlush,\n    StraightFlush,\n} HandType;"
+        },
+        "functions": {
+          "usage": "void usage(const char *name)\n{\n    fprintf(stderr, \"Usage: %s <c1> <c2> <c3> <c4>\\n\", name);\n    exit(1);\n}",
+          "main": "int main(int argc, char **argv)\n{\n    if (argc != 5)\n    {\n        usage(argv[0]);\n    }\n    srand(time(((void *)0)));\n    Card deck[48];\n    Card cards[4];\n    Card hand1[5];\n    Card hand2[5];\n    size_t results[3] = {0, 0, 0};\n    for (size_t i = 0; i < 4; ++i)\n        cards[i] = NewCardFromString(argv[i + 1]);\n    NewDeck(deck, cards, 4);\n    for (size_t i = 0; i < 2000000; ++i)\n    {\n        DeckShuffle(deck, 3, 48);\n        hand1[0] = cards[0];\n        hand1[1] = cards[1];\n        hand2[0] = cards[2];\n        hand2[1] = cards[3];\n        for (size_t j = 0; j < 3; ++j)\n        {\n            hand1[2 + j] = deck[j];\n            hand2[2 + j] = deck[j];\n        }\n        HandSort(hand1);\n        HandSort(hand2);\n        int c = HandCompare(hand1, hand2);\n        if (c > 0)\n            results[0]++;\n        else if (c == 0)\n            results[1]++;\n        else if (c < 0)\n            results[2]++;\n    }\n    printf(\"WIN: %.2f\\tTIE: %.2f\\tLOSS: %.2f\\n\", results[0] / (double)2000000, results[1] / (double)2000000,\n           results[2] / (double)2000000);\n    return 0;\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

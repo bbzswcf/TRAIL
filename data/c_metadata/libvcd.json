@@ -1,0 +1,38 @@
+{
+  "project_name": "libvcd",
+  "files": {
+    "src/vcd.i": {
+      "relative_path": "src/vcd.i",
+      "original_file": "src/vcd.c",
+      "includes": [
+        "vcd.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "value_change_t": "typedef struct\n{\n    timestamp_t timestamp;\n    char value[64];\n} value_change_t;",
+          "signal_t": "typedef struct\n{\n    char name[32];\n    size_t size;\n    value_change_t value_changes[4096];\n    size_t changes_count;\n} signal_t;",
+          "timescale_t": "typedef struct\n{\n    char unit[8];\n    size_t scale;\n} timescale_t;",
+          "vcd_t": "typedef struct\n{\n    size_t signals_count;\n    signal_t signals[32];\n    char date[64];\n    char version[64];\n    timescale_t timescale;\n} vcd_t;"
+        },
+        "unions": {},
+        "enums": {
+          "state_t": "typedef enum\n{\n    BEFORE_MODULE_DEFINITIONS,\n    INSIDE_TOP_MODULE,\n    INSIDE_INNER_MODULES\n} state_t;"
+        },
+        "functions": {
+          "vcd_read_from_path": "vcd_t *vcd_read_from_path(char *path)\n{\n    FILE *file = fopen(path, \"r\");\n    if (file == ((void *)0))\n        return ((void *)0);\n    vcd_t *vcd = new_vcd();\n    timestamp_t current_timestamp = 0;\n    state_t state = BEFORE_MODULE_DEFINITIONS;\n    int character = 0;\n    while ((character = fgetc(file)) != (-1))\n    {\n        if (character == '$')\n        {\n            _Bool successful = parse_instruction(file, vcd, &state);\n            if (successful)\n                continue;\n        }\n        else if (character == '#')\n        {\n            _Bool successful = parse_timestamp(file, &current_timestamp);\n            if (successful)\n                continue;\n        }\n        else if ((strchr(\"-0123456789zZxXbU\", (character))))\n        {\n            ungetc(character, file);\n            _Bool successful = parse_assignment(file, vcd, current_timestamp);\n            if (successful)\n                continue;\n        }\n        else if (((*__ctype_b_loc())[(int)((character))] & (unsigned short int)_ISspace))\n            continue;\n        fclose(file);\n        free(vcd);\n        return ((void *)0);\n    }\n    fclose(file);\n    return vcd;\n}",
+          "vcd_get_signal_by_name": "signal_t *vcd_get_signal_by_name(vcd_t *vcd, const char *signal_name)\n{\n    for (int i = 0; i < vcd->signals_count; ++i)\n    {\n        if (strcmp(vcd->signals[i].name, signal_name) == 0)\n            return &vcd->signals[i];\n    }\n    return ((void *)0);\n}",
+          "vcd_signal_get_value_at_timestamp": "char *vcd_signal_get_value_at_timestamp(signal_t *signal, timestamp_t timestamp)\n{\n    char *previous_value = ((void *)0);\n    for (int i = 0; i < signal->changes_count; ++i)\n    {\n        value_change_t *value_change = &signal->value_changes[i];\n        if (timestamp < value_change->timestamp)\n            break;\n        previous_value = value_change->value;\n    }\n    return previous_value;\n}",
+          "new_vcd": "vcd_t *new_vcd()\n{\n    return (vcd_t *)calloc(1, sizeof(vcd_t));\n}",
+          "parse_instruction": "_Bool parse_instruction(FILE *file, vcd_t *vcd, state_t *state)\n{\n    char instruction[512];\n    if (fscanf(file, \"%s\", instruction) != 1)\n        return 0;\n    if (strcmp(instruction, \"end\") == 0 || strcmp(instruction, \"dumpvars\") == 0 || strcmp(instruction, \"dumpall\") == 0)\n        return 1;\n    if (strcmp(instruction, \"scope\") == 0)\n    {\n        switch (*state)\n        {\n        case BEFORE_MODULE_DEFINITIONS:\n            *state = INSIDE_TOP_MODULE;\n            break;\n        case INSIDE_TOP_MODULE:\n            *state = INSIDE_INNER_MODULES;\n            break;\n        default:\n            break;\n        }\n        fscanf(file, \"\\n%*[^$]\");\n        return 1;\n    }\n    if (strcmp(instruction, \"scope\") == 0 || strcmp(instruction, \"upscope\") == 0 ||\n        strcmp(instruction, \"enddefinitions\") == 0 || strcmp(instruction, \"comment\") == 0)\n    {\n        fscanf(file, \"\\n%*[^$]\");\n        return 1;\n    }\n    if (strcmp(instruction, \"var\") == 0)\n    {\n        if (*state == INSIDE_INNER_MODULES)\n        {\n            fscanf(file, \" %*[^\\n]\\n\");\n            return 1;\n        }\n        signal_t *signal = &vcd->signals[vcd->signals_count];\n        vcd->signals_count += 1;\n        char signal_id[32];\n        fscanf(file, \" %*s %zu %[^ ] %[^ $]%*[^$]\", &signal->size, signal_id, signal->name);\n        int index = get_signal_index(signal_id);\n        if (vcd->signals[index].size != 0)\n            return 1;\n        return 1;\n    }\n    if (strcmp(instruction, \"date\") == 0)\n    {\n        fscanf(file, \"\\n%[^$\\n]\", vcd->date);\n        return 1;\n    }\n    if (strcmp(instruction, \"version\") == 0)\n    {\n        fscanf(file, \"\\n%[^$\\n]\", vcd->version);\n        return 1;\n    }\n    if (strcmp(instruction, \"timescale\") == 0)\n    {\n        fscanf(file, \"\\n\\t%zu%[^$\\n]\", &vcd->timescale.scale, vcd->timescale.unit);\n        return 1;\n    }\n    return 0;\n}",
+          "parse_timestamp": "_Bool parse_timestamp(FILE *file, timestamp_t *timestamp)\n{\n    _Bool successful = fscanf(file, \"%u\", timestamp) == 1;\n    return successful;\n}",
+          "parse_assignment": "_Bool parse_assignment(FILE *file, vcd_t *vcd, timestamp_t timestamp)\n{\n    char buffer[512];\n    char value[64];\n    char signal_id[32];\n    fscanf(file, \"%[^\\n]\", buffer);\n    _Bool is_vector = strchr(\"01xXzZ\", buffer[0]) == ((void *)0);\n    char *assignment_format_string = is_vector ? \"%[^ ] %[^\\n]\" : \"%1s%[^\\n]\";\n    if (sscanf(buffer, assignment_format_string, value, signal_id) != 2)\n        return 0;\n    if (strlen(signal_id) > 1)\n        return 1;\n    size_t index = get_signal_index(signal_id);\n    if (index == -1 || index >= vcd->signals_count)\n        return 1;\n    size_t changes_count = vcd->signals[index].changes_count;\n    vcd->signals[index].value_changes[changes_count].timestamp = timestamp;\n    strncpy(vcd->signals[index].value_changes[changes_count].value, value, 64);\n    vcd->signals[index].changes_count += 1;\n    return 1;\n}",
+          "get_signal_index": "int get_signal_index(const char *string)\n{\n    int id = *string - '!';\n    if (id >= 32)\n        return -1;\n    return id;\n}"
+        },
+        "typedefs": {
+          "timestamp_t": "typedef uint32_t timestamp_t;"
+        }
+      }
+    }
+  }
+}

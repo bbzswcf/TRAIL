@@ -1,0 +1,149 @@
+{
+  "project_name": "bostree",
+  "files": {
+    "bostree.i": {
+      "relative_path": "bostree.i",
+      "original_file": "bostree.c",
+      "includes": [
+        "bostree.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "BOSTree": "typedef struct _BOSTree BOSTree;",
+          "_BOSNode": "struct _BOSNode\n{\n    unsigned int left_child_count;\n    unsigned int right_child_count;\n    unsigned int depth;\n    struct _BOSNode *left_child_node;\n    struct _BOSNode *right_child_node;\n    struct _BOSNode *parent_node;\n    void *key;\n    void *data;\n    unsigned char weak_ref_count;\n    unsigned char weak_ref_node_valid;\n}",
+          "BOSNode": "typedef struct _BOSNode BOSNode;",
+          "_BOSTree": "struct _BOSTree\n{\n    BOSNode *root_node;\n    BOSTree_cmp_function cmp_function;\n    BOSTree_free_function free_function;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "_imax": "static int _imax(const int i1, const int i2)\n{\n    return i1 > i2 ? i1 : i2;\n}",
+          "_bostree_balance": "static int _bostree_balance(BOSNode *node)\n{\n    const int left_depth = node->left_child_node ? node->left_child_node->depth + 1 : 0;\n    const int right_depth = node->right_child_node ? node->right_child_node->depth + 1 : 0;\n    return right_depth - left_depth;\n}",
+          "_bostree_rotate_right": "static BOSNode *_bostree_rotate_right(BOSTree *tree, BOSNode *P)\n{\n    BOSNode *L = P->left_child_node;\n    if (P->parent_node)\n    {\n        if (P->parent_node->left_child_node == P)\n        {\n            P->parent_node->left_child_node = L;\n        }\n        else\n        {\n            P->parent_node->right_child_node = L;\n        }\n    }\n    else\n    {\n        tree->root_node = L;\n    }\n    L->parent_node = P->parent_node;\n    P->left_child_node = L->right_child_node;\n    P->left_child_count = L->right_child_count;\n    if (P->left_child_node)\n    {\n        P->left_child_node->parent_node = P;\n    }\n    P->depth = _imax(P->left_child_node ? 1 + P->left_child_node->depth : 0,\n                     P->right_child_node ? 1 + P->right_child_node->depth : 0);\n    P->parent_node = L;\n    L->right_child_node = P;\n    P->parent_node = L;\n    L->right_child_count = P->left_child_count + P->right_child_count + 1;\n    L->depth = _imax(L->left_child_node ? 1 + L->left_child_node->depth : 0,\n                     L->right_child_node ? 1 + L->right_child_node->depth : 0);\n    return L;\n}",
+          "_bostree_rotate_left": "static BOSNode *_bostree_rotate_left(BOSTree *tree, BOSNode *P)\n{\n    BOSNode *R = P->right_child_node;\n    if (P->parent_node)\n    {\n        if (P->parent_node->left_child_node == P)\n        {\n            P->parent_node->left_child_node = R;\n        }\n        else\n        {\n            P->parent_node->right_child_node = R;\n        }\n    }\n    else\n    {\n        tree->root_node = R;\n    }\n    R->parent_node = P->parent_node;\n    P->right_child_node = R->left_child_node;\n    P->right_child_count = R->left_child_count;\n    if (P->right_child_node)\n    {\n        P->right_child_node->parent_node = P;\n    }\n    P->depth = _imax(P->left_child_node ? 1 + P->left_child_node->depth : 0,\n                     P->right_child_node ? 1 + P->right_child_node->depth : 0);\n    P->parent_node = R;\n    R->left_child_node = P;\n    P->parent_node = R;\n    R->left_child_count = P->left_child_count + P->right_child_count + 1;\n    R->depth = _imax(R->left_child_node ? 1 + R->left_child_node->depth : 0,\n                     R->right_child_node ? 1 + R->right_child_node->depth : 0);\n    return R;\n}",
+          "bostree_new": "BOSTree *bostree_new(BOSTree_cmp_function cmp_function, BOSTree_free_function free_function)\n{\n    BOSTree *new_tree = malloc(sizeof(BOSTree));\n    new_tree->root_node = ((void *)0);\n    new_tree->cmp_function = cmp_function;\n    new_tree->free_function = free_function;\n    return new_tree;\n}",
+          "bostree_destroy": "void bostree_destroy(BOSTree *tree)\n{\n    BOSNode *node = tree->root_node;\n    while (node)\n    {\n        while (node->left_child_node)\n        {\n            node = node->left_child_node;\n        }\n        if (node->right_child_node)\n        {\n            node = node->right_child_node;\n            continue;\n        }\n        BOSNode *next = node->parent_node;\n        if (next)\n        {\n            if (next->left_child_node == node)\n            {\n                next->left_child_node = ((void *)0);\n            }\n            else\n            {\n                next->right_child_node = ((void *)0);\n            }\n        }\n        bostree_node_weak_unref(tree, node);\n        node = next;\n    }\n    free(tree);\n}",
+          "bostree_node_count": "unsigned int bostree_node_count(BOSTree *tree)\n{\n    return tree->root_node ? tree->root_node->left_child_count + tree->root_node->right_child_count + 1 : 0;\n}",
+          "bostree_insert": "BOSNode *bostree_insert(BOSTree *tree, void *key, void *data)\n{\n    BOSNode **node = &tree->root_node;\n    BOSNode *parent_node = ((void *)0);\n    while (*node)\n    {\n        parent_node = *node;\n        int cmp = tree->cmp_function(key, (*node)->key);\n        if (cmp < 0)\n        {\n            (*node)->left_child_count++;\n            node = &(*node)->left_child_node;\n        }\n        else\n        {\n            (*node)->right_child_count++;\n            node = &(*node)->right_child_node;\n        }\n    }\n    BOSNode *new_node = malloc(sizeof(BOSNode));\n    memset(new_node, 0, sizeof(BOSNode));\n    new_node->key = key;\n    new_node->data = data;\n    new_node->weak_ref_count = 1;\n    new_node->weak_ref_node_valid = 1;\n    new_node->parent_node = parent_node;\n    *node = new_node;\n    if (!parent_node)\n    {\n        tree->root_node = new_node;\n        return new_node;\n    }\n    if (!!parent_node->left_child_node ^ !!parent_node->right_child_node)\n    {\n        parent_node->depth++;\n        while (parent_node->parent_node)\n        {\n            parent_node = parent_node->parent_node;\n            unsigned int new_left_depth = parent_node->left_child_node ? parent_node->left_child_node->depth + 1 : 0;\n            unsigned int new_right_depth = parent_node->right_child_node ? parent_node->right_child_node->depth + 1 : 0;\n            unsigned int max_depth = _imax(new_left_depth, new_right_depth);\n            if (parent_node->depth != max_depth)\n            {\n                parent_node->depth = max_depth;\n            }\n            else\n            {\n                break;\n            }\n            if (new_left_depth - 2 == new_right_depth)\n            {\n                if (_bostree_balance(parent_node->left_child_node) > 0)\n                {\n                    _bostree_rotate_left(tree, parent_node->left_child_node);\n                }\n                parent_node = _bostree_rotate_right(tree, parent_node);\n            }\n            else if (new_left_depth + 2 == new_right_depth)\n            {\n                if (_bostree_balance(parent_node->right_child_node) < 0)\n                {\n                    _bostree_rotate_right(tree, parent_node->right_child_node);\n                }\n                parent_node = _bostree_rotate_left(tree, parent_node);\n            }\n        }\n    }\n    return new_node;\n}",
+          "bostree_remove": "void bostree_remove(BOSTree *tree, BOSNode *node)\n{\n    BOSNode *bubble_up = ((void *)0);\n    if (node->left_child_node && node->right_child_node)\n    {\n        BOSNode *candidate = ((void *)0);\n        BOSNode *lost_child = ((void *)0);\n        if (node->left_child_node->depth >= node->right_child_node->depth)\n        {\n            node->left_child_count--;\n            candidate = node->left_child_node;\n            while (candidate->right_child_node)\n            {\n                candidate->right_child_count--;\n                candidate = candidate->right_child_node;\n            }\n            lost_child = candidate->left_child_node;\n        }\n        else\n        {\n            node->right_child_count--;\n            candidate = node->right_child_node;\n            while (candidate->left_child_node)\n            {\n                candidate->left_child_count--;\n                candidate = candidate->left_child_node;\n            }\n            lost_child = candidate->right_child_node;\n        }\n        BOSNode *bubble_start = candidate->parent_node;\n        if (bubble_start->left_child_node == candidate)\n        {\n            bubble_start->left_child_node = lost_child;\n        }\n        else\n        {\n            bubble_start->right_child_node = lost_child;\n        }\n        if (lost_child)\n        {\n            lost_child->parent_node = bubble_start;\n        }\n        if (node->parent_node)\n        {\n            if (node->parent_node->left_child_node == node)\n            {\n                node->parent_node->left_child_node = candidate;\n            }\n            else\n            {\n                node->parent_node->right_child_node = candidate;\n            }\n        }\n        else\n        {\n            tree->root_node = candidate;\n        }\n        candidate->parent_node = node->parent_node;\n        candidate->left_child_node = node->left_child_node;\n        candidate->left_child_count = node->left_child_count;\n        candidate->right_child_node = node->right_child_node;\n        candidate->right_child_count = node->right_child_count;\n        if (candidate->left_child_node)\n        {\n            candidate->left_child_node->parent_node = candidate;\n        }\n        if (candidate->right_child_node)\n        {\n            candidate->right_child_node->parent_node = candidate;\n        }\n        if (bubble_start != node)\n        {\n            while (bubble_start != candidate)\n            {\n                bubble_start->depth =\n                    _imax((bubble_start->left_child_node ? bubble_start->left_child_node->depth + 1 : 0),\n                          (bubble_start->right_child_node ? bubble_start->right_child_node->depth + 1 : 0));\n                int balance = _bostree_balance(bubble_start);\n                if (balance > 1)\n                {\n                    if (_bostree_balance(bubble_start->right_child_node) < 0)\n                    {\n                        _bostree_rotate_right(tree, bubble_start->right_child_node);\n                    }\n                    bubble_start = _bostree_rotate_left(tree, bubble_start);\n                }\n                else if (balance < -1)\n                {\n                    if (_bostree_balance(bubble_start->left_child_node) > 0)\n                    {\n                        _bostree_rotate_left(tree, bubble_start->left_child_node);\n                    }\n                    bubble_start = _bostree_rotate_right(tree, bubble_start);\n                }\n                bubble_start = bubble_start->parent_node;\n            }\n        }\n        candidate->depth = _imax((candidate->left_child_node ? candidate->left_child_node->depth + 1 : 0),\n                                 (candidate->right_child_node ? candidate->right_child_node->depth + 1 : 0));\n        bubble_up = candidate->parent_node;\n        if (bubble_up)\n        {\n            if (bubble_up->left_child_node == candidate)\n            {\n                bubble_up->left_child_count--;\n            }\n            else\n            {\n                bubble_up->right_child_count--;\n            }\n        }\n    }\n    else\n    {\n        if (!node->parent_node)\n        {\n            if (node->left_child_node)\n            {\n                tree->root_node = node->left_child_node;\n                if (node->left_child_node)\n                {\n                    node->left_child_node->parent_node = ((void *)0);\n                }\n            }\n            else\n            {\n                tree->root_node = node->right_child_node;\n                if (node->right_child_node)\n                {\n                    node->right_child_node->parent_node = ((void *)0);\n                }\n            }\n            bubble_up = ((void *)0);\n        }\n        else\n        {\n            BOSNode *candidate = node->left_child_node;\n            int candidate_count = node->left_child_count;\n            if (node->right_child_node)\n            {\n                candidate = node->right_child_node;\n                candidate_count = node->right_child_count;\n            }\n            if (node->parent_node->left_child_node == node)\n            {\n                node->parent_node->left_child_node = candidate;\n                node->parent_node->left_child_count = candidate_count;\n            }\n            else\n            {\n                node->parent_node->right_child_node = candidate;\n                node->parent_node->right_child_count = candidate_count;\n            }\n            if (candidate)\n            {\n                candidate->parent_node = node->parent_node;\n            }\n            bubble_up = node->parent_node;\n        }\n    }\n    char bubbling_finished = 0;\n    while (bubble_up)\n    {\n        if (!bubbling_finished)\n        {\n            unsigned int left_depth = bubble_up->left_child_node ? bubble_up->left_child_node->depth + 1 : 0;\n            unsigned int right_depth = bubble_up->right_child_node ? bubble_up->right_child_node->depth + 1 : 0;\n            unsigned int new_depth = _imax(left_depth, right_depth);\n            char depth_changed = (new_depth != bubble_up->depth);\n            bubble_up->depth = new_depth;\n            int balance = _bostree_balance(bubble_up);\n            if (balance < -1)\n            {\n                if (_bostree_balance(bubble_up->left_child_node) > 0)\n                {\n                    _bostree_rotate_left(tree, bubble_up->left_child_node);\n                }\n                bubble_up = _bostree_rotate_right(tree, bubble_up);\n            }\n            else if (balance > 1)\n            {\n                if (_bostree_balance(bubble_up->right_child_node) < 0)\n                {\n                    _bostree_rotate_right(tree, bubble_up->right_child_node);\n                }\n                bubble_up = _bostree_rotate_left(tree, bubble_up);\n            }\n            else\n            {\n                if (!depth_changed)\n                {\n                    bubbling_finished = 1;\n                }\n            }\n        }\n        if (bubble_up->parent_node)\n        {\n            if (bubble_up->parent_node->left_child_node == bubble_up)\n            {\n                bubble_up->parent_node->left_child_count--;\n            }\n            else\n            {\n                bubble_up->parent_node->right_child_count--;\n            }\n        }\n        bubble_up = bubble_up->parent_node;\n    }\n    node->weak_ref_node_valid = 0;\n    bostree_node_weak_unref(tree, node);\n}",
+          "bostree_node_weak_ref": "BOSNode *bostree_node_weak_ref(BOSNode *node)\n{\n    ((node->weak_ref_count < 127)\n         ? (void)(0)\n         : __assert_fail(\"node->weak_ref_count < 127\", \"bostree.c\", 477, __extension__ __PRETTY_FUNCTION__));\n    ((node->weak_ref_count > 0)\n         ? (void)(0)\n         : __assert_fail(\"node->weak_ref_count > 0\", \"bostree.c\", 478, __extension__ __PRETTY_FUNCTION__));\n    node->weak_ref_count++;\n    return node;\n}",
+          "bostree_node_weak_unref": "BOSNode *bostree_node_weak_unref(BOSTree *tree, BOSNode *node)\n{\n    node->weak_ref_count--;\n    if (node->weak_ref_count == 0)\n    {\n        if (tree->free_function)\n        {\n            tree->free_function(node);\n        }\n        free(node);\n    }\n    else if (node->weak_ref_node_valid)\n    {\n        return node;\n    }\n    return ((void *)0);\n}",
+          "bostree_lookup": "BOSNode *bostree_lookup(BOSTree *tree, const void *key)\n{\n    BOSNode *node = tree->root_node;\n    while (node)\n    {\n        int cmp = tree->cmp_function(key, node->key);\n        if (cmp == 0)\n        {\n            break;\n        }\n        else if (cmp < 0)\n        {\n            node = node->left_child_node;\n        }\n        else\n        {\n            node = node->right_child_node;\n        }\n    }\n    return node;\n}",
+          "bostree_select": "BOSNode *bostree_select(BOSTree *tree, unsigned int index)\n{\n    BOSNode *node = tree->root_node;\n    while (node)\n    {\n        if (node->left_child_count <= index)\n        {\n            index -= node->left_child_count;\n            if (index == 0)\n            {\n                return node;\n            }\n            index--;\n            node = node->right_child_node;\n        }\n        else\n        {\n            node = node->left_child_node;\n        }\n    }\n    return node;\n}",
+          "bostree_next_node": "BOSNode *bostree_next_node(BOSNode *node)\n{\n    if (node->right_child_node)\n    {\n        node = node->right_child_node;\n        while (node->left_child_node)\n        {\n            node = node->left_child_node;\n        }\n        return node;\n    }\n    else if (node->parent_node)\n    {\n        while (node->parent_node && node->parent_node->right_child_node == node)\n        {\n            node = node->parent_node;\n        }\n        return node->parent_node;\n    }\n    return ((void *)0);\n}",
+          "bostree_previous_node": "BOSNode *bostree_previous_node(BOSNode *node)\n{\n    if (node->left_child_node)\n    {\n        node = node->left_child_node;\n        while (node->right_child_node)\n        {\n            node = node->right_child_node;\n        }\n        return node;\n    }\n    else if (node->parent_node)\n    {\n        while (node->parent_node && node->parent_node->left_child_node == node)\n        {\n            node = node->parent_node;\n        }\n        return node->parent_node;\n    }\n    return ((void *)0);\n}",
+          "bostree_rank": "unsigned int bostree_rank(BOSNode *node)\n{\n    unsigned int counter = node->left_child_count;\n    while (node)\n    {\n        if (node->parent_node && node->parent_node->right_child_node == node)\n            counter += 1 + node->parent_node->left_child_count;\n        node = node->parent_node;\n    }\n    return counter;\n}",
+          "_bostree_print_helper": "static void _bostree_print_helper(BOSNode *node)\n{\n    printf(\"  %s [label=\\\"\\\\N (%d,%d,%d)\\\"];\\n\", (char *)node->key, node->left_child_count, node->right_child_count,\n           node->depth);\n    if (node->parent_node)\n    {\n        printf(\"  %s -> %s [color=green];\\n\", (char *)node->key, (char *)node->parent_node->key);\n    }\n    if (node->left_child_node != ((void *)0))\n    {\n        printf(\"  %s -> %s\\n\", (char *)node->key, (char *)node->left_child_node->key);\n        _bostree_print_helper(node->left_child_node);\n    }\n    if (node->right_child_node != ((void *)0))\n    {\n        printf(\"  %s -> %s\\n\", (char *)node->key, (char *)node->right_child_node->key);\n        _bostree_print_helper(node->right_child_node);\n    }\n}",
+          "bostree_print": "void bostree_print(BOSTree *tree)\n{\n    if (tree->root_node == ((void *)0))\n    {\n        return;\n    }\n    printf(\"digraph {\\n  ordering = out;\\n\");\n    _bostree_print_helper(tree->root_node);\n    printf(\"}\\n\");\n    fsync(0);\n}"
+        },
+        "typedefs": {
+          "BOSTree_cmp_function": "typedef int (*BOSTree_cmp_function)(const void *, const void *);",
+          "BOSTree_free_function": "typedef void (*BOSTree_free_function)(BOSNode *node);"
+        }
+      }
+    },
+    "tests/remove_bug.i": {
+      "relative_path": "tests/remove_bug.i",
+      "original_file": "tests/remove_bug.c",
+      "includes": [
+        "../bostree.h",
+        "test_helpers.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "BOSTree": "typedef struct _BOSTree BOSTree;",
+          "_BOSNode": "struct _BOSNode\n{\n    unsigned int left_child_count;\n    unsigned int right_child_count;\n    unsigned int depth;\n    struct _BOSNode *left_child_node;\n    struct _BOSNode *right_child_node;\n    struct _BOSNode *parent_node;\n    void *key;\n    void *data;\n    unsigned char weak_ref_count;\n    unsigned char weak_ref_node_valid;\n}",
+          "BOSNode": "typedef struct _BOSNode BOSNode;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "test_tree": "BOSTree *test_tree()\n{\n    BOSTree *t = bostree_new((BOSTree_cmp_function)strcmp, ((void *)0));\n    char i;\n    for (i = 'A'; i < 'Z'; i++)\n    {\n        char *key = malloc(2);\n        key[0] = i;\n        key[1] = 0;\n        bostree_insert(t, key, ((void *)0));\n    }\n    return t;\n}",
+          "main": "int main()\n{\n    char remove[2];\n    remove[1] = 0;\n    for (*remove = 'A'; *remove < 'Z'; (*remove)++)\n    {\n        BOSTree *t = test_tree();\n        bostree_remove(t, bostree_lookup(t, remove));\n        test_tree_sanity(t);\n        if (bostree_node_count(t) != ('Z' - 'A' - 1))\n        {\n            printf(\"Removed one node from a tree, but the node count did not decrease properly.\\n\");\n            exit(1);\n        }\n        bostree_destroy(t);\n    }\n    return 0;\n}"
+        },
+        "typedefs": {
+          "BOSTree_cmp_function": "typedef int (*BOSTree_cmp_function)(const void *, const void *);",
+          "BOSTree_free_function": "typedef void (*BOSTree_free_function)(BOSNode *node);"
+        }
+      }
+    },
+    "tests/sanity.i": {
+      "relative_path": "tests/sanity.i",
+      "original_file": "tests/sanity.c",
+      "includes": [
+        "../bostree.h",
+        "test_helpers.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "BOSTree": "typedef struct _BOSTree BOSTree;",
+          "_BOSNode": "struct _BOSNode\n{\n    unsigned int left_child_count;\n    unsigned int right_child_count;\n    unsigned int depth;\n    struct _BOSNode *left_child_node;\n    struct _BOSNode *right_child_node;\n    struct _BOSNode *parent_node;\n    void *key;\n    void *data;\n    unsigned char weak_ref_count;\n    unsigned char weak_ref_node_valid;\n}",
+          "BOSNode": "typedef struct _BOSNode BOSNode;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "free_function": "void free_function(BOSNode *node)\n{\n    free(node->key);\n    free(node->data);\n}",
+          "main": "int main()\n{\n    BOSTree *tree = bostree_new((BOSTree_cmp_function)strcmp, free_function);\n    char iter;\n    printf(\"Insert test:\\n\");\n    for (iter = 'A'; iter <= 'Z'; iter++)\n    {\n        char *data = malloc(2);\n        *data = iter;\n        data[1] = 0;\n        printf(\"Insert %s, \", data);\n        bostree_insert(tree, data, strdup(\"Value\"));\n        test_tree_sanity(tree);\n    }\n    bostree_print(tree);\n    printf(\"\\nRemove test:\\n\");\n    for (iter = 'A'; iter <= 'Z'; iter++)\n    {\n        char data[2];\n        *data = iter;\n        data[1] = 0;\n        printf(\"Remove %s, \", data);\n        BOSNode *node = bostree_lookup(tree, data);\n        if (node == ((void *)0))\n        {\n            printf(\"Lookup for %s showed it was already deleted\\n\", data);\n            exit(1);\n        }\n        bostree_remove(tree, node);\n        test_tree_sanity(tree);\n    }\n    printf(\"\\n\");\n    bostree_destroy(tree);\n    exit(0);\n}"
+        },
+        "typedefs": {
+          "BOSTree_cmp_function": "typedef int (*BOSTree_cmp_function)(const void *, const void *);",
+          "BOSTree_free_function": "typedef void (*BOSTree_free_function)(BOSNode *node);"
+        }
+      }
+    },
+    "tests/remove_bug_2.i": {
+      "relative_path": "tests/remove_bug_2.i",
+      "original_file": "tests/remove_bug_2.c",
+      "includes": [
+        "../bostree.h",
+        "test_helpers.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "BOSTree": "typedef struct _BOSTree BOSTree;",
+          "_BOSNode": "struct _BOSNode\n{\n    unsigned int left_child_count;\n    unsigned int right_child_count;\n    unsigned int depth;\n    struct _BOSNode *left_child_node;\n    struct _BOSNode *right_child_node;\n    struct _BOSNode *parent_node;\n    void *key;\n    void *data;\n    unsigned char weak_ref_count;\n    unsigned char weak_ref_node_valid;\n}",
+          "BOSNode": "typedef struct _BOSNode BOSNode;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "test_tree": "BOSTree *test_tree()\n{\n    BOSTree *t = bostree_new((BOSTree_cmp_function)strcmp, ((void *)0));\n    char i;\n    for (i = 'A'; i < 'Z'; i++)\n    {\n        char *key = malloc(2);\n        key[0] = i;\n        key[1] = 0;\n        bostree_insert(t, key, ((void *)0));\n    }\n    return t;\n}",
+          "main": "int main()\n{\n    BOSTree *t = test_tree();\n    bostree_remove(t, bostree_lookup(t, strdup(\"G\")));\n    bostree_remove(t, bostree_lookup(t, strdup(\"H\")));\n    test_tree_sanity(t);\n    if (bostree_lookup(t, strdup(\"E\")) == ((void *)0))\n    {\n        printf(\"Nodes missing after removing another one\\n\");\n        exit(1);\n    }\n    return 0;\n}"
+        },
+        "typedefs": {
+          "BOSTree_cmp_function": "typedef int (*BOSTree_cmp_function)(const void *, const void *);",
+          "BOSTree_free_function": "typedef void (*BOSTree_free_function)(BOSNode *node);"
+        }
+      }
+    },
+    "tests/timing.i": {
+      "relative_path": "tests/timing.i",
+      "original_file": "tests/timing.c",
+      "includes": [
+        "test_helpers.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "BOSTree": "typedef struct _BOSTree BOSTree;",
+          "_BOSNode": "struct _BOSNode\n{\n    unsigned int left_child_count;\n    unsigned int right_child_count;\n    unsigned int depth;\n    struct _BOSNode *left_child_node;\n    struct _BOSNode *right_child_node;\n    struct _BOSNode *parent_node;\n    void *key;\n    void *data;\n    unsigned char weak_ref_count;\n    unsigned char weak_ref_node_valid;\n}",
+          "BOSNode": "typedef struct _BOSNode BOSNode;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "main": "int main(int argc, char *argv[])\n{\n    int i;\n    BOSTree *tree = bostree_new((BOSTree_cmp_function)strcmp, ((void *)0));\n    struct timeb t1, t2;\n    float gestime = 0;\n    if (argc > 1)\n    {\n        time_t seed = atol(argv[1]);\n        printf(\"Using seed %lu from command line\\n\", seed);\n        srand(seed);\n    }\n    else\n    {\n        time_t seed = time(((void *)0));\n        printf(\"Using seed %lu\\n\", seed);\n        srand(seed);\n    }\n    for (i = 0; i < 10000000; i++)\n    {\n        char *name = malloc(32);\n        int j;\n        do\n        {\n            for (j = 0; j < 32; j++)\n            {\n                name[j] = 'A' + (unsigned long)rand() * (unsigned long)('Z' - 'A') / 2147483647;\n            }\n            name[32] = 0;\n        } while (bostree_lookup(tree, name) != ((void *)0));\n        ftime(&t1);\n        bostree_insert(tree, name, 0);\n        ftime(&t2);\n        gestime += (t2.time - t1.time) * 1000 + t2.millitm - t1.millitm;\n        if (i % 1000000 == 0)\n        {\n            printf(\"%07d elements, inserting a value takes %1.5e s/op\\n\", bostree_node_count(tree), gestime / 1e9);\n            test_tree_sanity(tree);\n            printf(\" sanity check passed\\n\");\n            gestime = 0;\n        }\n    }\n    float selecttime = 0;\n    float deletetime = 0;\n    for (; i > 0; i--)\n    {\n        int w = rand() * i / 2147483647;\n        ftime(&t1);\n        BOSNode *node = bostree_select(tree, w);\n        ftime(&t2);\n        selecttime += (t2.time - t1.time) * 1000 + t2.millitm - t1.millitm;\n        if (!node)\n        {\n            printf(\"Node missing!\\n\");\n            test_tree_sanity(tree);\n            exit(1);\n        }\n        ftime(&t1);\n        bostree_remove(tree, node);\n        ftime(&t2);\n        deletetime += (t2.time - t1.time) * 1000 + t2.millitm - t1.millitm;\n        if (i % 1000000 == 0)\n        {\n            printf(\"%07d elements, selecting a value takes %1.5e s/op, removing a value takes %1.5e s/op\\n\",\n                   bostree_node_count(tree), selecttime / 1e9, deletetime / 1e9);\n            test_tree_sanity(tree);\n            printf(\" sanity check passed\\n\");\n            selecttime = 0;\n            deletetime = 0;\n        }\n    }\n    return 0;\n}"
+        },
+        "typedefs": {
+          "BOSTree_cmp_function": "typedef int (*BOSTree_cmp_function)(const void *, const void *);",
+          "BOSTree_free_function": "typedef void (*BOSTree_free_function)(BOSNode *node);"
+        }
+      }
+    }
+  }
+}

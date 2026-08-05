@@ -1,0 +1,134 @@
+{
+  "project_name": "SlothLang",
+  "files": {
+    "parser.i": {
+      "relative_path": "parser.i",
+      "original_file": "parser.c",
+      "includes": [
+        "slothvm.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "sloth_program": "struct sloth_program\n{\n    ubyte *codes;\n    size_t pc;\n}"
+        },
+        "unions": {},
+        "enums": {
+          "opcodes": "enum opcodes\n{\n    EXIT = 0x00,\n    PUSH = 0x01,\n    ADD = 0x02,\n    SUB = 0x03,\n    MULT = 0x04,\n    DIV = 0x05,\n    COMP = 0x06,\n    INP = 0x07,\n    OUT = 0x08,\n    GOTO = 0x09,\n    DUP = 0x0A\n}",
+          "compCodes": "enum compCodes\n{\n    EQ = 0x01,\n    NEQ = 0x02,\n    LT = 0x03,\n    LE = 0x04,\n    GT = 0x05,\n    GE = 0x06\n}",
+          "typeCode": "enum typeCode\n{\n    INT = 0x01,\n    CHR = 0x02\n}"
+        },
+        "functions": {
+          "progLen": "int progLen(FILE *f)\n{\n    char c;\n    int count = 0;\n    for (c = getc(f); c != (-1); c = getc(f))\n    {\n        if (c == '\\n')\n        {\n            count = count + 1;\n        }\n    }\n    fseek(f, 0, 0);\n    return count * 3;\n}",
+          "freeProgram": "void freeProgram(struct sloth_program *P)\n{\n    free(P->codes);\n    free(P);\n}",
+          "readline": "char *readline(FILE *file)\n{\n    const size_t default_len = 100;\n    char *line = malloc(sizeof(char) * default_len);\n    size_t len = default_len;\n    size_t currentChar = 0;\n    char c = '\\0';\n    while (c != -1)\n    {\n        c = fgetc(file);\n        if (currentChar == len)\n        {\n            len *= 2;\n            line = realloc(line, len);\n        }\n        if (c == '\\n')\n        {\n            break;\n        }\n        line[currentChar] = c;\n        currentChar++;\n    }\n    if (c == -1)\n    {\n        line[currentChar] = -1;\n        currentChar++;\n    }\n    line[currentChar] = '\\0';\n    return line;\n}",
+          "parse": "struct sloth_program *parse(char *filepath)\n{\n    FILE *sFile;\n    sFile = fopen(filepath, \"r\");\n    if (sFile == ((void *)0))\n    {\n        fprintf(stderr, \"[ERROR] File could not be opened.\");\n        exit(1);\n    }\n    int numCodes = progLen(sFile);\n    ubyte *byteCode = malloc(sizeof(char) * numCodes);\n    char c = '\\0';\n    size_t count = 0;\n    char *line = 0x0;\n    size_t len = 0;\n    size_t codeNum = 0;\n    unsigned char currentCode = 0;\n    char hadToken = 0;\n    while (1)\n    {\n        count = 0;\n        currentCode = 0;\n        line = readline(sFile);\n        len = strlen(line);\n        if (line[0] == -1)\n        {\n            free(line);\n            break;\n        }\n        if (len == 0)\n        {\n            free(line);\n            continue;\n        }\n        c = line[0];\n        while (c != 0 && c != -1 && c != '#' && count <= len)\n        {\n            if (strncmp(\"slothy\", line + count, 6) == 0)\n            {\n                byteCode[codeNum] = 0x1;\n                codeNum++;\n                count += 6;\n                hadToken = 1;\n            }\n            else if (strncmp(\"sloth\", line + count, 5) == 0)\n            {\n                currentCode++;\n                count += 5;\n                hadToken = 1;\n            }\n            else if (strncmp(\"and\", line + count, 3) == 0)\n            {\n                byteCode[codeNum] = currentCode;\n                codeNum++;\n                currentCode = 0;\n                count += 3;\n                hadToken = 1;\n            }\n            else if (strncmp(\"nap\", line + count, 3) == 0)\n            {\n                byteCode[codeNum] = 0x0;\n                codeNum++;\n                count += 3;\n                hadToken = 1;\n            }\n            else\n            {\n                count++;\n            }\n            c = line[count];\n        }\n        if (hadToken)\n        {\n            byteCode[codeNum] = currentCode;\n            codeNum++;\n            hadToken = 0;\n        }\n        free(line);\n    }\n    struct sloth_program *S = malloc(sizeof(struct sloth_program));\n    S->codes = byteCode;\n    return S;\n}"
+        },
+        "typedefs": {
+          "ubyte": "typedef uint8_t ubyte;"
+        }
+      }
+    },
+    "slothvm.i": {
+      "relative_path": "slothvm.i",
+      "original_file": "slothvm.c",
+      "includes": [
+        "slothvm.h",
+        "lib/stack.h",
+        "lib/throw.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "sloth_program": "struct sloth_program\n{\n    ubyte *codes;\n    size_t pc;\n}",
+          "sstack_t": "typedef struct stack_header *sstack_t;"
+        },
+        "unions": {},
+        "enums": {
+          "opcodes": "enum opcodes\n{\n    EXIT = 0x00,\n    PUSH = 0x01,\n    ADD = 0x02,\n    SUB = 0x03,\n    MULT = 0x04,\n    DIV = 0x05,\n    COMP = 0x06,\n    INP = 0x07,\n    OUT = 0x08,\n    GOTO = 0x09,\n    DUP = 0x0A\n}",
+          "compCodes": "enum compCodes\n{\n    EQ = 0x01,\n    NEQ = 0x02,\n    LT = 0x03,\n    LE = 0x04,\n    GT = 0x05,\n    GE = 0x06\n}",
+          "typeCode": "enum typeCode\n{\n    INT = 0x01,\n    CHR = 0x02\n}"
+        },
+        "functions": {
+          "execute": "int execute(struct sloth_program *sbin)\n{\n    sstack_t S = sstack_new();\n    size_t pc = 0;\n    ubyte *P = sbin->codes;\n    _Bool run = 1;\n    while (run)\n    {\n        switch (P[pc])\n        {\n        case EXIT: {\n            if (sstack_empty(S))\n            {\n                sstack_free(S);\n                return 0;\n            }\n            int x = spop(S);\n            sstack_free(S);\n            return x;\n        }\n        case ADD: {\n            int b = spop(S);\n            int a = spop(S);\n            spush(S, a + b);\n            pc++;\n            break;\n        }\n        case SUB: {\n            int b = spop(S);\n            int a = spop(S);\n            spush(S, a - b);\n            pc++;\n            break;\n        }\n        case MULT: {\n            int b = spop(S);\n            int a = spop(S);\n            spush(S, a * b);\n            pc++;\n            break;\n        }\n        case DIV: {\n            int b = spop(S);\n            int a = spop(S);\n            if (b == 0)\n                mathErr(\"division by zero\");\n            if (a == (-0x7fffffff - 1) && b == -1)\n                mathErr(\"division by zero\");\n            spush(S, a / b);\n            pc++;\n            break;\n        }\n        case COMP: {\n            int b = spop(S);\n            int a = spop(S);\n            pc++;\n            _Bool res = 0;\n            switch (P[pc])\n            {\n            case EQ: {\n                res = a == b;\n                break;\n            }\n            case NEQ: {\n                res = a != b;\n                break;\n            }\n            case LT: {\n                res = a < b;\n                break;\n            }\n            case LE: {\n                res = a <= b;\n                break;\n            }\n            case GT: {\n                res = a > b;\n                break;\n            }\n            case GE: {\n                res = a >= b;\n                break;\n            }\n            default: {\n                opErr(\"comparison\", P[pc]);\n            }\n            }\n            spush(S, (int)res);\n            pc++;\n            break;\n        }\n        case INP: {\n            pc++;\n            switch (P[pc])\n            {\n            case INT: {\n                int x;\n                printf(\">\");\n                scanf(\"%d\", &x);\n                spush(S, x);\n                break;\n            }\n            case CHR: {\n                char x;\n                scanf(\">%c\", &x);\n                spush(S, (int)x);\n                break;\n            }\n            default: {\n                opErr(\"input type\", P[pc]);\n            }\n            }\n            pc++;\n            break;\n        }\n        case OUT: {\n            pc++;\n            switch (P[pc])\n            {\n            case INT: {\n                int x = spop(S);\n                printf(\"%d\", x);\n                break;\n            }\n            case CHR: {\n                char x = spop(S);\n                printf(\"%c\", x);\n                break;\n            }\n            default: {\n                opErr(\"output type\", P[pc]);\n            }\n                pc++;\n                break;\n            }\n            pc++;\n            break;\n        }\n        case GOTO: {\n            pc++;\n            if (spop(S) == 1)\n            {\n                pc = P[pc];\n            }\n            else\n            {\n                pc++;\n            }\n            break;\n        }\n        case PUSH: {\n            pc++;\n            spush(S, P[pc]);\n            pc++;\n            break;\n        }\n        case DUP: {\n            int x = spop(S);\n            spush(S, x);\n            spush(S, x);\n            pc++;\n            break;\n        }\n        default: {\n            opErr(\"operation\", P[pc]);\n        }\n        }\n    }\n    return 0;\n}"
+        },
+        "typedefs": {
+          "ubyte": "typedef uint8_t ubyte;"
+        }
+      }
+    },
+    "sloth.i": {
+      "relative_path": "sloth.i",
+      "original_file": "sloth.c",
+      "includes": [
+        "parser.h",
+        "slothvm.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "sloth_program": "struct sloth_program\n{\n    ubyte *codes;\n    size_t pc;\n}"
+        },
+        "unions": {},
+        "enums": {
+          "opcodes": "enum opcodes\n{\n    EXIT = 0x00,\n    PUSH = 0x01,\n    ADD = 0x02,\n    SUB = 0x03,\n    MULT = 0x04,\n    DIV = 0x05,\n    COMP = 0x06,\n    INP = 0x07,\n    OUT = 0x08,\n    GOTO = 0x09,\n    DUP = 0x0A\n}",
+          "compCodes": "enum compCodes\n{\n    EQ = 0x01,\n    NEQ = 0x02,\n    LT = 0x03,\n    LE = 0x04,\n    GT = 0x05,\n    GE = 0x06\n}",
+          "typeCode": "enum typeCode\n{\n    INT = 0x01,\n    CHR = 0x02\n}"
+        },
+        "functions": {
+          "main": "int main(int argc, char **argv)\n{\n    if (argc != 2)\n    {\n        fprintf(stderr, \"Usage: sloth <source file>\\n\");\n        return 1;\n    }\n    char *fileName = argv[1];\n    struct sloth_program *program = parse(fileName);\n    int x = execute(program);\n    printf(\"Returned: %d\\n\", x);\n    freeProgram(program);\n    return 0;\n}"
+        },
+        "typedefs": {
+          "ubyte": "typedef uint8_t ubyte;"
+        }
+      }
+    },
+    "lib/throw.i": {
+      "relative_path": "lib/throw.i",
+      "original_file": "lib/throw.c",
+      "includes": [
+        "throw.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "mathErr": "void mathErr(char *msg)\n{\n    if (msg != ((void *)0))\n        fprintf(stderr, \"[ERROR] %s\\n\", msg);\n    raise(8);\n}",
+          "opErr": "void opErr(char *type, uint8_t code)\n{\n    if (type != ((void *)0))\n    {\n        fprintf(stderr, \"[ERROR] invalid %s code: 0x%02x\\n\", type, code);\n    }\n    raise(4);\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "lib/stack.i": {
+      "relative_path": "lib/stack.i",
+      "original_file": "lib/stack.c",
+      "includes": [
+        "stack.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "sstack_t": "typedef struct stack_header *sstack_t;",
+          "list": "typedef struct list_node list;",
+          "list_node": "struct list_node\n{\n    int data;\n    struct list_node *next;\n}",
+          "stack": "typedef struct stack_header stack;",
+          "stack_header": "struct stack_header\n{\n    list *top;\n    list *bottom;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "sstack_empty": "_Bool sstack_empty(stack *S)\n{\n    return S->top == S->bottom;\n}",
+          "sstack_new": "stack *sstack_new()\n{\n    stack *S = malloc(sizeof(stack));\n    list *p = malloc(sizeof(list));\n    S->top = p;\n    S->bottom = p;\n    return S;\n}",
+          "spush": "void spush(stack *S, int x)\n{\n    list *p = malloc(sizeof(list));\n    p->data = x;\n    p->next = S->top;\n    S->top = p;\n}",
+          "spop": "int spop(stack *S)\n{\n    int x = S->top->data;\n    list *q = S->top;\n    S->top = S->top->next;\n    free(q);\n    return x;\n}",
+          "speek": "int speek(stack *S, int pos)\n{\n    list *l = S->top;\n    for (; pos > 0; pos--)\n    {\n        l = l->next;\n    }\n    return l->data;\n}",
+          "sprint": "void sprint(stack *S)\n{\n    printf(\"|\");\n    list *l = S->top;\n    while (l != S->bottom)\n    {\n        printf(\"%d \", l->data);\n        l = l->next;\n    }\n    printf(\"\\n\");\n}",
+          "sstack_free": "void sstack_free(stack *S)\n{\n    while (S->top != S->bottom)\n    {\n        list *p = S->top;\n        S->top = S->top->next;\n        free(p);\n    }\n    free(S->top);\n    free(S);\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

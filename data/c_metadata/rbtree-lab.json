@@ -1,0 +1,166 @@
+{
+  "project_name": "rbtree-lab",
+  "files": {
+    "src/driver.i": {
+      "relative_path": "src/driver.i",
+      "original_file": "src/driver.c",
+      "includes": [
+        "rbtree.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "node_t": "typedef struct node_t\n{\n    color_t color;\n    key_t key;\n    struct node_t *parent, *left, *right;\n} node_t;",
+          "rbtree": "typedef struct\n{\n    node_t *root;\n    node_t *nil;\n} rbtree;"
+        },
+        "unions": {},
+        "enums": {
+          "color_t": "typedef enum\n{\n    RBTREE_RED,\n    RBTREE_BLACK\n} color_t;"
+        },
+        "functions": {
+          "main": "int main(int argc, char *argv[])\n{\n}"
+        },
+        "typedefs": {
+          "key_t": "typedef int key_t;"
+        }
+      }
+    },
+    "src/rbtree.i": {
+      "relative_path": "src/rbtree.i",
+      "original_file": "src/rbtree.c",
+      "includes": [
+        "rbtree.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "node_t": "typedef struct node_t\n{\n    color_t color;\n    key_t key;\n    struct node_t *parent, *left, *right;\n} node_t;",
+          "rbtree": "typedef struct\n{\n    node_t *root;\n    node_t *nil;\n} rbtree;"
+        },
+        "unions": {},
+        "enums": {
+          "color_t": "typedef enum\n{\n    RBTREE_RED,\n    RBTREE_BLACK\n} color_t;"
+        },
+        "functions": {
+          "new_rbtree": "rbtree *new_rbtree(void)\n{\n    rbtree *p = (rbtree *)calloc(1, sizeof(rbtree));\n    node_t *nilNode = (node_t *)calloc(1, sizeof(node_t));\n    nilNode->color = RBTREE_BLACK;\n    p->nil = nilNode;\n    p->root = nilNode;\n    return p;\n}",
+          "right_rotation": "void right_rotation(rbtree *tree, node_t *x)\n{\n    node_t *y;\n    y = x->left;\n    x->left = y->right;\n    if (y->right != tree->nil)\n    {\n        y->right->parent = x;\n    }\n    y->parent = x->parent;\n    if (x->parent == tree->nil)\n        tree->root = y;\n    else if (x == x->parent->left)\n        x->parent->left = y;\n    else\n        x->parent->right = y;\n    y->right = x;\n    x->parent = y;\n}",
+          "left_rotation": "void left_rotation(rbtree *tree, node_t *x)\n{\n    node_t *y;\n    y = x->right;\n    x->right = y->left;\n    if (y->left != tree->nil)\n        y->left->parent = x;\n    y->parent = x->parent;\n    if (x->parent == tree->nil)\n        tree->root = y;\n    else if (x == x->parent->left)\n        x->parent->left = y;\n    else\n        x->parent->right = y;\n    y->left = x;\n    x->parent = y;\n}",
+          "free_node": "void free_node(rbtree *t, node_t *x)\n{\n    if (x->left != t->nil)\n        free_node(t, x->left);\n    if (x->right != t->nil)\n        free_node(t, x->right);\n    free(x);\n    x = ((void *)0);\n}",
+          "delete_rbtree": "void delete_rbtree(rbtree *t)\n{\n    if (t->root != t->nil)\n        free_node(t, t->root);\n    free(t->nil);\n    free(t);\n}",
+          "rbtree_insert_fixup": "void rbtree_insert_fixup(rbtree *t, node_t *z)\n{\n    node_t *y;\n    while (z->parent->color == RBTREE_RED)\n    {\n        if (z->parent == z->parent->parent->left)\n        {\n            y = z->parent->parent->right;\n            if (y->color == RBTREE_RED)\n            {\n                z->parent->color = RBTREE_BLACK;\n                y->color = RBTREE_BLACK;\n                z->parent->parent->color = RBTREE_RED;\n                z = z->parent->parent;\n            }\n            else\n            {\n                if (z == z->parent->right)\n                {\n                    z = z->parent;\n                    left_rotation(t, z);\n                }\n                z->parent->color = RBTREE_BLACK;\n                z->parent->parent->color = RBTREE_RED;\n                right_rotation(t, z->parent->parent);\n            }\n        }\n        else\n        {\n            y = z->parent->parent->left;\n            if (y->color == RBTREE_RED)\n            {\n                z->parent->color = RBTREE_BLACK;\n                y->color = RBTREE_BLACK;\n                z->parent->parent->color = RBTREE_RED;\n                z = z->parent->parent;\n            }\n            else\n            {\n                if (z == z->parent->left)\n                {\n                    z = z->parent;\n                    right_rotation(t, z);\n                }\n                z->parent->color = RBTREE_BLACK;\n                z->parent->parent->color = RBTREE_RED;\n                left_rotation(t, z->parent->parent);\n            }\n        }\n    }\n    t->root->color = RBTREE_BLACK;\n}",
+          "rbtree_insert": "node_t *rbtree_insert(rbtree *t, const key_t key)\n{\n    node_t *y = t->nil;\n    node_t *x = t->root;\n    node_t *z = (node_t *)calloc(1, sizeof(node_t));\n    z->key = key;\n    while (x != t->nil)\n    {\n        y = x;\n        if (z->key < x->key)\n            x = x->left;\n        else\n            x = x->right;\n    }\n    z->parent = y;\n    if (y == t->nil)\n    {\n        t->root = z;\n    }\n    else if (z->key < y->key)\n    {\n        y->left = z;\n    }\n    else\n    {\n        y->right = z;\n    }\n    z->left = t->nil;\n    z->right = t->nil;\n    z->color = RBTREE_RED;\n    rbtree_insert_fixup(t, z);\n    return z;\n}",
+          "rbtree_find": "node_t *rbtree_find(const rbtree *t, const key_t key)\n{\n    node_t *current = t->root;\n    while (current != t->nil)\n    {\n        if (current->key == key)\n            return current;\n        if (current->key < key)\n            current = current->right;\n        else\n            current = current->left;\n    }\n    return ((void *)0);\n}",
+          "rbtree_min": "node_t *rbtree_min(const rbtree *t)\n{\n    if (t->root == t->nil)\n    {\n        return ((void *)0);\n    }\n    node_t *curr = t->root;\n    while (curr->left != t->nil)\n    {\n        curr = curr->left;\n    }\n    return curr;\n}",
+          "rbtree_max": "node_t *rbtree_max(const rbtree *t)\n{\n    if (t->root == t->nil)\n    {\n        return ((void *)0);\n    }\n    node_t *curr = t->root;\n    while (curr->right != t->nil)\n    {\n        curr = curr->right;\n    }\n    return curr;\n}",
+          "rbtree_transplant": "void rbtree_transplant(rbtree *t, node_t *u, node_t *v)\n{\n    if (u->parent == t->nil)\n    {\n        t->root = v;\n    }\n    else if (u == u->parent->left)\n    {\n        u->parent->left = v;\n    }\n    else\n    {\n        u->parent->right = v;\n    }\n    v->parent = u->parent;\n}",
+          "rbtree_delete_fixup": "void rbtree_delete_fixup(rbtree *t, node_t *x)\n{\n    while (x != t->root && x->color == RBTREE_BLACK)\n    {\n        if (x == x->parent->left)\n        {\n            node_t *w = x->parent->right;\n            if (w->color == RBTREE_RED)\n            {\n                w->color = RBTREE_BLACK;\n                x->parent->color = RBTREE_RED;\n                left_rotation(t, x->parent);\n                w = x->parent->right;\n            }\n            if (w->left->color == RBTREE_BLACK && w->right->color == RBTREE_BLACK)\n            {\n                w->color = RBTREE_RED;\n                x = x->parent;\n            }\n            else\n            {\n                if (w->right->color == RBTREE_BLACK)\n                {\n                    w->left->color = RBTREE_BLACK;\n                    w->color = RBTREE_RED;\n                    right_rotation(t, w);\n                    w = x->parent->right;\n                }\n                w->color = x->parent->color;\n                x->parent->color = RBTREE_BLACK;\n                w->right->color = RBTREE_BLACK;\n                left_rotation(t, x->parent);\n                x = t->root;\n            }\n        }\n        else\n        {\n            node_t *w = x->parent->left;\n            if (w->color == RBTREE_RED)\n            {\n                w->color = RBTREE_BLACK;\n                x->parent->color = RBTREE_RED;\n                right_rotation(t, x->parent);\n                w = x->parent->left;\n            }\n            if (w->right->color == RBTREE_BLACK && w->left->color == RBTREE_BLACK)\n            {\n                w->color = RBTREE_RED;\n                x = x->parent;\n            }\n            else\n            {\n                if (w->left->color == RBTREE_BLACK)\n                {\n                    w->right->color = RBTREE_BLACK;\n                    w->color = RBTREE_RED;\n                    left_rotation(t, w);\n                    w = x->parent->left;\n                }\n                w->color = x->parent->color;\n                x->parent->color = RBTREE_BLACK;\n                w->left->color = RBTREE_BLACK;\n                right_rotation(t, x->parent);\n                x = t->root;\n            }\n        }\n    }\n    x->color = RBTREE_BLACK;\n}",
+          "rbtree_erase": "int rbtree_erase(rbtree *t, node_t *p)\n{\n    node_t *y;\n    node_t *x;\n    color_t yOriginalColor;\n    y = p;\n    yOriginalColor = y->color;\n    if (p->left == t->nil)\n    {\n        x = p->right;\n        rbtree_transplant(t, p, p->right);\n    }\n    else if (p->right == t->nil)\n    {\n        x = p->left;\n        rbtree_transplant(t, p, p->left);\n    }\n    else\n    {\n        y = p->right;\n        while (y->left != t->nil)\n        {\n            y = y->left;\n        }\n        yOriginalColor = y->color;\n        x = y->right;\n        if (y->parent == p)\n        {\n            x->parent = y;\n        }\n        else\n        {\n            rbtree_transplant(t, y, y->right);\n            y->right = p->right;\n            y->right->parent = y;\n        }\n        rbtree_transplant(t, p, y);\n        y->left = p->left;\n        y->left->parent = y;\n        y->color = p->color;\n    }\n    if (yOriginalColor == RBTREE_BLACK)\n    {\n        rbtree_delete_fixup(t, x);\n    }\n    free(p);\n    return 0;\n}",
+          "subtree_to_array": "void subtree_to_array(const rbtree *t, node_t *curr, key_t *arr, size_t n, size_t *count)\n{\n    if (curr == t->nil)\n    {\n        return;\n    }\n    subtree_to_array(t, curr->left, arr, n, count);\n    if (*count < n)\n    {\n        arr[(*count)++] = curr->key;\n    }\n    else\n        return;\n    subtree_to_array(t, curr->right, arr, n, count);\n}",
+          "rbtree_to_array": "int rbtree_to_array(const rbtree *t, key_t *arr, const size_t n)\n{\n    if (t->root == t->nil)\n    {\n        return 0;\n    }\n    size_t cnt = 0;\n    subtree_to_array(t, t->root, arr, n, &cnt);\n    return 0;\n}"
+        },
+        "typedefs": {
+          "key_t": "typedef int key_t;"
+        }
+      }
+    },
+    "pratice/linkedList/add_node_to_linkedList.i": {
+      "relative_path": "pratice/linkedList/add_node_to_linkedList.i",
+      "original_file": "pratice/linkedList/add_node_to_linkedList.c",
+      "includes": [],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "NODE": "struct NODE\n{\n    struct NODE *next;\n    int data;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "addFirst": "void addFirst(struct NODE *target, int data)\n{\n    struct NODE *newNode = malloc(sizeof(struct NODE));\n    newNode->next = target->next;\n    newNode->data = data;\n    target->next = newNode;\n}",
+          "main": "int main(void)\n{\n    struct NODE *head = malloc(sizeof(struct NODE));\n    head->next = ((void *)0);\n    addFirst(head, 10);\n    addFirst(head, 20);\n    addFirst(head, 30);\n    struct NODE *curr = head->next;\n    while (curr != ((void *)0))\n    {\n        printf(\"%d\\n\", curr->data);\n        curr = curr->next;\n    }\n    curr = head->next;\n    while (curr != ((void *)0))\n    {\n        struct NODE *next = curr->next;\n        free(curr);\n        curr = next;\n    }\n    free(head);\n    return 0;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "pratice/linkedList/stack_using_linkedList.i": {
+      "relative_path": "pratice/linkedList/stack_using_linkedList.i",
+      "original_file": "pratice/linkedList/stack_using_linkedList.c",
+      "includes": [],
+      "declarations": {
+        "globals": {
+          "top": "stack *top;"
+        },
+        "structs": {
+          "stack": "typedef struct _stack\n{\n    char data;\n    struct _stack *link;\n} stack;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "isEmpty": "int isEmpty()\n{\n    if (top == ((void *)0))\n    {\n        printf(\"ERROR : Stack is empty. \\n\");\n        return 1;\n    }\n    return 0;\n}",
+          "push": "void push(char data)\n{\n    stack *newNode = malloc(sizeof(stack));\n    newNode->data = data;\n    newNode->link = top;\n    top = newNode;\n}",
+          "pop": "char pop()\n{\n    if (!isEmpty())\n    {\n        stack *temp = top;\n        char data = top->data;\n        top = top->link;\n        free(temp);\n        return data;\n    }\n}",
+          "peek": "char peek()\n{\n    if (!isEmpty())\n    {\n        return top->data;\n    }\n}",
+          "printStack": "void printStack()\n{\n    if (!isEmpty())\n    {\n        stack *curr = top;\n        while (curr != ((void *)0))\n        {\n            printf(\"%c \", curr->data);\n            curr = curr->link;\n        }\n        printf(\"\\n\");\n    }\n}",
+          "main": "int main(void)\n{\n    char check;\n    printStack();\n    push('A');\n    push('B');\n    check = peek();\n    printf(\"top : %c\\n\", check);\n    push('C');\n    printStack();\n    pop();\n    push('D');\n    check = peek();\n    printf(\"top : %c\\n\", check);\n    push('E');\n    push('F');\n    printStack();\n    pop();\n    pop();\n    printStack();\n    pop();\n    return 0;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "pratice/linkedList/BinarySearchTree_using_linkedList.i": {
+      "relative_path": "pratice/linkedList/BinarySearchTree_using_linkedList.i",
+      "original_file": "pratice/linkedList/BinarySearchTree_using_linkedList.c",
+      "includes": [],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "Node": "typedef struct _Node\n{\n    char key;\n    struct _Node *left;\n    struct _Node *right;\n} Node;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "search": "Node *search(Node *root, char x)\n{\n    Node *p = root;\n    while (p != ((void *)0))\n    {\n        if (p->key == x)\n            return p;\n        else if (p->key < x)\n            p = p->right;\n        else\n            p = p->left;\n    }\n    return ((void *)0);\n}",
+          "insert": "Node *insert(Node *root, char x)\n{\n    Node *p = root;\n    Node *parent = ((void *)0);\n    while (p != ((void *)0))\n    {\n        parent = p;\n        if (p->key == x)\n        {\n            printf(\"같은 키가 있습니다. \\n\");\n            return p;\n        }\n        else if (p->key < x)\n            p = p->right;\n        else\n            p = p->left;\n    }\n    Node *newNode = (Node *)malloc(sizeof(Node));\n    newNode->key = x;\n    newNode->left = newNode->right = ((void *)0);\n    if (parent != ((void *)0))\n    {\n        if (parent->key < newNode->key)\n        {\n            parent->right = newNode;\n        }\n        else\n        {\n            parent->left = newNode;\n        }\n    }\n    return newNode;\n}",
+          "delete": "Node *delete(Node *root, char x)\n{\n    Node *p = root;\n    Node *parent = ((void *)0);\n    while ((p != ((void *)0)) && (p->key != x))\n    {\n        parent = p;\n        if (p->key < x)\n        {\n            p = p->right;\n        }\n        else\n            p = p->left;\n    }\n    if (p == ((void *)0))\n    {\n        printf(\"찾는 노드가 없습니다. \\n\");\n        return root;\n    }\n    if (p->left == ((void *)0) && p->right == ((void *)0))\n    {\n        if (parent == ((void *)0))\n            root = ((void *)0);\n        else\n        {\n            if (parent->left == p)\n                parent->left = ((void *)0);\n            else\n                parent->right = ((void *)0);\n        }\n    }\n    else if (p->left == ((void *)0) || p->right == ((void *)0))\n    {\n        Node *child = (p->left != ((void *)0)) ? p->left : p->right;\n        if (parent == ((void *)0))\n        {\n            root = child;\n        }\n        else\n        {\n            if (parent->left == p)\n            {\n                parent->left = child;\n            }\n            else\n            {\n                parent->right = child;\n            }\n        }\n    }\n    else\n    {\n        Node *succ_parent = p;\n        Node *succ = p->right;\n        while (succ->left != ((void *)0))\n        {\n            succ_parent = succ;\n            succ = succ->left;\n        }\n        p->key = succ->key;\n        if (succ_parent->left == succ)\n        {\n            succ_parent->left = succ->right;\n        }\n        else\n        {\n            succ_parent->right = succ->right;\n        }\n        p = succ;\n    }\n    free(p);\n    return 0;\n}",
+          "inorder": "void inorder(Node *root)\n{\n    if (root == ((void *)0))\n    {\n        return;\n    }\n    inorder(root->left);\n    printf(\"%c\", root->key);\n    inorder(root->right);\n}",
+          "main": "int main()\n{\n    Node *root = insert(((void *)0), 'D');\n    insert(root, 'B');\n    insert(root, 'A');\n    insert(root, 'E');\n    insert(root, 'C');\n    insert(root, 'F');\n    inorder(root);\n    printf(\"\\n\");\n    delete (root, 'A');\n    inorder(root);\n    printf(\"\\n\");\n    return 0;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "pratice/linkedList/linkedList.i": {
+      "relative_path": "pratice/linkedList/linkedList.i",
+      "original_file": "pratice/linkedList/linkedList.c",
+      "includes": [],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "NODE": "struct NODE\n{\n    struct NODE *next;\n    int data;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "main": "int main(void)\n{\n    struct NODE *head = malloc(sizeof(struct NODE));\n    struct NODE *node1 = malloc(sizeof(struct NODE));\n    head->next = node1;\n    node1->data = 10;\n    struct NODE *node2 = malloc(sizeof(struct NODE));\n    node1->next = node2;\n    node2->data = 20;\n    node2->next = ((void *)0);\n    struct NODE *curr = head->next;\n    while (curr != ((void *)0))\n    {\n        printf(\"%d\\n\", curr->data);\n        curr = curr->next;\n    }\n    free(node2);\n    free(node1);\n    free(head);\n    return 0;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "pratice/linkedList/delete_node_from_linkedList.i": {
+      "relative_path": "pratice/linkedList/delete_node_from_linkedList.i",
+      "original_file": "pratice/linkedList/delete_node_from_linkedList.c",
+      "includes": [],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "NODE": "struct NODE\n{\n    struct NODE *next;\n    int data;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "addFirst": "void addFirst(struct NODE *target, int data)\n{\n    struct NODE *newNode = malloc(sizeof(struct NODE));\n    newNode->next = target->next;\n    newNode->data = data;\n    target->next = newNode;\n}",
+          "removeFirst": "void removeFirst(struct NODE *target)\n{\n    struct NODE *removeNode = target->next;\n    target->next = removeNode->next;\n    free(removeNode);\n}",
+          "main": "int main(void)\n{\n    struct NODE *head = malloc(sizeof(struct NODE));\n    head->next = ((void *)0);\n    addFirst(head, 10);\n    addFirst(head, 20);\n    addFirst(head, 30);\n    removeFirst(head);\n    struct NODE *curr = head->next;\n    while (curr != ((void *)0))\n    {\n        printf(\"%d\\n\", curr->data);\n        curr = curr->next;\n    }\n    curr = head->next;\n    while (curr != ((void *)0))\n    {\n        struct NODE *next = curr->next;\n        free(curr);\n        curr = next;\n    }\n    free(head);\n    return 0;\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

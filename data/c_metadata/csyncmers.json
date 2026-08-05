@@ -1,0 +1,48 @@
+{
+  "project_name": "csyncmers",
+  "files": {
+    "src/closed_syncmers_naive.i": {
+      "relative_path": "src/closed_syncmers_naive.i",
+      "original_file": "src/closed_syncmers_naive.h",
+      "includes": [
+        "closed_syncmers.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "MinimizerResult": "typedef struct\n{\n    __uint128_t minimizer_hash;\n    size_t kmer_position;\n    size_t smer_position;\n} MinimizerResult;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "base_to_bits": "static inline uint8_t base_to_bits(char base)\n{\n    switch (base)\n    {\n    case 'A':\n    case 'a':\n        return 0;\n    case 'C':\n    case 'c':\n        return 1;\n    case 'G':\n    case 'g':\n        return 2;\n    case 'T':\n    case 't':\n        return 3;\n    default:\n        return 0;\n    }\n}",
+          "complement_base": "static inline uint8_t complement_base(uint8_t base)\n{\n    return 3 - base;\n}",
+          "add_minimizer": "static void add_minimizer(MinimizerResult *results, int *size, __uint128_t minimizer_hash, size_t kmer_position,\n                          size_t smer_position)\n{\n    results[*size].minimizer_hash = minimizer_hash;\n    results[*size].kmer_position = kmer_position;\n    results[*size].smer_position = smer_position;\n    (*size)++;\n}",
+          "compute_closed_syncmers": "void compute_closed_syncmers(const char *sequence_input, int len, int K, int S, MinimizerResult *results,\n                             int *num_results)\n{\n    *num_results = 0;\n    if (len < K)\n    {\n        fprintf(stderr, \"Sequence length is less than K\\n\");\n        return;\n    }\n    size_t num_s_mers = len - S + 1;\n    __uint128_t *s_mer_hashes = (__uint128_t *)malloc(num_s_mers * sizeof(__uint128_t));\n    __uint128_t mask = (((__uint128_t)1) << (2 * S)) - 1;\n    __uint128_t hash_fwd = 0, hash_rev = 0;\n    __uint128_t rc_shift = 2 * (S - 1);\n    for (size_t i = 0; i < len; i++)\n    {\n        uint8_t base = base_to_bits(sequence_input[i]);\n        hash_fwd = ((hash_fwd << 2) | base) & mask;\n        uint8_t comp_base = complement_base(base);\n        hash_rev = ((hash_rev >> 2) | ((__uint128_t)comp_base << rc_shift)) & mask;\n        if (i >= S - 1)\n        {\n            size_t s_mer_pos = i - S + 1;\n            __uint128_t canonical_hash = (hash_fwd < hash_rev) ? hash_fwd : hash_rev;\n            s_mer_hashes[s_mer_pos] = canonical_hash;\n        }\n    }\n    size_t window_size = K - S + 1;\n    size_t *deque = (size_t *)malloc(num_s_mers * sizeof(size_t));\n    size_t front = 0, back = 0;\n    for (size_t i = 0; i < num_s_mers; i++)\n    {\n        while (back > front && s_mer_hashes[deque[back - 1]] > s_mer_hashes[i])\n        {\n            back--;\n        }\n        deque[back++] = i;\n        if (i >= window_size && deque[front] <= i - window_size)\n        {\n            front++;\n        }\n        if (i >= window_size - 1)\n        {\n            size_t min_pos = deque[front];\n            size_t kmer_pos = i - window_size + 1;\n            if (min_pos == kmer_pos || min_pos == kmer_pos + K - S)\n            {\n                add_minimizer(results, num_results, s_mer_hashes[min_pos], kmer_pos, min_pos);\n            }\n        }\n    }\n    free(s_mer_hashes);\n    free(deque);\n}",
+          "compute_closed_syncmers_naive": "void compute_closed_syncmers_naive(const char *sequence, size_t seq_len, int K, int S, MinimizerResult *results,\n                                   int *num_results)\n{\n    *num_results = 0;\n    __uint128_t mask = (((__uint128_t)1) << (2 * S)) - 1;\n    for (size_t i = 0; i <= seq_len - K; i++)\n    {\n        __uint128_t min_hash = ~((__uint128_t)0);\n        size_t min_pos_in_kmer = 0;\n        for (size_t j = 0; j <= K - S; j++)\n        {\n            size_t s_mer_pos = i + j;\n            __uint128_t hash_fwd = 0;\n            __uint128_t hash_rev = 0;\n            for (size_t k = 0; k < S; k++)\n            {\n                uint8_t base = base_to_bits(sequence[s_mer_pos + k]);\n                hash_fwd = (hash_fwd << 2) | base;\n            }\n            hash_fwd &= mask;\n            for (size_t k = 0; k < S; k++)\n            {\n                size_t pos = s_mer_pos + S - 1 - k;\n                uint8_t base = base_to_bits(sequence[pos]);\n                uint8_t comp_base = complement_base(base);\n                hash_rev = (hash_rev << 2) | comp_base;\n            }\n            hash_rev &= mask;\n            __uint128_t canonical_hash = (hash_fwd < hash_rev) ? hash_fwd : hash_rev;\n            if (canonical_hash < min_hash)\n            {\n                min_hash = canonical_hash;\n                min_pos_in_kmer = j;\n            }\n        }\n        if (min_pos_in_kmer == 0 || min_pos_in_kmer == K - S)\n        {\n            results[*num_results].kmer_position = i;\n            results[*num_results].smer_position = i + min_pos_in_kmer;\n            results[*num_results].minimizer_hash = min_hash;\n            (*num_results)++;\n        }\n    }\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "src/closed_syncmers.i": {
+      "relative_path": "src/closed_syncmers.i",
+      "original_file": "src/closed_syncmers.h",
+      "includes": [],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "MinimizerResult": "typedef struct\n{\n    __uint128_t minimizer_hash;\n    size_t kmer_position;\n    size_t smer_position;\n} MinimizerResult;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "base_to_bits": "static inline uint8_t base_to_bits(char base)\n{\n    switch (base)\n    {\n    case 'A':\n    case 'a':\n        return 0;\n    case 'C':\n    case 'c':\n        return 1;\n    case 'G':\n    case 'g':\n        return 2;\n    case 'T':\n    case 't':\n        return 3;\n    default:\n        return 0;\n    }\n}",
+          "complement_base": "static inline uint8_t complement_base(uint8_t base)\n{\n    return 3 - base;\n}",
+          "add_minimizer": "static void add_minimizer(MinimizerResult *results, int *size, __uint128_t minimizer_hash, size_t kmer_position,\n                          size_t smer_position)\n{\n    results[*size].minimizer_hash = minimizer_hash;\n    results[*size].kmer_position = kmer_position;\n    results[*size].smer_position = smer_position;\n    (*size)++;\n}",
+          "compute_closed_syncmers": "void compute_closed_syncmers(const char *sequence_input, int len, int K, int S, MinimizerResult *results,\n                             int *num_results)\n{\n    *num_results = 0;\n    if (len < K)\n    {\n        fprintf(stderr, \"Sequence length is less than K\\n\");\n        return;\n    }\n    size_t num_s_mers = len - S + 1;\n    __uint128_t *s_mer_hashes = (__uint128_t *)malloc(num_s_mers * sizeof(__uint128_t));\n    __uint128_t mask = (((__uint128_t)1) << (2 * S)) - 1;\n    __uint128_t hash_fwd = 0, hash_rev = 0;\n    __uint128_t rc_shift = 2 * (S - 1);\n    for (size_t i = 0; i < len; i++)\n    {\n        uint8_t base = base_to_bits(sequence_input[i]);\n        hash_fwd = ((hash_fwd << 2) | base) & mask;\n        uint8_t comp_base = complement_base(base);\n        hash_rev = ((hash_rev >> 2) | ((__uint128_t)comp_base << rc_shift)) & mask;\n        if (i >= S - 1)\n        {\n            size_t s_mer_pos = i - S + 1;\n            __uint128_t canonical_hash = (hash_fwd < hash_rev) ? hash_fwd : hash_rev;\n            s_mer_hashes[s_mer_pos] = canonical_hash;\n        }\n    }\n    size_t window_size = K - S + 1;\n    size_t *deque = (size_t *)malloc(num_s_mers * sizeof(size_t));\n    size_t front = 0, back = 0;\n    for (size_t i = 0; i < num_s_mers; i++)\n    {\n        while (back > front && s_mer_hashes[deque[back - 1]] > s_mer_hashes[i])\n        {\n            back--;\n        }\n        deque[back++] = i;\n        if (i >= window_size && deque[front] <= i - window_size)\n        {\n            front++;\n        }\n        if (i >= window_size - 1)\n        {\n            size_t min_pos = deque[front];\n            size_t kmer_pos = i - window_size + 1;\n            if (min_pos == kmer_pos || min_pos == kmer_pos + K - S)\n            {\n                add_minimizer(results, num_results, s_mer_hashes[min_pos], kmer_pos, min_pos);\n            }\n        }\n    }\n    free(s_mer_hashes);\n    free(deque);\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

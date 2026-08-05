@@ -1,0 +1,921 @@
+{
+    "leftpad": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 34,
+        "functions": 1,
+        "pointer_references": 6,
+        "test_cases": 20,
+        "test_files": 2
+    },
+    "morton": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 58,
+        "functions": 3,
+        "pointer_references": 0,
+        "test_cases": 20,
+        "test_files": 2,
+        "code_coverage": 100.0
+    },
+    "geofence": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 67,
+        "functions": 4,
+        "pointer_references": 9,
+        "test_cases": 0,
+        "test_files": 1
+    },
+    "amp": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 73,
+        "functions": 5,
+        "pointer_references": 21,
+        "test_cases": 10,
+        "test_files": 1
+    },
+    "ulidgen": {
+        "c_files": 2,
+        "h_files": 1,
+        "lines_of_code": 73,
+        "functions": 2,
+        "pointer_references": 10,
+        "test_cases": 24,
+        "test_files": 1
+    },
+    "NandC": {
+        "c_files": 1,
+        "h_files": 0,
+        "lines_of_code": 82,
+        "functions": 12,
+        "pointer_references": 18,
+        "test_cases": 4,
+        "test_files": 1
+    },
+    "avalanche": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 87,
+        "functions": 4,
+        "pointer_references": 20,
+        "test_cases": 10,
+        "test_files": 2
+    },
+    "libqueue": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 100,
+        "functions": 7,
+        "pointer_references": 31,
+        "test_cases": 16,
+        "test_files": 2,
+        "code_coverage": 0.0
+    },
+    "Phills_DHT": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 102,
+        "functions": 8,
+        "pointer_references": 9,
+        "test_cases": 40,
+        "test_files": 1,
+        "code_coverage": 79.27927927927928
+    },
+    "bitset": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 116,
+        "functions": 14,
+        "pointer_references": 46,
+        "test_cases": 246,
+        "test_files": 1
+    },
+    "chtrie": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 117,
+        "functions": 4,
+        "pointer_references": 23,
+        "test_cases": 2,
+        "test_files": 1,
+        "code_coverage": 39.02439024390244
+    },
+    "gfc": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 125,
+        "functions": 9,
+        "pointer_references": 16,
+        "test_cases": 18,
+        "test_files": 2
+    },
+    "csyncmers": {
+        "c_files": 0,
+        "h_files": 2,
+        "lines_of_code": 126,
+        "functions": 5,
+        "pointer_references": 23,
+        "test_cases": 0,
+        "test_files": 2
+    },
+    "file2str": {
+        "c_files": 1,
+        "h_files": 2,
+        "lines_of_code": 145,
+        "functions": 2,
+        "pointer_references": 73,
+        "test_cases": 2,
+        "test_files": 2
+    },
+    "fft": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 151,
+        "functions": 7,
+        "pointer_references": 12,
+        "test_cases": 2,
+        "test_files": 1,
+        "code_coverage": 72.97297297297297
+    },
+    "42-Kocaeli-Printf": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 160,
+        "functions": 8,
+        "pointer_references": 38,
+        "test_cases": 72,
+        "test_files": 2
+    },
+    "Math-Library-in-C": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 174,
+        "functions": 16,
+        "pointer_references": 0,
+        "test_cases": 32,
+        "test_files": 1
+    },
+    "utf8": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 184,
+        "functions": 13,
+        "pointer_references": 26,
+        "test_cases": 284,
+        "test_files": 1
+    },
+    "FastHamming": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 184,
+        "functions": 5,
+        "pointer_references": 32,
+        "test_cases": 107,
+        "test_files": 4
+    },
+    "libvcd": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 186,
+        "functions": 8,
+        "pointer_references": 50,
+        "test_cases": 0,
+        "test_files": 1,
+        "code_coverage": 80.91603053435115
+    },
+    "murmurhash_c": {
+        "c_files": 3,
+        "h_files": 1,
+        "lines_of_code": 186,
+        "functions": 7,
+        "pointer_references": 19,
+        "test_cases": 1,
+        "test_files": 1,
+        "code_coverage": 10.126582278481013
+    },
+    "coroutine": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 191,
+        "functions": 11,
+        "pointer_references": 48,
+        "test_cases": 0,
+        "test_files": 1,
+        "code_coverage": 90.69767441860465
+    },
+    "totp": {
+        "c_files": 3,
+        "h_files": 2,
+        "lines_of_code": 197,
+        "functions": 13,
+        "pointer_references": 31,
+        "test_cases": 35,
+        "test_files": 1
+    },
+    "vec": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 204,
+        "functions": 8,
+        "pointer_references": 103,
+        "test_cases": 274,
+        "test_files": 1
+    },
+    "hydra": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 210,
+        "functions": 14,
+        "pointer_references": 110,
+        "test_cases": 18,
+        "test_files": 1,
+        "code_coverage": 24.836601307189543
+    },
+    "CircularBuffer": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 213,
+        "functions": 11,
+        "pointer_references": 18,
+        "test_cases": 36,
+        "test_files": 1,
+        "code_coverage": 100.0
+    },
+    "libwecan": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 217,
+        "functions": 12,
+        "pointer_references": 44,
+        "test_cases": 122,
+        "test_files": 1
+    },
+    "ljmm": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 218,
+        "functions": 9,
+        "pointer_references": 21,
+        "test_cases": 2,
+        "test_files": 2
+    },
+    "rhbloom": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 222,
+        "functions": 12,
+        "pointer_references": 34,
+        "test_cases": 13,
+        "test_files": 1
+    },
+    "rect_pack_h": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 246,
+        "functions": 13,
+        "pointer_references": 41,
+        "test_cases": 22,
+        "test_files": 1
+    },
+    "btree-map": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 258,
+        "functions": 19,
+        "pointer_references": 81,
+        "test_cases": 92,
+        "test_files": 1
+    },
+    "c-string": {
+        "c_files": 0,
+        "h_files": 1,
+        "lines_of_code": 259,
+        "functions": 17,
+        "pointer_references": 56,
+        "test_cases": 74,
+        "test_files": 2
+    },
+    "fs_c": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 269,
+        "functions": 25,
+        "pointer_references": 89,
+        "test_cases": 70,
+        "test_files": 1,
+        "code_coverage": 73.40425531914893
+    },
+    "2DPartInt": {
+        "c_files": 2,
+        "h_files": 7,
+        "lines_of_code": 299,
+        "functions": 15,
+        "pointer_references": 103,
+        "test_cases": 116,
+        "test_files": 1
+    },
+    "libbase122": {
+        "c_files": 1,
+        "h_files": 2,
+        "lines_of_code": 299,
+        "functions": 8,
+        "pointer_references": 34,
+        "test_cases": 113,
+        "test_files": 5
+    },
+    "aes128-SIMD": {
+        "c_files": 7,
+        "h_files": 1,
+        "lines_of_code": 308,
+        "functions": 14,
+        "pointer_references": 51,
+        "test_cases": 2,
+        "test_files": 1
+    },
+    "hamta": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 310,
+        "functions": 20,
+        "pointer_references": 94,
+        "test_cases": 33,
+        "test_files": 2,
+        "code_coverage": 0.0
+    },
+    "kd3": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 339,
+        "functions": 26,
+        "pointer_references": 145,
+        "test_cases": 4,
+        "test_files": 1
+    },
+    "libbeaufort": {
+        "c_files": 5,
+        "h_files": 2,
+        "lines_of_code": 345,
+        "functions": 16,
+        "pointer_references": 44,
+        "test_cases": 32,
+        "test_files": 1
+    },
+    "Simple-Sparsehash": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 347,
+        "functions": 20,
+        "pointer_references": 88,
+        "test_cases": 75,
+        "test_files": 1
+    },
+    "SimpleXML": {
+        "c_files": 2,
+        "h_files": 2,
+        "lines_of_code": 364,
+        "functions": 24,
+        "pointer_references": 105,
+        "test_cases": 51,
+        "test_files": 1
+    },
+    "quadtree": {
+        "c_files": 5,
+        "h_files": 1,
+        "lines_of_code": 386,
+        "functions": 29,
+        "pointer_references": 115,
+        "test_cases": 38,
+        "test_files": 1
+    },
+    "clog": {
+        "c_files": 0,
+        "h_files": 2,
+        "lines_of_code": 388,
+        "functions": 18,
+        "pointer_references": 77,
+        "test_cases": 22,
+        "test_files": 1,
+        "code_coverage": 81.11111111111111
+    },
+    "Graph-recogniser": {
+        "c_files": 3,
+        "h_files": 7,
+        "lines_of_code": 396,
+        "functions": 29,
+        "pointer_references": 90,
+        "test_cases": 8,
+        "test_files": 4
+    },
+    "Holdem-Odds": {
+        "c_files": 5,
+        "h_files": 6,
+        "lines_of_code": 403,
+        "functions": 31,
+        "pointer_references": 112,
+        "test_cases": 50,
+        "test_files": 6
+    },
+    "SlothLang": {
+        "c_files": 5,
+        "h_files": 4,
+        "lines_of_code": 431,
+        "functions": 15,
+        "pointer_references": 46,
+        "test_cases": 7,
+        "test_files": 1
+    },
+    "gorilla-paper-encode": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 441,
+        "functions": 22,
+        "pointer_references": 77,
+        "test_cases": 5,
+        "test_files": 2,
+        "code_coverage": 82.13058419243985
+    },
+    "bhshell": {
+        "c_files": 5,
+        "h_files": 4,
+        "lines_of_code": 444,
+        "functions": 18,
+        "pointer_references": 107,
+        "test_cases": 46,
+        "test_files": 1
+    },
+    "roaring-bitmap": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 449,
+        "functions": 35,
+        "pointer_references": 122,
+        "test_cases": 175,
+        "test_files": 2
+    },
+    "clhash": {
+        "c_files": 3,
+        "h_files": 1,
+        "lines_of_code": 456,
+        "functions": 23,
+        "pointer_references": 44,
+        "test_cases": 18,
+        "test_files": 1
+    },
+    "bostree": {
+        "c_files": 1,
+        "h_files": 2,
+        "lines_of_code": 484,
+        "functions": 18,
+        "pointer_references": 95,
+        "test_cases": 24,
+        "test_files": 5,
+        "code_coverage": 50.0
+    },
+    "matrix_multiplication": {
+        "c_files": 3,
+        "h_files": 2,
+        "lines_of_code": 565,
+        "functions": 11,
+        "pointer_references": 104,
+        "test_cases": 38,
+        "test_files": 1
+    },
+    "lib2bit": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 579,
+        "functions": 22,
+        "pointer_references": 114,
+        "test_cases": 6,
+        "test_files": 1,
+        "code_coverage": 76.2532981530343
+    },
+    "cset": {
+        "c_files": 0,
+        "h_files": 1,
+        "lines_of_code": 598,
+        "functions": 17,
+        "pointer_references": 22,
+        "test_cases": 160,
+        "test_files": 1
+    },
+    "carrays": {
+        "c_files": 1,
+        "h_files": 2,
+        "lines_of_code": 618,
+        "functions": 41,
+        "pointer_references": 330,
+        "test_cases": 284,
+        "test_files": 1
+    },
+    "rbtree-lab": {
+        "c_files": 7,
+        "h_files": 1,
+        "lines_of_code": 620,
+        "functions": 33,
+        "pointer_references": 103,
+        "test_cases": 346,
+        "test_files": 4
+    },
+    "rubiksolver": {
+        "c_files": 4,
+        "h_files": 4,
+        "lines_of_code": 643,
+        "functions": 32,
+        "pointer_references": 58,
+        "test_cases": 1,
+        "test_files": 3
+    },
+    "simple_lang": {
+        "c_files": 8,
+        "h_files": 9,
+        "lines_of_code": 656,
+        "functions": 29,
+        "pointer_references": 158,
+        "test_cases": 46,
+        "test_files": 3
+    },
+    "bigint": {
+        "c_files": 0,
+        "h_files": 1,
+        "lines_of_code": 669,
+        "functions": 35,
+        "pointer_references": 40,
+        "test_cases": 60,
+        "test_files": 3
+    },
+    "cJSON": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 674,
+        "functions": 58,
+        "pointer_references": 486,
+        "test_cases": 2,
+        "test_files": 2
+    },
+    "satc": {
+        "c_files": 0,
+        "h_files": 1,
+        "lines_of_code": 688,
+        "functions": 47,
+        "pointer_references": 188,
+        "test_cases": 31,
+        "test_files": 1
+    },
+    "inversion_list": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 695,
+        "functions": 47,
+        "pointer_references": 189,
+        "test_cases": 248,
+        "test_files": 15
+    },
+    "blt": {
+        "c_files": 3,
+        "h_files": 3,
+        "lines_of_code": 697,
+        "functions": 77,
+        "pointer_references": 278,
+        "test_cases": 18,
+        "test_files": 2
+    },
+    "Simple-Config": {
+        "c_files": 3,
+        "h_files": 1,
+        "lines_of_code": 719,
+        "functions": 51,
+        "pointer_references": 181,
+        "test_cases": 95,
+        "test_files": 11
+    },
+    "libtinyfseq": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 726,
+        "functions": 8,
+        "pointer_references": 70,
+        "test_cases": 8,
+        "test_files": 6
+    },
+    "approxidate": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 735,
+        "functions": 28,
+        "pointer_references": 195,
+        "test_cases": 2,
+        "test_files": 1
+    },
+    "ted": {
+        "c_files": 4,
+        "h_files": 3,
+        "lines_of_code": 815,
+        "functions": 41,
+        "pointer_references": 100,
+        "test_cases": 104,
+        "test_files": 1
+    },
+    "c-aces": {
+        "c_files": 6,
+        "h_files": 10,
+        "lines_of_code": 817,
+        "functions": 51,
+        "pointer_references": 274,
+        "test_cases": 156,
+        "test_files": 5
+    },
+    "merkle-tree-c": {
+        "c_files": 0,
+        "h_files": 2,
+        "lines_of_code": 840,
+        "functions": 40,
+        "pointer_references": 188,
+        "test_cases": 43,
+        "test_files": 1
+    },
+    "dict": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 843,
+        "functions": 17,
+        "pointer_references": 146,
+        "test_cases": 0,
+        "test_files": 6
+    },
+    "fleur": {
+        "c_files": 4,
+        "h_files": 3,
+        "lines_of_code": 887,
+        "functions": 16,
+        "pointer_references": 74,
+        "test_cases": 32,
+        "test_files": 2
+    },
+    "c-blind-rsa-signatures": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 893,
+        "functions": 39,
+        "pointer_references": 226,
+        "test_cases": 28,
+        "test_files": 1
+    },
+    "cissy": {
+        "c_files": 4,
+        "h_files": 3,
+        "lines_of_code": 903,
+        "functions": 28,
+        "pointer_references": 148,
+        "test_cases": 40,
+        "test_files": 3
+    },
+    "Linear-Algebra-C": {
+        "c_files": 3,
+        "h_files": 2,
+        "lines_of_code": 915,
+        "functions": 87,
+        "pointer_references": 377,
+        "test_cases": 49,
+        "test_files": 1
+    },
+    "emlang": {
+        "c_files": 7,
+        "h_files": 6,
+        "lines_of_code": 934,
+        "functions": 47,
+        "pointer_references": 139,
+        "test_cases": 8,
+        "test_files": 1
+    },
+    "expr": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 941,
+        "functions": 20,
+        "pointer_references": 95,
+        "test_cases": 0,
+        "test_files": 1
+    },
+    "mvptree": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 1121,
+        "functions": 27,
+        "pointer_references": 319,
+        "test_cases": 26,
+        "test_files": 2
+    },
+    "VaultSync": {
+        "c_files": 10,
+        "h_files": 10,
+        "lines_of_code": 1121,
+        "functions": 41,
+        "pointer_references": 237,
+        "test_cases": 25,
+        "test_files": 5
+    },
+    "razz_simulation": {
+        "c_files": 3,
+        "h_files": 2,
+        "lines_of_code": 1145,
+        "functions": 45,
+        "pointer_references": 248,
+        "test_cases": 138,
+        "test_files": 1
+    },
+    "Remimu": {
+        "c_files": 0,
+        "h_files": 1,
+        "lines_of_code": 1162,
+        "functions": 3,
+        "pointer_references": 12,
+        "test_cases": 0,
+        "test_files": 1
+    },
+    "libpgn": {
+        "c_files": 12,
+        "h_files": 14,
+        "lines_of_code": 1162,
+        "functions": 64,
+        "pointer_references": 344,
+        "test_cases": 952,
+        "test_files": 9
+    },
+    "LTRE": {
+        "c_files": 3,
+        "h_files": 1,
+        "lines_of_code": 1212,
+        "functions": 45,
+        "pointer_references": 522,
+        "test_cases": 0,
+        "test_files": 1,
+        "code_coverage": 53.89257694628847
+    },
+    "lambda-calculus-eval": {
+        "c_files": 7,
+        "h_files": 8,
+        "lines_of_code": 1264,
+        "functions": 70,
+        "pointer_references": 404,
+        "test_cases": 202,
+        "test_files": 8
+    },
+    "jccc": {
+        "c_files": 7,
+        "h_files": 15,
+        "lines_of_code": 1310,
+        "functions": 60,
+        "pointer_references": 190,
+        "test_cases": 25,
+        "test_files": 11
+    },
+    "libpsbt": {
+        "c_files": 5,
+        "h_files": 6,
+        "lines_of_code": 1331,
+        "functions": 60,
+        "pointer_references": 290,
+        "test_cases": 12,
+        "test_files": 1
+    },
+    "mdb": {
+        "c_files": 2,
+        "h_files": 2,
+        "lines_of_code": 1340,
+        "functions": 28,
+        "pointer_references": 140,
+        "test_cases": 12,
+        "test_files": 2
+    },
+    "Genetic-neural-network-for-simple-control": {
+        "c_files": 14,
+        "h_files": 14,
+        "lines_of_code": 1367,
+        "functions": 65,
+        "pointer_references": 291,
+        "test_cases": 6,
+        "test_files": 22
+    },
+    "impcheck": {
+        "c_files": 15,
+        "h_files": 12,
+        "lines_of_code": 1397,
+        "functions": 105,
+        "pointer_references": 293,
+        "test_cases": 167,
+        "test_files": 4
+    },
+    "cfsm": {
+        "c_files": 1,
+        "h_files": 12,
+        "lines_of_code": 1446,
+        "functions": 4,
+        "pointer_references": 68,
+        "test_cases": 22,
+        "test_files": 9,
+        "code_coverage": 69.48051948051948
+    },
+    "worsp": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 1494,
+        "functions": 62,
+        "pointer_references": 364,
+        "test_cases": 744,
+        "test_files": 3
+    },
+    "libutf": {
+        "c_files": 30,
+        "h_files": 3,
+        "lines_of_code": 1525,
+        "functions": 81,
+        "pointer_references": 320,
+        "test_cases": 190,
+        "test_files": 12
+    },
+    "skp": {
+        "c_files": 1,
+        "h_files": 1,
+        "lines_of_code": 1575,
+        "functions": 74,
+        "pointer_references": 202,
+        "test_cases": 60,
+        "test_files": 3
+    },
+    "kairoCompiler": {
+        "c_files": 9,
+        "h_files": 3,
+        "lines_of_code": 1589,
+        "functions": 136,
+        "pointer_references": 397,
+        "test_cases": 0,
+        "test_files": 3
+    },
+    "fslib": {
+        "c_files": 15,
+        "h_files": 9,
+        "lines_of_code": 1958,
+        "functions": 103,
+        "pointer_references": 585,
+        "test_cases": 21,
+        "test_files": 3
+    },
+    "XOpt": {
+        "c_files": 2,
+        "h_files": 1,
+        "lines_of_code": 2113,
+        "functions": 23,
+        "pointer_references": 318,
+        "test_cases": 0,
+        "test_files": 2
+    },
+    "recordManager": {
+        "c_files": 7,
+        "h_files": 9,
+        "lines_of_code": 2400,
+        "functions": 82,
+        "pointer_references": 514,
+        "test_cases": 86,
+        "test_files": 2
+    },
+    "libm17": {
+        "c_files": 7,
+        "h_files": 3,
+        "lines_of_code": 2901,
+        "functions": 45,
+        "pointer_references": 154,
+        "test_cases": 25,
+        "test_files": 2
+    },
+    "tisp": {
+        "c_files": 7,
+        "h_files": 2,
+        "lines_of_code": 3562,
+        "functions": 100,
+        "pointer_references": 107,
+        "test_cases": 0,
+        "test_files": 1
+    },
+    "Megalania": {
+        "c_files": 17,
+        "h_files": 24,
+        "lines_of_code": 3621,
+        "functions": 101,
+        "pointer_references": 448,
+        "test_cases": 42,
+        "test_files": 4
+    },
+    "libfor": {
+        "c_files": 3,
+        "h_files": 1,
+        "lines_of_code": 25436,
+        "functions": 418,
+        "pointer_references": 12664,
+        "test_cases": 0,
+        "test_files": 1,
+        "code_coverage": 92.66398783666378
+    }
+}

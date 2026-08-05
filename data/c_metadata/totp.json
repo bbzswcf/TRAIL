@@ -1,0 +1,81 @@
+{
+  "project_name": "totp",
+  "files": {
+    "totp.i": {
+      "relative_path": "totp.i",
+      "original_file": "totp.c",
+      "includes": [
+        "totp.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {
+          "TOTP_OK": "enum\n{\n    TOTP_OK,\n    TOTP_EBOUNDS\n}",
+          "TOTP_EBOUNDS": "enum\n{\n    TOTP_OK,\n    TOTP_EBOUNDS\n}"
+        },
+        "functions": {
+          "unpack32": "static inline void unpack32(uint32_t x, uint8_t a[4])\n{\n    a[0] = (uint8_t)(x >> 24);\n    a[1] = (uint8_t)(x >> 16);\n    a[2] = (uint8_t)(x >> 8);\n    a[3] = (uint8_t)x;\n}",
+          "unpack64": "static inline void unpack64(uint64_t x, uint8_t a[8])\n{\n    unpack32((uint32_t)(x >> 32), &a[0]);\n    unpack32((uint32_t)x, &a[4]);\n}",
+          "pack32": "static inline uint32_t pack32(const uint8_t a[4])\n{\n    return (a[0] << 24) | (a[1] << 16) | (a[2] << 8) | a[3];\n}",
+          "rotl": "static inline uint32_t rotl(uint32_t x, int n)\n{\n    return x << n | x >> (32 - n);\n}",
+          "sha1": "int sha1(uint8_t *buf, size_t len, size_t cap, uint8_t hash[20])\n{\n    static const uint32_t k[] = {0x5A827999, 0x6ED9EBA1, 0x8F1BBCDC, 0xCA62C1D6};\n    size_t new_len, i, t;\n    uint32_t h[5], w[80];\n    uint32_t a, b, c, d, e, f, T;\n    if (len > (18446744073709551615UL) - 9 - 63)\n        return TOTP_EBOUNDS;\n    new_len = (len + 9 + 63) / 64 * 64;\n    if (new_len > cap)\n        return TOTP_EBOUNDS;\n    memset(buf + len, 0, new_len - len);\n    buf[len] = 1 << 7;\n    unpack64(len * 8, &buf[new_len - 8]);\n    h[0] = 0x67452301;\n    h[1] = 0xEFCDAB89;\n    h[2] = 0x98BADCFE;\n    h[3] = 0x10325476;\n    h[4] = 0xC3D2E1F0;\n    for (i = 0; i < new_len / 64; i++)\n    {\n        for (t = 0; t < 16; t++)\n            w[t] = pack32(&buf[i * 64 + t * 4]);\n        for (; t < 80; t++)\n            w[t] = rotl(w[t - 3] ^ w[t - 8] ^ w[t - 14] ^ w[t - 16], 1);\n        a = h[0];\n        b = h[1];\n        c = h[2];\n        d = h[3];\n        e = h[4];\n        for (t = 0; t < 80; t++)\n        {\n            f = t < 20 ? (b & c) ^ (~b & d) : t < 40 ? b ^ c ^ d : t < 60 ? (b & c) ^ (b & d) ^ (c & d) : b ^ c ^ d;\n            T = rotl(a, 5) + f + e + k[t / 20] + w[t];\n            e = d;\n            d = c;\n            c = rotl(b, 30);\n            b = a;\n            a = T;\n        }\n        h[0] += a;\n        h[1] += b;\n        h[2] += c;\n        h[3] += d;\n        h[4] += e;\n    }\n    for (i = 0; i < 5; i++)\n        unpack32(h[i], &hash[i * 4]);\n    return TOTP_OK;\n}",
+          "hmac_sha1": "int hmac_sha1(const uint8_t key[64], const uint8_t *data, size_t len, uint8_t hash[20])\n{\n    uint8_t buf[196];\n    size_t i;\n    if (len > 64)\n        return TOTP_EBOUNDS;\n    for (i = 0; i < 64; i++)\n        buf[i] = key[i] ^ 0x36;\n    memcpy(&buf[64], data, len);\n    sha1(buf, 64 + len, sizeof(buf), hash);\n    for (i = 0; i < 64; i++)\n        buf[i] = key[i] ^ 0x5C;\n    memcpy(&buf[64], hash, 20);\n    sha1(buf, 64 + 20, sizeof(buf), hash);\n    return TOTP_OK;\n}",
+          "hotp": "int hotp(const uint8_t key[64], uint64_t counter)\n{\n    uint8_t data[8], hash[20];\n    uint32_t trunc;\n    unpack64(counter, data);\n    hmac_sha1(key, data, 8, hash);\n    trunc = pack32(&hash[hash[19] & 0xF]) & 0x7FFFFFFF;\n    return (int)(trunc % 1000000);\n}",
+          "totp": "int totp(const uint8_t key[64], uint64_t time)\n{\n    return hotp(key, time / 30);\n}",
+          "from_base32": "size_t from_base32(const char *s, uint8_t *buf, size_t cap)\n{\n    size_t i, j;\n    uint8_t v[8];\n    char c;\n    if (strlen(s) % 8)\n        return 0;\n    if (cap < (strlen(s) + 1) / 8 * 5)\n        return 0;\n    for (i = 0; s[i * 8]; i++)\n    {\n        for (j = 0; j < 8; j++)\n            if ((c = s[i * 8 + j]) == '=')\n                v[j] = 0;\n            else if (c >= 'A' && c <= 'Z')\n                v[j] = c - 'A';\n            else if (c >= 'a' && c <= 'z')\n                v[j] = c - 'a';\n            else if (c >= '2' && c <= '7')\n                v[j] = c - '2' + 26;\n            else\n                return 0;\n        buf[i * 5] = (v[0] << 3) | (v[1] >> 2);\n        buf[i * 5 + 1] = (v[1] << 6) | (v[2] << 1) | (v[3] >> 4);\n        buf[i * 5 + 2] = (v[3] << 4) | (v[4] >> 1);\n        buf[i * 5 + 3] = (v[4] << 7) | (v[5] << 2) | (v[6] >> 3);\n        buf[i * 5 + 4] = (v[6] << 5) | v[7];\n        if (s[i * 8 + 2] == '=')\n            return i * 5 + 1;\n        if (s[i * 8 + 4] == '=')\n            return i * 5 + 2;\n        if (s[i * 8 + 5] == '=')\n            return i * 5 + 3;\n        if (s[i * 8 + 7] == '=')\n            return i * 5 + 4;\n    }\n    return i * 5;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "std.i": {
+      "relative_path": "std.i",
+      "original_file": "std.c",
+      "includes": [
+        "std.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "memset": "void *memset(void *s, int c, size_t n)\n{\n    size_t i;\n    for (i = 0; i < n; i++)\n        ((uint8_t *)s)[i] = (uint8_t)c;\n    return s;\n}",
+          "memcpy": "void *memcpy(void *dst, const void *src, size_t n)\n{\n    size_t i;\n    for (i = 0; i < n; i++)\n        ((uint8_t *)dst)[i] = ((uint8_t *)src)[i];\n    return dst;\n}",
+          "strlen": "size_t strlen(const char *s)\n{\n    size_t i;\n    for (i = 0; s[i]; i++)\n        ;\n    return i;\n}"
+        },
+        "typedefs": {
+          "uint8_t": "typedef unsigned char uint8_t;",
+          "uint32_t": "typedef unsigned int uint32_t;",
+          "uint64_t": "typedef unsigned long long uint64_t;",
+          "size_t": "typedef unsigned long size_t;"
+        }
+      }
+    },
+    "main.i": {
+      "relative_path": "main.i",
+      "original_file": "main.c",
+      "includes": [
+        "totp.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {
+          "TOTP_OK": "enum\n{\n    TOTP_OK,\n    TOTP_EBOUNDS\n}",
+          "TOTP_EBOUNDS": "enum\n{\n    TOTP_OK,\n    TOTP_EBOUNDS\n}"
+        },
+        "functions": {
+          "unpack32": "static inline void unpack32(uint32_t x, uint8_t a[4])\n{\n    a[0] = (uint8_t)(x >> 24);\n    a[1] = (uint8_t)(x >> 16);\n    a[2] = (uint8_t)(x >> 8);\n    a[3] = (uint8_t)x;\n}",
+          "unpack64": "static inline void unpack64(uint64_t x, uint8_t a[8])\n{\n    unpack32((uint32_t)(x >> 32), &a[0]);\n    unpack32((uint32_t)x, &a[4]);\n}",
+          "pack32": "static inline uint32_t pack32(const uint8_t a[4])\n{\n    return (a[0] << 24) | (a[1] << 16) | (a[2] << 8) | a[3];\n}",
+          "rotl": "static inline uint32_t rotl(uint32_t x, int n)\n{\n    return x << n | x >> (32 - n);\n}",
+          "main": "int main(int argc, char **argv)\n{\n    const char *seed;\n    uint8_t key[64];\n    if (argc != 2)\n    {\n        fprintf(stderr, \"usage: totp [seed in base32]\\n\");\n        return 64;\n    }\n    seed = argv[1];\n    memset(key, 0, sizeof(key));\n    if (!from_base32(seed, key, sizeof(key)))\n    {\n        fprintf(stderr, \"invalid seed\\n\");\n        return 64;\n    }\n    printf(\"%06d\\n\", totp(key, time(((void *)0))));\n    return 0;\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

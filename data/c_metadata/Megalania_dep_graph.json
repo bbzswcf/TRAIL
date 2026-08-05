@@ -1,0 +1,2208 @@
+{
+  "nodes": [
+    {
+      "id": "src/range_encoder.i::structs::EncoderInterface",
+      "file": "src/range_encoder.i",
+      "module_type": "structs",
+      "name": "EncoderInterface"
+    },
+    {
+      "id": "src/range_encoder.i::structs::EncoderInterface_struct",
+      "file": "src/range_encoder.i",
+      "module_type": "structs",
+      "name": "EncoderInterface_struct"
+    },
+    {
+      "id": "src/range_encoder.i::structs::OutputInterface",
+      "file": "src/range_encoder.i",
+      "module_type": "structs",
+      "name": "OutputInterface"
+    },
+    {
+      "id": "src/range_encoder.i::structs::OutputInterface_struct",
+      "file": "src/range_encoder.i",
+      "module_type": "structs",
+      "name": "OutputInterface_struct"
+    },
+    {
+      "id": "src/range_encoder.i::structs::RangeEncoderData",
+      "file": "src/range_encoder.i",
+      "module_type": "structs",
+      "name": "RangeEncoderData"
+    },
+    {
+      "id": "src/range_encoder.i::functions::range_encoder_shift_low",
+      "file": "src/range_encoder.i",
+      "module_type": "functions",
+      "name": "range_encoder_shift_low"
+    },
+    {
+      "id": "src/range_encoder.i::functions::range_encoder_flush_data",
+      "file": "src/range_encoder.i",
+      "module_type": "functions",
+      "name": "range_encoder_flush_data"
+    },
+    {
+      "id": "src/range_encoder.i::functions::range_encoder_encode_bit",
+      "file": "src/range_encoder.i",
+      "module_type": "functions",
+      "name": "range_encoder_encode_bit"
+    },
+    {
+      "id": "src/range_encoder.i::functions::range_encoder_encode_direct_bits",
+      "file": "src/range_encoder.i",
+      "module_type": "functions",
+      "name": "range_encoder_encode_direct_bits"
+    },
+    {
+      "id": "src/range_encoder.i::functions::range_encoder_new",
+      "file": "src/range_encoder.i",
+      "module_type": "functions",
+      "name": "range_encoder_new"
+    },
+    {
+      "id": "src/range_encoder.i::functions::range_encoder_free",
+      "file": "src/range_encoder.i",
+      "module_type": "functions",
+      "name": "range_encoder_free"
+    },
+    {
+      "id": "src/packet_slab_neighbour.i::structs::LZMAPacket",
+      "file": "src/packet_slab_neighbour.i",
+      "module_type": "structs",
+      "name": "LZMAPacket"
+    },
+    {
+      "id": "src/packet_slab_neighbour.i::structs::PacketSlab",
+      "file": "src/packet_slab_neighbour.i",
+      "module_type": "structs",
+      "name": "PacketSlab"
+    },
+    {
+      "id": "src/packet_slab_neighbour.i::structs::LengthProbabilityModel",
+      "file": "src/packet_slab_neighbour.i",
+      "module_type": "structs",
+      "name": "LengthProbabilityModel"
+    },
+    {
+      "id": "src/packet_slab_neighbour.i::structs::DistanceProbabilityModel",
+      "file": "src/packet_slab_neighbour.i",
+      "module_type": "structs",
+      "name": "DistanceProbabilityModel"
+    },
+    {
+      "id": "src/packet_slab_neighbour.i::structs::ContextStateProbabilityModel",
+      "file": "src/packet_slab_neighbour.i",
+      "module_type": "structs",
+      "name": "ContextStateProbabilityModel"
+    },
+    {
+      "id": "src/packet_slab_neighbour.i::structs::LZMAProbabilityModel",
+      "file": "src/packet_slab_neighbour.i",
+      "module_type": "structs",
+      "name": "LZMAProbabilityModel"
+    },
+    {
+      "id": "src/packet_slab_neighbour.i::structs::LZMAProperties",
+      "file": "src/packet_slab_neighbour.i",
+      "module_type": "structs",
+      "name": "LZMAProperties"
+    },
+    {
+      "id": "src/packet_slab_neighbour.i::structs::LZMAState",
+      "file": "src/packet_slab_neighbour.i",
+      "module_type": "structs",
+      "name": "LZMAState"
+    },
+    {
+      "id": "src/packet_slab_neighbour.i::structs::PacketSlabUndo",
+      "file": "src/packet_slab_neighbour.i",
+      "module_type": "structs",
+      "name": "PacketSlabUndo"
+    },
+    {
+      "id": "src/packet_slab_neighbour.i::structs::PacketSlabUndoHeap",
+      "file": "src/packet_slab_neighbour.i",
+      "module_type": "structs",
+      "name": "PacketSlabUndoHeap"
+    },
+    {
+      "id": "src/packet_slab_neighbour.i::structs::PacketSlabUndoStack",
+      "file": "src/packet_slab_neighbour.i",
+      "module_type": "structs",
+      "name": "PacketSlabUndoStack"
+    },
+    {
+      "id": "src/packet_slab_neighbour.i::structs::PacketEnumerator",
+      "file": "src/packet_slab_neighbour.i",
+      "module_type": "structs",
+      "name": "PacketEnumerator"
+    },
+    {
+      "id": "src/packet_slab_neighbour.i::structs::TopKPacketFinder",
+      "file": "src/packet_slab_neighbour.i",
+      "module_type": "structs",
+      "name": "TopKPacketFinder"
+    },
+    {
+      "id": "src/packet_slab_neighbour.i::structs::PacketSlabNeighbour",
+      "file": "src/packet_slab_neighbour.i",
+      "module_type": "structs",
+      "name": "PacketSlabNeighbour"
+    },
+    {
+      "id": "src/packet_slab_neighbour.i::typedefs::PacketEnumeratorCallback",
+      "file": "src/packet_slab_neighbour.i",
+      "module_type": "typedefs",
+      "name": "PacketEnumeratorCallback"
+    },
+    {
+      "id": "src/packet_slab_neighbour.i::functions::packet_slab_neighbour_new",
+      "file": "src/packet_slab_neighbour.i",
+      "module_type": "functions",
+      "name": "packet_slab_neighbour_new"
+    },
+    {
+      "id": "src/packet_slab_neighbour.i::functions::packet_slab_neighbour_free",
+      "file": "src/packet_slab_neighbour.i",
+      "module_type": "functions",
+      "name": "packet_slab_neighbour_free"
+    },
+    {
+      "id": "src/packet_slab_neighbour.i::functions::encode_to_packet_number",
+      "file": "src/packet_slab_neighbour.i",
+      "module_type": "functions",
+      "name": "encode_to_packet_number"
+    },
+    {
+      "id": "src/packet_slab_neighbour.i::functions::save_packet_at_position",
+      "file": "src/packet_slab_neighbour.i",
+      "module_type": "functions",
+      "name": "save_packet_at_position"
+    },
+    {
+      "id": "src/packet_slab_neighbour.i::functions::max",
+      "file": "src/packet_slab_neighbour.i",
+      "module_type": "functions",
+      "name": "max"
+    },
+    {
+      "id": "src/packet_slab_neighbour.i::functions::min",
+      "file": "src/packet_slab_neighbour.i",
+      "module_type": "functions",
+      "name": "min"
+    },
+    {
+      "id": "src/packet_slab_neighbour.i::functions::rand_max_dist",
+      "file": "src/packet_slab_neighbour.i",
+      "module_type": "functions",
+      "name": "rand_max_dist"
+    },
+    {
+      "id": "src/packet_slab_neighbour.i::functions::pick_random_next_packet_from_top_k",
+      "file": "src/packet_slab_neighbour.i",
+      "module_type": "functions",
+      "name": "pick_random_next_packet_from_top_k"
+    },
+    {
+      "id": "src/packet_slab_neighbour.i::functions::validate_long_rep_packet",
+      "file": "src/packet_slab_neighbour.i",
+      "module_type": "functions",
+      "name": "validate_long_rep_packet"
+    },
+    {
+      "id": "src/packet_slab_neighbour.i::functions::repair_remaining_packets",
+      "file": "src/packet_slab_neighbour.i",
+      "module_type": "functions",
+      "name": "repair_remaining_packets"
+    },
+    {
+      "id": "src/packet_slab_neighbour.i::functions::mutate_next_packet",
+      "file": "src/packet_slab_neighbour.i",
+      "module_type": "functions",
+      "name": "mutate_next_packet"
+    },
+    {
+      "id": "src/packet_slab_neighbour.i::functions::packet_slab_neighbour_generate",
+      "file": "src/packet_slab_neighbour.i",
+      "module_type": "functions",
+      "name": "packet_slab_neighbour_generate"
+    },
+    {
+      "id": "src/packet_slab_neighbour.i::functions::packet_slab_neighbour_undo",
+      "file": "src/packet_slab_neighbour.i",
+      "module_type": "functions",
+      "name": "packet_slab_neighbour_undo"
+    },
+    {
+      "id": "src/packet_slab_neighbour.i::functions::packet_slab_neighbour_undo_count",
+      "file": "src/packet_slab_neighbour.i",
+      "module_type": "functions",
+      "name": "packet_slab_neighbour_undo_count"
+    },
+    {
+      "id": "src/file_output.i::functions::file_write",
+      "file": "src/file_output.i",
+      "module_type": "functions",
+      "name": "file_write"
+    },
+    {
+      "id": "src/file_output.i::functions::file_output_new",
+      "file": "src/file_output.i",
+      "module_type": "functions",
+      "name": "file_output_new"
+    },
+    {
+      "id": "src/lzma_packet_encoder.i::structs::LZMAPacketHeader",
+      "file": "src/lzma_packet_encoder.i",
+      "module_type": "structs",
+      "name": "LZMAPacketHeader"
+    },
+    {
+      "id": "src/lzma_packet_encoder.i::functions::lzma_encode_packet_header",
+      "file": "src/lzma_packet_encoder.i",
+      "module_type": "functions",
+      "name": "lzma_encode_packet_header"
+    },
+    {
+      "id": "src/lzma_packet_encoder.i::functions::lzma_encode_length",
+      "file": "src/lzma_packet_encoder.i",
+      "module_type": "functions",
+      "name": "lzma_encode_length"
+    },
+    {
+      "id": "src/lzma_packet_encoder.i::functions::get_msb32",
+      "file": "src/lzma_packet_encoder.i",
+      "module_type": "functions",
+      "name": "get_msb32"
+    },
+    {
+      "id": "src/lzma_packet_encoder.i::functions::lzma_encode_distance",
+      "file": "src/lzma_packet_encoder.i",
+      "module_type": "functions",
+      "name": "lzma_encode_distance"
+    },
+    {
+      "id": "src/lzma_packet_encoder.i::functions::lzma_encode_literal",
+      "file": "src/lzma_packet_encoder.i",
+      "module_type": "functions",
+      "name": "lzma_encode_literal"
+    },
+    {
+      "id": "src/lzma_packet_encoder.i::functions::lzma_encode_match",
+      "file": "src/lzma_packet_encoder.i",
+      "module_type": "functions",
+      "name": "lzma_encode_match"
+    },
+    {
+      "id": "src/lzma_packet_encoder.i::functions::lzma_encode_short_rep",
+      "file": "src/lzma_packet_encoder.i",
+      "module_type": "functions",
+      "name": "lzma_encode_short_rep"
+    },
+    {
+      "id": "src/lzma_packet_encoder.i::functions::lzma_encode_long_rep",
+      "file": "src/lzma_packet_encoder.i",
+      "module_type": "functions",
+      "name": "lzma_encode_long_rep"
+    },
+    {
+      "id": "src/lzma_packet_encoder.i::functions::lzma_encode_packet",
+      "file": "src/lzma_packet_encoder.i",
+      "module_type": "functions",
+      "name": "lzma_encode_packet"
+    },
+    {
+      "id": "src/lzma_packet.i::functions::lzma_packet_cmp",
+      "file": "src/lzma_packet.i",
+      "module_type": "functions",
+      "name": "lzma_packet_cmp"
+    },
+    {
+      "id": "src/lzma_packet.i::functions::literal_packet",
+      "file": "src/lzma_packet.i",
+      "module_type": "functions",
+      "name": "literal_packet"
+    },
+    {
+      "id": "src/lzma_packet.i::functions::match_packet",
+      "file": "src/lzma_packet.i",
+      "module_type": "functions",
+      "name": "match_packet"
+    },
+    {
+      "id": "src/lzma_packet.i::functions::short_rep_packet",
+      "file": "src/lzma_packet.i",
+      "module_type": "functions",
+      "name": "short_rep_packet"
+    },
+    {
+      "id": "src/lzma_packet.i::functions::long_rep_packet",
+      "file": "src/lzma_packet.i",
+      "module_type": "functions",
+      "name": "long_rep_packet"
+    },
+    {
+      "id": "src/memory_mapper.i::functions::map_file",
+      "file": "src/memory_mapper.i",
+      "module_type": "functions",
+      "name": "map_file"
+    },
+    {
+      "id": "src/memory_mapper.i::functions::map_anonymous",
+      "file": "src/memory_mapper.i",
+      "module_type": "functions",
+      "name": "map_anonymous"
+    },
+    {
+      "id": "src/memory_mapper.i::functions::unmap",
+      "file": "src/memory_mapper.i",
+      "module_type": "functions",
+      "name": "unmap"
+    },
+    {
+      "id": "src/packet_enumerator.i::structs::SubstringEnumerator",
+      "file": "src/packet_enumerator.i",
+      "module_type": "structs",
+      "name": "SubstringEnumerator"
+    },
+    {
+      "id": "src/packet_enumerator.i::structs::PacketEnumerator_struct",
+      "file": "src/packet_enumerator.i",
+      "module_type": "structs",
+      "name": "PacketEnumerator_struct"
+    },
+    {
+      "id": "src/packet_enumerator.i::structs::PacketEnumeratorSubstringCallbackData",
+      "file": "src/packet_enumerator.i",
+      "module_type": "structs",
+      "name": "PacketEnumeratorSubstringCallbackData"
+    },
+    {
+      "id": "src/packet_enumerator.i::typedefs::SubstringEnumeratorCallback",
+      "file": "src/packet_enumerator.i",
+      "module_type": "typedefs",
+      "name": "SubstringEnumeratorCallback"
+    },
+    {
+      "id": "src/packet_enumerator.i::functions::packet_enumerator_memory_usage",
+      "file": "src/packet_enumerator.i",
+      "module_type": "functions",
+      "name": "packet_enumerator_memory_usage"
+    },
+    {
+      "id": "src/packet_enumerator.i::functions::packet_enumerator_new",
+      "file": "src/packet_enumerator.i",
+      "module_type": "functions",
+      "name": "packet_enumerator_new"
+    },
+    {
+      "id": "src/packet_enumerator.i::functions::packet_enumerator_free",
+      "file": "src/packet_enumerator.i",
+      "module_type": "functions",
+      "name": "packet_enumerator_free"
+    },
+    {
+      "id": "src/packet_enumerator.i::functions::packet_enumerator_substring_callback",
+      "file": "src/packet_enumerator.i",
+      "module_type": "functions",
+      "name": "packet_enumerator_substring_callback"
+    },
+    {
+      "id": "src/packet_enumerator.i::functions::packet_enumerator_for_each",
+      "file": "src/packet_enumerator.i",
+      "module_type": "functions",
+      "name": "packet_enumerator_for_each"
+    },
+    {
+      "id": "src/probability_model.i::functions::encode_bit",
+      "file": "src/probability_model.i",
+      "module_type": "functions",
+      "name": "encode_bit"
+    },
+    {
+      "id": "src/probability_model.i::functions::encode_direct_bits",
+      "file": "src/probability_model.i",
+      "module_type": "functions",
+      "name": "encode_direct_bits"
+    },
+    {
+      "id": "src/probability_model.i::functions::encode_bit_tree",
+      "file": "src/probability_model.i",
+      "module_type": "functions",
+      "name": "encode_bit_tree"
+    },
+    {
+      "id": "src/probability_model.i::functions::encode_bit_tree_reverse",
+      "file": "src/probability_model.i",
+      "module_type": "functions",
+      "name": "encode_bit_tree_reverse"
+    },
+    {
+      "id": "src/packet_slab.i::structs::PacketSlab_struct",
+      "file": "src/packet_slab.i",
+      "module_type": "structs",
+      "name": "PacketSlab_struct"
+    },
+    {
+      "id": "src/packet_slab.i::functions::packet_slab_memory_usage",
+      "file": "src/packet_slab.i",
+      "module_type": "functions",
+      "name": "packet_slab_memory_usage"
+    },
+    {
+      "id": "src/packet_slab.i::functions::packet_slab_new",
+      "file": "src/packet_slab.i",
+      "module_type": "functions",
+      "name": "packet_slab_new"
+    },
+    {
+      "id": "src/packet_slab.i::functions::packet_slab_free",
+      "file": "src/packet_slab.i",
+      "module_type": "functions",
+      "name": "packet_slab_free"
+    },
+    {
+      "id": "src/packet_slab.i::functions::packet_slab_size",
+      "file": "src/packet_slab.i",
+      "module_type": "functions",
+      "name": "packet_slab_size"
+    },
+    {
+      "id": "src/packet_slab.i::functions::packet_slab_count",
+      "file": "src/packet_slab.i",
+      "module_type": "functions",
+      "name": "packet_slab_count"
+    },
+    {
+      "id": "src/packet_slab.i::functions::packet_slab_packets",
+      "file": "src/packet_slab.i",
+      "module_type": "functions",
+      "name": "packet_slab_packets"
+    },
+    {
+      "id": "src/main.i::functions::main",
+      "file": "src/main.i",
+      "module_type": "functions",
+      "name": "main"
+    },
+    {
+      "id": "src/lzma_header_encoder.i::functions::lzma_encode_header_properties",
+      "file": "src/lzma_header_encoder.i",
+      "module_type": "functions",
+      "name": "lzma_encode_header_properties"
+    },
+    {
+      "id": "src/lzma_header_encoder.i::functions::lzma_encode_header",
+      "file": "src/lzma_header_encoder.i",
+      "module_type": "functions",
+      "name": "lzma_encode_header"
+    },
+    {
+      "id": "src/top_k_packet_finder.i::structs::MaxHeap",
+      "file": "src/top_k_packet_finder.i",
+      "module_type": "structs",
+      "name": "MaxHeap"
+    },
+    {
+      "id": "src/top_k_packet_finder.i::structs::TopKEntry",
+      "file": "src/top_k_packet_finder.i",
+      "module_type": "structs",
+      "name": "TopKEntry"
+    },
+    {
+      "id": "src/top_k_packet_finder.i::structs::TopKPacketFinder_struct",
+      "file": "src/top_k_packet_finder.i",
+      "module_type": "structs",
+      "name": "TopKPacketFinder_struct"
+    },
+    {
+      "id": "src/top_k_packet_finder.i::typedefs::MaxHeapComparator",
+      "file": "src/top_k_packet_finder.i",
+      "module_type": "typedefs",
+      "name": "MaxHeapComparator"
+    },
+    {
+      "id": "src/top_k_packet_finder.i::functions::sign",
+      "file": "src/top_k_packet_finder.i",
+      "module_type": "functions",
+      "name": "sign"
+    },
+    {
+      "id": "src/top_k_packet_finder.i::functions::top_k_entry_comparator",
+      "file": "src/top_k_packet_finder.i",
+      "module_type": "functions",
+      "name": "top_k_entry_comparator"
+    },
+    {
+      "id": "src/top_k_packet_finder.i::functions::top_k_packet_finder_new",
+      "file": "src/top_k_packet_finder.i",
+      "module_type": "functions",
+      "name": "top_k_packet_finder_new"
+    },
+    {
+      "id": "src/top_k_packet_finder.i::functions::top_k_packet_finder_free",
+      "file": "src/top_k_packet_finder.i",
+      "module_type": "functions",
+      "name": "top_k_packet_finder_free"
+    },
+    {
+      "id": "src/top_k_packet_finder.i::functions::top_k_packet_finder_count",
+      "file": "src/top_k_packet_finder.i",
+      "module_type": "functions",
+      "name": "top_k_packet_finder_count"
+    },
+    {
+      "id": "src/top_k_packet_finder.i::functions::top_k_entry_finder_insert",
+      "file": "src/top_k_packet_finder.i",
+      "module_type": "functions",
+      "name": "top_k_entry_finder_insert"
+    },
+    {
+      "id": "src/top_k_packet_finder.i::functions::top_k_packet_finder_callback",
+      "file": "src/top_k_packet_finder.i",
+      "module_type": "functions",
+      "name": "top_k_packet_finder_callback"
+    },
+    {
+      "id": "src/top_k_packet_finder.i::functions::top_k_packet_finder_find",
+      "file": "src/top_k_packet_finder.i",
+      "module_type": "functions",
+      "name": "top_k_packet_finder_find"
+    },
+    {
+      "id": "src/top_k_packet_finder.i::functions::top_k_packet_finder_pop",
+      "file": "src/top_k_packet_finder.i",
+      "module_type": "functions",
+      "name": "top_k_packet_finder_pop"
+    },
+    {
+      "id": "src/max_heap.i::structs::MaxHeap_struct",
+      "file": "src/max_heap.i",
+      "module_type": "structs",
+      "name": "MaxHeap_struct"
+    },
+    {
+      "id": "src/max_heap.i::functions::max_heap_new",
+      "file": "src/max_heap.i",
+      "module_type": "functions",
+      "name": "max_heap_new"
+    },
+    {
+      "id": "src/max_heap.i::functions::max_heap_free",
+      "file": "src/max_heap.i",
+      "module_type": "functions",
+      "name": "max_heap_free"
+    },
+    {
+      "id": "src/max_heap.i::functions::max_heap_count",
+      "file": "src/max_heap.i",
+      "module_type": "functions",
+      "name": "max_heap_count"
+    },
+    {
+      "id": "src/max_heap.i::functions::max_heap_clear",
+      "file": "src/max_heap.i",
+      "module_type": "functions",
+      "name": "max_heap_clear"
+    },
+    {
+      "id": "src/max_heap.i::functions::swap",
+      "file": "src/max_heap.i",
+      "module_type": "functions",
+      "name": "swap"
+    },
+    {
+      "id": "src/max_heap.i::functions::max_heap_parent",
+      "file": "src/max_heap.i",
+      "module_type": "functions",
+      "name": "max_heap_parent"
+    },
+    {
+      "id": "src/max_heap.i::functions::max_heap_left_child",
+      "file": "src/max_heap.i",
+      "module_type": "functions",
+      "name": "max_heap_left_child"
+    },
+    {
+      "id": "src/max_heap.i::functions::max_heap_right_child",
+      "file": "src/max_heap.i",
+      "module_type": "functions",
+      "name": "max_heap_right_child"
+    },
+    {
+      "id": "src/max_heap.i::functions::max_heap_bubble_down",
+      "file": "src/max_heap.i",
+      "module_type": "functions",
+      "name": "max_heap_bubble_down"
+    },
+    {
+      "id": "src/max_heap.i::functions::max_heap_bubble_up",
+      "file": "src/max_heap.i",
+      "module_type": "functions",
+      "name": "max_heap_bubble_up"
+    },
+    {
+      "id": "src/max_heap.i::functions::max_heap_insert",
+      "file": "src/max_heap.i",
+      "module_type": "functions",
+      "name": "max_heap_insert"
+    },
+    {
+      "id": "src/max_heap.i::functions::max_heap_maximum",
+      "file": "src/max_heap.i",
+      "module_type": "functions",
+      "name": "max_heap_maximum"
+    },
+    {
+      "id": "src/max_heap.i::functions::max_heap_remove_maximum",
+      "file": "src/max_heap.i",
+      "module_type": "functions",
+      "name": "max_heap_remove_maximum"
+    },
+    {
+      "id": "src/max_heap.i::functions::max_heap_update_maximum",
+      "file": "src/max_heap.i",
+      "module_type": "functions",
+      "name": "max_heap_update_maximum"
+    },
+    {
+      "id": "src/substring_enumerator.i::structs::SubstringEnumerator_struct",
+      "file": "src/substring_enumerator.i",
+      "module_type": "structs",
+      "name": "SubstringEnumerator_struct"
+    },
+    {
+      "id": "src/substring_enumerator.i::functions::substring_enumerator_memory_usage",
+      "file": "src/substring_enumerator.i",
+      "module_type": "functions",
+      "name": "substring_enumerator_memory_usage"
+    },
+    {
+      "id": "src/substring_enumerator.i::functions::memoize_bigram_positions",
+      "file": "src/substring_enumerator.i",
+      "module_type": "functions",
+      "name": "memoize_bigram_positions"
+    },
+    {
+      "id": "src/substring_enumerator.i::functions::substring_enumerator_new",
+      "file": "src/substring_enumerator.i",
+      "module_type": "functions",
+      "name": "substring_enumerator_new"
+    },
+    {
+      "id": "src/substring_enumerator.i::functions::substring_enumerator_free",
+      "file": "src/substring_enumerator.i",
+      "module_type": "functions",
+      "name": "substring_enumerator_free"
+    },
+    {
+      "id": "src/substring_enumerator.i::functions::substring_enumerator_for_each",
+      "file": "src/substring_enumerator.i",
+      "module_type": "functions",
+      "name": "substring_enumerator_for_each"
+    },
+    {
+      "id": "src/perplexity_encoder.i::globals::LOG2_LOOKUP",
+      "file": "src/perplexity_encoder.i",
+      "module_type": "globals",
+      "name": "LOG2_LOOKUP"
+    },
+    {
+      "id": "src/perplexity_encoder.i::functions::perplexity_encoder_encode_bit",
+      "file": "src/perplexity_encoder.i",
+      "module_type": "functions",
+      "name": "perplexity_encoder_encode_bit"
+    },
+    {
+      "id": "src/perplexity_encoder.i::functions::perplexity_encoder_encode_direct_bits",
+      "file": "src/perplexity_encoder.i",
+      "module_type": "functions",
+      "name": "perplexity_encoder_encode_direct_bits"
+    },
+    {
+      "id": "src/perplexity_encoder.i::functions::perplexity_encoder_new",
+      "file": "src/perplexity_encoder.i",
+      "module_type": "functions",
+      "name": "perplexity_encoder_new"
+    },
+    {
+      "id": "src/packet_slab_undo_stack.i::structs::PacketSlabUndoHeap_struct",
+      "file": "src/packet_slab_undo_stack.i",
+      "module_type": "structs",
+      "name": "PacketSlabUndoHeap_struct"
+    },
+    {
+      "id": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_heap_new",
+      "file": "src/packet_slab_undo_stack.i",
+      "module_type": "functions",
+      "name": "packet_slab_undo_heap_new"
+    },
+    {
+      "id": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_heap_free",
+      "file": "src/packet_slab_undo_stack.i",
+      "module_type": "functions",
+      "name": "packet_slab_undo_heap_free"
+    },
+    {
+      "id": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_heap_apply",
+      "file": "src/packet_slab_undo_stack.i",
+      "module_type": "functions",
+      "name": "packet_slab_undo_heap_apply"
+    },
+    {
+      "id": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_stack_new",
+      "file": "src/packet_slab_undo_stack.i",
+      "module_type": "functions",
+      "name": "packet_slab_undo_stack_new"
+    },
+    {
+      "id": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_stack_free",
+      "file": "src/packet_slab_undo_stack.i",
+      "module_type": "functions",
+      "name": "packet_slab_undo_stack_free"
+    },
+    {
+      "id": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_stack_insert",
+      "file": "src/packet_slab_undo_stack.i",
+      "module_type": "functions",
+      "name": "packet_slab_undo_stack_insert"
+    },
+    {
+      "id": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_stack_apply",
+      "file": "src/packet_slab_undo_stack.i",
+      "module_type": "functions",
+      "name": "packet_slab_undo_stack_apply"
+    },
+    {
+      "id": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_stack_count",
+      "file": "src/packet_slab_undo_stack.i",
+      "module_type": "functions",
+      "name": "packet_slab_undo_stack_count"
+    },
+    {
+      "id": "src/lzma_state.i::functions::lzma_state_init_probs",
+      "file": "src/lzma_state.i",
+      "module_type": "functions",
+      "name": "lzma_state_init_probs"
+    },
+    {
+      "id": "src/lzma_state.i::functions::lzma_state_init",
+      "file": "src/lzma_state.i",
+      "module_type": "functions",
+      "name": "lzma_state_init"
+    },
+    {
+      "id": "src/lzma_state.i::functions::lzma_state_update_ctx_state",
+      "file": "src/lzma_state.i",
+      "module_type": "functions",
+      "name": "lzma_state_update_ctx_state"
+    },
+    {
+      "id": "src/lzma_state.i::functions::lzma_state_push_distance",
+      "file": "src/lzma_state.i",
+      "module_type": "functions",
+      "name": "lzma_state_push_distance"
+    },
+    {
+      "id": "src/lzma_state.i::functions::lzma_state_promote_distance_at",
+      "file": "src/lzma_state.i",
+      "module_type": "functions",
+      "name": "lzma_state_promote_distance_at"
+    }
+  ],
+  "edges": [
+    {
+      "from": "src/range_encoder.i::structs::EncoderInterface",
+      "to": "src/range_encoder.i::functions::range_encoder_shift_low"
+    },
+    {
+      "from": "src/range_encoder.i::structs::EncoderInterface",
+      "to": "src/range_encoder.i::functions::range_encoder_flush_data"
+    },
+    {
+      "from": "src/range_encoder.i::structs::EncoderInterface",
+      "to": "src/range_encoder.i::functions::range_encoder_encode_bit"
+    },
+    {
+      "from": "src/range_encoder.i::structs::EncoderInterface",
+      "to": "src/range_encoder.i::functions::range_encoder_encode_direct_bits"
+    },
+    {
+      "from": "src/range_encoder.i::structs::EncoderInterface",
+      "to": "src/range_encoder.i::functions::range_encoder_new"
+    },
+    {
+      "from": "src/range_encoder.i::structs::EncoderInterface",
+      "to": "src/range_encoder.i::functions::range_encoder_free"
+    },
+    {
+      "from": "src/range_encoder.i::structs::EncoderInterface",
+      "to": "src/packet_slab_neighbour.i::functions::encode_to_packet_number"
+    },
+    {
+      "from": "src/range_encoder.i::structs::EncoderInterface",
+      "to": "src/packet_slab_neighbour.i::functions::repair_remaining_packets"
+    },
+    {
+      "from": "src/range_encoder.i::structs::EncoderInterface",
+      "to": "src/packet_slab_neighbour.i::functions::packet_slab_neighbour_generate"
+    },
+    {
+      "from": "src/range_encoder.i::structs::EncoderInterface",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_packet_header"
+    },
+    {
+      "from": "src/range_encoder.i::structs::EncoderInterface",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_length"
+    },
+    {
+      "from": "src/range_encoder.i::structs::EncoderInterface",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_distance"
+    },
+    {
+      "from": "src/range_encoder.i::structs::EncoderInterface",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_literal"
+    },
+    {
+      "from": "src/range_encoder.i::structs::EncoderInterface",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_match"
+    },
+    {
+      "from": "src/range_encoder.i::structs::EncoderInterface",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_short_rep"
+    },
+    {
+      "from": "src/range_encoder.i::structs::EncoderInterface",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_long_rep"
+    },
+    {
+      "from": "src/range_encoder.i::structs::EncoderInterface",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_packet"
+    },
+    {
+      "from": "src/range_encoder.i::structs::EncoderInterface",
+      "to": "src/probability_model.i::functions::encode_bit"
+    },
+    {
+      "from": "src/range_encoder.i::structs::EncoderInterface",
+      "to": "src/probability_model.i::functions::encode_direct_bits"
+    },
+    {
+      "from": "src/range_encoder.i::structs::EncoderInterface",
+      "to": "src/probability_model.i::functions::encode_bit_tree"
+    },
+    {
+      "from": "src/range_encoder.i::structs::EncoderInterface",
+      "to": "src/probability_model.i::functions::encode_bit_tree_reverse"
+    },
+    {
+      "from": "src/range_encoder.i::structs::EncoderInterface",
+      "to": "src/main.i::functions::main"
+    },
+    {
+      "from": "src/range_encoder.i::structs::EncoderInterface",
+      "to": "src/top_k_packet_finder.i::functions::top_k_packet_finder_callback"
+    },
+    {
+      "from": "src/range_encoder.i::structs::EncoderInterface",
+      "to": "src/perplexity_encoder.i::functions::perplexity_encoder_encode_bit"
+    },
+    {
+      "from": "src/range_encoder.i::structs::EncoderInterface",
+      "to": "src/perplexity_encoder.i::functions::perplexity_encoder_encode_direct_bits"
+    },
+    {
+      "from": "src/range_encoder.i::structs::EncoderInterface",
+      "to": "src/perplexity_encoder.i::functions::perplexity_encoder_new"
+    },
+    {
+      "from": "src/range_encoder.i::structs::EncoderInterface_struct",
+      "to": "src/range_encoder.i::structs::EncoderInterface"
+    },
+    {
+      "from": "src/range_encoder.i::structs::OutputInterface",
+      "to": "src/range_encoder.i::structs::RangeEncoderData"
+    },
+    {
+      "from": "src/range_encoder.i::structs::OutputInterface",
+      "to": "src/range_encoder.i::functions::range_encoder_shift_low"
+    },
+    {
+      "from": "src/range_encoder.i::structs::OutputInterface",
+      "to": "src/range_encoder.i::functions::range_encoder_new"
+    },
+    {
+      "from": "src/range_encoder.i::structs::OutputInterface",
+      "to": "src/file_output.i::functions::file_write"
+    },
+    {
+      "from": "src/range_encoder.i::structs::OutputInterface",
+      "to": "src/file_output.i::functions::file_output_new"
+    },
+    {
+      "from": "src/range_encoder.i::structs::OutputInterface",
+      "to": "src/main.i::functions::main"
+    },
+    {
+      "from": "src/range_encoder.i::structs::OutputInterface",
+      "to": "src/lzma_header_encoder.i::functions::lzma_encode_header"
+    },
+    {
+      "from": "src/range_encoder.i::structs::OutputInterface_struct",
+      "to": "src/range_encoder.i::structs::OutputInterface"
+    },
+    {
+      "from": "src/range_encoder.i::structs::RangeEncoderData",
+      "to": "src/range_encoder.i::functions::range_encoder_shift_low"
+    },
+    {
+      "from": "src/range_encoder.i::structs::RangeEncoderData",
+      "to": "src/range_encoder.i::functions::range_encoder_encode_bit"
+    },
+    {
+      "from": "src/range_encoder.i::structs::RangeEncoderData",
+      "to": "src/range_encoder.i::functions::range_encoder_encode_direct_bits"
+    },
+    {
+      "from": "src/range_encoder.i::structs::RangeEncoderData",
+      "to": "src/range_encoder.i::functions::range_encoder_new"
+    },
+    {
+      "from": "src/range_encoder.i::functions::range_encoder_shift_low",
+      "to": "src/range_encoder.i::functions::range_encoder_flush_data"
+    },
+    {
+      "from": "src/range_encoder.i::functions::range_encoder_shift_low",
+      "to": "src/range_encoder.i::functions::range_encoder_encode_bit"
+    },
+    {
+      "from": "src/range_encoder.i::functions::range_encoder_shift_low",
+      "to": "src/range_encoder.i::functions::range_encoder_encode_direct_bits"
+    },
+    {
+      "from": "src/range_encoder.i::functions::range_encoder_flush_data",
+      "to": "src/range_encoder.i::functions::range_encoder_free"
+    },
+    {
+      "from": "src/range_encoder.i::functions::range_encoder_encode_bit",
+      "to": "src/range_encoder.i::functions::range_encoder_new"
+    },
+    {
+      "from": "src/range_encoder.i::functions::range_encoder_encode_direct_bits",
+      "to": "src/range_encoder.i::functions::range_encoder_new"
+    },
+    {
+      "from": "src/range_encoder.i::functions::range_encoder_new",
+      "to": "src/main.i::functions::main"
+    },
+    {
+      "from": "src/range_encoder.i::functions::range_encoder_free",
+      "to": "src/main.i::functions::main"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAPacket",
+      "to": "src/packet_slab_neighbour.i::structs::PacketSlabUndo"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAPacket",
+      "to": "src/packet_slab_neighbour.i::typedefs::PacketEnumeratorCallback"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAPacket",
+      "to": "src/packet_slab_neighbour.i::functions::encode_to_packet_number"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAPacket",
+      "to": "src/packet_slab_neighbour.i::functions::save_packet_at_position"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAPacket",
+      "to": "src/packet_slab_neighbour.i::functions::pick_random_next_packet_from_top_k"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAPacket",
+      "to": "src/packet_slab_neighbour.i::functions::validate_long_rep_packet"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAPacket",
+      "to": "src/packet_slab_neighbour.i::functions::repair_remaining_packets"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAPacket",
+      "to": "src/packet_slab_neighbour.i::functions::mutate_next_packet"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAPacket",
+      "to": "src/packet_slab_neighbour.i::functions::packet_slab_neighbour_generate"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAPacket",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_packet"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAPacket",
+      "to": "src/lzma_packet.i::functions::lzma_packet_cmp"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAPacket",
+      "to": "src/lzma_packet.i::functions::literal_packet"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAPacket",
+      "to": "src/lzma_packet.i::functions::match_packet"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAPacket",
+      "to": "src/lzma_packet.i::functions::short_rep_packet"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAPacket",
+      "to": "src/lzma_packet.i::functions::long_rep_packet"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAPacket",
+      "to": "src/packet_slab.i::structs::PacketSlab_struct"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAPacket",
+      "to": "src/packet_slab.i::functions::packet_slab_memory_usage"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAPacket",
+      "to": "src/packet_slab.i::functions::packet_slab_new"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAPacket",
+      "to": "src/packet_slab.i::functions::packet_slab_free"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAPacket",
+      "to": "src/packet_slab.i::functions::packet_slab_packets"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAPacket",
+      "to": "src/main.i::functions::main"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAPacket",
+      "to": "src/top_k_packet_finder.i::structs::TopKEntry"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAPacket",
+      "to": "src/top_k_packet_finder.i::structs::TopKPacketFinder_struct"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAPacket",
+      "to": "src/top_k_packet_finder.i::functions::top_k_packet_finder_callback"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAPacket",
+      "to": "src/top_k_packet_finder.i::functions::top_k_packet_finder_find"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAPacket",
+      "to": "src/top_k_packet_finder.i::functions::top_k_packet_finder_pop"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAPacket",
+      "to": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_heap_apply"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAPacket",
+      "to": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_stack_apply"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlab",
+      "to": "src/packet_slab_neighbour.i::structs::PacketSlabNeighbour"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlab",
+      "to": "src/packet_slab_neighbour.i::functions::packet_slab_neighbour_new"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlab",
+      "to": "src/packet_slab.i::functions::packet_slab_memory_usage"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlab",
+      "to": "src/packet_slab.i::functions::packet_slab_new"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlab",
+      "to": "src/packet_slab.i::functions::packet_slab_free"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlab",
+      "to": "src/packet_slab.i::functions::packet_slab_size"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlab",
+      "to": "src/packet_slab.i::functions::packet_slab_count"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlab",
+      "to": "src/packet_slab.i::functions::packet_slab_packets"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlab",
+      "to": "src/main.i::functions::main"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlab",
+      "to": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_heap_apply"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlab",
+      "to": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_stack_apply"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LengthProbabilityModel",
+      "to": "src/packet_slab_neighbour.i::structs::LZMAProbabilityModel"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LengthProbabilityModel",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_length"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::DistanceProbabilityModel",
+      "to": "src/packet_slab_neighbour.i::structs::LZMAProbabilityModel"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::DistanceProbabilityModel",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_distance"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::ContextStateProbabilityModel",
+      "to": "src/packet_slab_neighbour.i::structs::LZMAProbabilityModel"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::ContextStateProbabilityModel",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_packet_header"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAProbabilityModel",
+      "to": "src/packet_slab_neighbour.i::structs::LZMAState"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAProbabilityModel",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_literal"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAProbabilityModel",
+      "to": "src/lzma_state.i::functions::lzma_state_init_probs"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAProperties",
+      "to": "src/packet_slab_neighbour.i::structs::LZMAState"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAProperties",
+      "to": "src/main.i::functions::main"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAProperties",
+      "to": "src/lzma_header_encoder.i::functions::lzma_encode_header_properties"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAProperties",
+      "to": "src/lzma_state.i::functions::lzma_state_init"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAState",
+      "to": "src/packet_slab_neighbour.i::structs::PacketSlabNeighbour"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAState",
+      "to": "src/packet_slab_neighbour.i::typedefs::PacketEnumeratorCallback"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAState",
+      "to": "src/packet_slab_neighbour.i::functions::packet_slab_neighbour_new"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAState",
+      "to": "src/packet_slab_neighbour.i::functions::encode_to_packet_number"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAState",
+      "to": "src/packet_slab_neighbour.i::functions::pick_random_next_packet_from_top_k"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAState",
+      "to": "src/packet_slab_neighbour.i::functions::validate_long_rep_packet"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAState",
+      "to": "src/packet_slab_neighbour.i::functions::repair_remaining_packets"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAState",
+      "to": "src/packet_slab_neighbour.i::functions::mutate_next_packet"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAState",
+      "to": "src/packet_slab_neighbour.i::functions::packet_slab_neighbour_generate"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAState",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_packet_header"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAState",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_distance"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAState",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_literal"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAState",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_match"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAState",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_short_rep"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAState",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_long_rep"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAState",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_packet"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAState",
+      "to": "src/packet_enumerator.i::structs::PacketEnumeratorSubstringCallbackData"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAState",
+      "to": "src/packet_enumerator.i::functions::packet_enumerator_substring_callback"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAState",
+      "to": "src/packet_enumerator.i::functions::packet_enumerator_for_each"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAState",
+      "to": "src/main.i::functions::main"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAState",
+      "to": "src/lzma_header_encoder.i::functions::lzma_encode_header_properties"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAState",
+      "to": "src/lzma_header_encoder.i::functions::lzma_encode_header"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAState",
+      "to": "src/top_k_packet_finder.i::functions::top_k_packet_finder_callback"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAState",
+      "to": "src/top_k_packet_finder.i::functions::top_k_packet_finder_find"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAState",
+      "to": "src/lzma_state.i::functions::lzma_state_init"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAState",
+      "to": "src/lzma_state.i::functions::lzma_state_update_ctx_state"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAState",
+      "to": "src/lzma_state.i::functions::lzma_state_push_distance"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::LZMAState",
+      "to": "src/lzma_state.i::functions::lzma_state_promote_distance_at"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlabUndo",
+      "to": "src/packet_slab_neighbour.i::structs::PacketSlabUndoStack"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlabUndo",
+      "to": "src/packet_slab_neighbour.i::functions::save_packet_at_position"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlabUndo",
+      "to": "src/packet_slab_undo_stack.i::structs::PacketSlabUndoHeap_struct"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlabUndo",
+      "to": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_heap_new"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlabUndo",
+      "to": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_heap_apply"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlabUndo",
+      "to": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_stack_insert"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlabUndo",
+      "to": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_stack_apply"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlabUndoHeap",
+      "to": "src/packet_slab_neighbour.i::structs::PacketSlabUndoStack"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlabUndoHeap",
+      "to": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_heap_new"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlabUndoHeap",
+      "to": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_heap_free"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlabUndoHeap",
+      "to": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_heap_apply"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlabUndoHeap",
+      "to": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_stack_free"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlabUndoHeap",
+      "to": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_stack_insert"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlabUndoHeap",
+      "to": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_stack_apply"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlabUndoStack",
+      "to": "src/packet_slab_neighbour.i::structs::PacketSlabNeighbour"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlabUndoStack",
+      "to": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_stack_new"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlabUndoStack",
+      "to": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_stack_free"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlabUndoStack",
+      "to": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_stack_insert"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlabUndoStack",
+      "to": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_stack_apply"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlabUndoStack",
+      "to": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_stack_count"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketEnumerator",
+      "to": "src/packet_enumerator.i::functions::packet_enumerator_memory_usage"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketEnumerator",
+      "to": "src/packet_enumerator.i::functions::packet_enumerator_new"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketEnumerator",
+      "to": "src/packet_enumerator.i::functions::packet_enumerator_free"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketEnumerator",
+      "to": "src/packet_enumerator.i::functions::packet_enumerator_for_each"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketEnumerator",
+      "to": "src/main.i::functions::main"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketEnumerator",
+      "to": "src/top_k_packet_finder.i::structs::TopKPacketFinder_struct"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketEnumerator",
+      "to": "src/top_k_packet_finder.i::functions::top_k_packet_finder_new"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::TopKPacketFinder",
+      "to": "src/packet_slab_neighbour.i::functions::pick_random_next_packet_from_top_k"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::TopKPacketFinder",
+      "to": "src/packet_slab_neighbour.i::functions::repair_remaining_packets"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::TopKPacketFinder",
+      "to": "src/packet_slab_neighbour.i::functions::mutate_next_packet"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::TopKPacketFinder",
+      "to": "src/packet_slab_neighbour.i::functions::packet_slab_neighbour_generate"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::TopKPacketFinder",
+      "to": "src/main.i::functions::main"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::TopKPacketFinder",
+      "to": "src/top_k_packet_finder.i::functions::top_k_entry_comparator"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::TopKPacketFinder",
+      "to": "src/top_k_packet_finder.i::functions::top_k_packet_finder_new"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::TopKPacketFinder",
+      "to": "src/top_k_packet_finder.i::functions::top_k_packet_finder_free"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::TopKPacketFinder",
+      "to": "src/top_k_packet_finder.i::functions::top_k_packet_finder_count"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::TopKPacketFinder",
+      "to": "src/top_k_packet_finder.i::functions::top_k_entry_finder_insert"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::TopKPacketFinder",
+      "to": "src/top_k_packet_finder.i::functions::top_k_packet_finder_callback"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::TopKPacketFinder",
+      "to": "src/top_k_packet_finder.i::functions::top_k_packet_finder_find"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::TopKPacketFinder",
+      "to": "src/top_k_packet_finder.i::functions::top_k_packet_finder_pop"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlabNeighbour",
+      "to": "src/packet_slab_neighbour.i::functions::packet_slab_neighbour_new"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlabNeighbour",
+      "to": "src/packet_slab_neighbour.i::functions::packet_slab_neighbour_free"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlabNeighbour",
+      "to": "src/packet_slab_neighbour.i::functions::save_packet_at_position"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlabNeighbour",
+      "to": "src/packet_slab_neighbour.i::functions::repair_remaining_packets"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlabNeighbour",
+      "to": "src/packet_slab_neighbour.i::functions::mutate_next_packet"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlabNeighbour",
+      "to": "src/packet_slab_neighbour.i::functions::packet_slab_neighbour_generate"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlabNeighbour",
+      "to": "src/packet_slab_neighbour.i::functions::packet_slab_neighbour_undo"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlabNeighbour",
+      "to": "src/packet_slab_neighbour.i::functions::packet_slab_neighbour_undo_count"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::structs::PacketSlabNeighbour",
+      "to": "src/main.i::functions::main"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::typedefs::PacketEnumeratorCallback",
+      "to": "src/packet_enumerator.i::structs::PacketEnumeratorSubstringCallbackData"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::typedefs::PacketEnumeratorCallback",
+      "to": "src/packet_enumerator.i::functions::packet_enumerator_substring_callback"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::typedefs::PacketEnumeratorCallback",
+      "to": "src/packet_enumerator.i::functions::packet_enumerator_for_each"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::functions::packet_slab_neighbour_new",
+      "to": "src/main.i::functions::main"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::functions::packet_slab_neighbour_free",
+      "to": "src/main.i::functions::main"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::functions::encode_to_packet_number",
+      "to": "src/packet_slab_neighbour.i::functions::packet_slab_neighbour_generate"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::functions::save_packet_at_position",
+      "to": "src/packet_slab_neighbour.i::functions::repair_remaining_packets"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::functions::save_packet_at_position",
+      "to": "src/packet_slab_neighbour.i::functions::mutate_next_packet"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::functions::max",
+      "to": "src/packet_slab_neighbour.i::functions::rand_max_dist"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::functions::rand_max_dist",
+      "to": "src/packet_slab_neighbour.i::functions::pick_random_next_packet_from_top_k"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::functions::pick_random_next_packet_from_top_k",
+      "to": "src/packet_slab_neighbour.i::functions::repair_remaining_packets"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::functions::pick_random_next_packet_from_top_k",
+      "to": "src/packet_slab_neighbour.i::functions::mutate_next_packet"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::functions::validate_long_rep_packet",
+      "to": "src/packet_slab_neighbour.i::functions::repair_remaining_packets"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::functions::repair_remaining_packets",
+      "to": "src/packet_slab_neighbour.i::functions::packet_slab_neighbour_generate"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::functions::mutate_next_packet",
+      "to": "src/packet_slab_neighbour.i::functions::packet_slab_neighbour_generate"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::functions::packet_slab_neighbour_generate",
+      "to": "src/main.i::functions::main"
+    },
+    {
+      "from": "src/packet_slab_neighbour.i::functions::packet_slab_neighbour_undo",
+      "to": "src/main.i::functions::main"
+    },
+    {
+      "from": "src/file_output.i::functions::file_write",
+      "to": "src/file_output.i::functions::file_output_new"
+    },
+    {
+      "from": "src/file_output.i::functions::file_output_new",
+      "to": "src/main.i::functions::main"
+    },
+    {
+      "from": "src/lzma_packet_encoder.i::structs::LZMAPacketHeader",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_packet_header"
+    },
+    {
+      "from": "src/lzma_packet_encoder.i::structs::LZMAPacketHeader",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_literal"
+    },
+    {
+      "from": "src/lzma_packet_encoder.i::structs::LZMAPacketHeader",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_match"
+    },
+    {
+      "from": "src/lzma_packet_encoder.i::structs::LZMAPacketHeader",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_short_rep"
+    },
+    {
+      "from": "src/lzma_packet_encoder.i::structs::LZMAPacketHeader",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_long_rep"
+    },
+    {
+      "from": "src/lzma_packet_encoder.i::functions::lzma_encode_packet_header",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_literal"
+    },
+    {
+      "from": "src/lzma_packet_encoder.i::functions::lzma_encode_packet_header",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_match"
+    },
+    {
+      "from": "src/lzma_packet_encoder.i::functions::lzma_encode_packet_header",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_short_rep"
+    },
+    {
+      "from": "src/lzma_packet_encoder.i::functions::lzma_encode_packet_header",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_long_rep"
+    },
+    {
+      "from": "src/lzma_packet_encoder.i::functions::lzma_encode_length",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_match"
+    },
+    {
+      "from": "src/lzma_packet_encoder.i::functions::lzma_encode_length",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_long_rep"
+    },
+    {
+      "from": "src/lzma_packet_encoder.i::functions::get_msb32",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_distance"
+    },
+    {
+      "from": "src/lzma_packet_encoder.i::functions::lzma_encode_distance",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_match"
+    },
+    {
+      "from": "src/lzma_packet_encoder.i::functions::lzma_encode_literal",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_packet"
+    },
+    {
+      "from": "src/lzma_packet_encoder.i::functions::lzma_encode_match",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_packet"
+    },
+    {
+      "from": "src/lzma_packet_encoder.i::functions::lzma_encode_short_rep",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_packet"
+    },
+    {
+      "from": "src/lzma_packet_encoder.i::functions::lzma_encode_long_rep",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_packet"
+    },
+    {
+      "from": "src/lzma_packet_encoder.i::functions::lzma_encode_packet",
+      "to": "src/packet_slab_neighbour.i::functions::encode_to_packet_number"
+    },
+    {
+      "from": "src/lzma_packet_encoder.i::functions::lzma_encode_packet",
+      "to": "src/packet_slab_neighbour.i::functions::repair_remaining_packets"
+    },
+    {
+      "from": "src/lzma_packet_encoder.i::functions::lzma_encode_packet",
+      "to": "src/packet_slab_neighbour.i::functions::packet_slab_neighbour_generate"
+    },
+    {
+      "from": "src/lzma_packet_encoder.i::functions::lzma_encode_packet",
+      "to": "src/main.i::functions::main"
+    },
+    {
+      "from": "src/lzma_packet_encoder.i::functions::lzma_encode_packet",
+      "to": "src/top_k_packet_finder.i::functions::top_k_packet_finder_callback"
+    },
+    {
+      "from": "src/lzma_packet.i::functions::lzma_packet_cmp",
+      "to": "src/packet_slab_neighbour.i::functions::repair_remaining_packets"
+    },
+    {
+      "from": "src/lzma_packet.i::functions::lzma_packet_cmp",
+      "to": "src/top_k_packet_finder.i::functions::top_k_packet_finder_callback"
+    },
+    {
+      "from": "src/lzma_packet.i::functions::literal_packet",
+      "to": "src/packet_slab_neighbour.i::functions::repair_remaining_packets"
+    },
+    {
+      "from": "src/lzma_packet.i::functions::literal_packet",
+      "to": "src/packet_slab_neighbour.i::functions::mutate_next_packet"
+    },
+    {
+      "from": "src/lzma_packet.i::functions::literal_packet",
+      "to": "src/packet_enumerator.i::functions::packet_enumerator_for_each"
+    },
+    {
+      "from": "src/lzma_packet.i::functions::literal_packet",
+      "to": "src/packet_slab.i::functions::packet_slab_new"
+    },
+    {
+      "from": "src/lzma_packet.i::functions::match_packet",
+      "to": "src/packet_enumerator.i::functions::packet_enumerator_substring_callback"
+    },
+    {
+      "from": "src/lzma_packet.i::functions::short_rep_packet",
+      "to": "src/packet_slab_neighbour.i::functions::repair_remaining_packets"
+    },
+    {
+      "from": "src/lzma_packet.i::functions::short_rep_packet",
+      "to": "src/packet_enumerator.i::functions::packet_enumerator_for_each"
+    },
+    {
+      "from": "src/lzma_packet.i::functions::long_rep_packet",
+      "to": "src/packet_enumerator.i::functions::packet_enumerator_substring_callback"
+    },
+    {
+      "from": "src/memory_mapper.i::functions::map_file",
+      "to": "src/main.i::functions::main"
+    },
+    {
+      "from": "src/memory_mapper.i::functions::map_anonymous",
+      "to": "src/packet_slab.i::functions::packet_slab_new"
+    },
+    {
+      "from": "src/memory_mapper.i::functions::map_anonymous",
+      "to": "src/substring_enumerator.i::functions::substring_enumerator_new"
+    },
+    {
+      "from": "src/memory_mapper.i::functions::unmap",
+      "to": "src/packet_slab.i::functions::packet_slab_free"
+    },
+    {
+      "from": "src/memory_mapper.i::functions::unmap",
+      "to": "src/main.i::functions::main"
+    },
+    {
+      "from": "src/memory_mapper.i::functions::unmap",
+      "to": "src/substring_enumerator.i::functions::substring_enumerator_free"
+    },
+    {
+      "from": "src/packet_enumerator.i::structs::SubstringEnumerator",
+      "to": "src/packet_enumerator.i::structs::PacketEnumerator_struct"
+    },
+    {
+      "from": "src/packet_enumerator.i::structs::SubstringEnumerator",
+      "to": "src/substring_enumerator.i::functions::substring_enumerator_memory_usage"
+    },
+    {
+      "from": "src/packet_enumerator.i::structs::SubstringEnumerator",
+      "to": "src/substring_enumerator.i::functions::memoize_bigram_positions"
+    },
+    {
+      "from": "src/packet_enumerator.i::structs::SubstringEnumerator",
+      "to": "src/substring_enumerator.i::functions::substring_enumerator_new"
+    },
+    {
+      "from": "src/packet_enumerator.i::structs::SubstringEnumerator",
+      "to": "src/substring_enumerator.i::functions::substring_enumerator_free"
+    },
+    {
+      "from": "src/packet_enumerator.i::structs::SubstringEnumerator",
+      "to": "src/substring_enumerator.i::functions::substring_enumerator_for_each"
+    },
+    {
+      "from": "src/packet_enumerator.i::structs::PacketEnumerator_struct",
+      "to": "src/packet_slab_neighbour.i::structs::PacketEnumerator"
+    },
+    {
+      "from": "src/packet_enumerator.i::structs::PacketEnumeratorSubstringCallbackData",
+      "to": "src/packet_enumerator.i::functions::packet_enumerator_substring_callback"
+    },
+    {
+      "from": "src/packet_enumerator.i::structs::PacketEnumeratorSubstringCallbackData",
+      "to": "src/packet_enumerator.i::functions::packet_enumerator_for_each"
+    },
+    {
+      "from": "src/packet_enumerator.i::typedefs::SubstringEnumeratorCallback",
+      "to": "src/substring_enumerator.i::functions::substring_enumerator_for_each"
+    },
+    {
+      "from": "src/packet_enumerator.i::functions::packet_enumerator_new",
+      "to": "src/main.i::functions::main"
+    },
+    {
+      "from": "src/packet_enumerator.i::functions::packet_enumerator_free",
+      "to": "src/main.i::functions::main"
+    },
+    {
+      "from": "src/packet_enumerator.i::functions::packet_enumerator_substring_callback",
+      "to": "src/packet_enumerator.i::functions::packet_enumerator_for_each"
+    },
+    {
+      "from": "src/packet_enumerator.i::functions::packet_enumerator_for_each",
+      "to": "src/top_k_packet_finder.i::functions::top_k_packet_finder_find"
+    },
+    {
+      "from": "src/probability_model.i::functions::encode_bit",
+      "to": "src/range_encoder.i::functions::range_encoder_new"
+    },
+    {
+      "from": "src/probability_model.i::functions::encode_bit",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_packet_header"
+    },
+    {
+      "from": "src/probability_model.i::functions::encode_bit",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_length"
+    },
+    {
+      "from": "src/probability_model.i::functions::encode_bit",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_literal"
+    },
+    {
+      "from": "src/probability_model.i::functions::encode_bit",
+      "to": "src/probability_model.i::functions::encode_bit_tree"
+    },
+    {
+      "from": "src/probability_model.i::functions::encode_bit",
+      "to": "src/probability_model.i::functions::encode_bit_tree_reverse"
+    },
+    {
+      "from": "src/probability_model.i::functions::encode_bit",
+      "to": "src/perplexity_encoder.i::functions::perplexity_encoder_new"
+    },
+    {
+      "from": "src/probability_model.i::functions::encode_direct_bits",
+      "to": "src/range_encoder.i::functions::range_encoder_new"
+    },
+    {
+      "from": "src/probability_model.i::functions::encode_direct_bits",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_distance"
+    },
+    {
+      "from": "src/probability_model.i::functions::encode_direct_bits",
+      "to": "src/perplexity_encoder.i::functions::perplexity_encoder_new"
+    },
+    {
+      "from": "src/probability_model.i::functions::encode_bit_tree",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_length"
+    },
+    {
+      "from": "src/probability_model.i::functions::encode_bit_tree",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_distance"
+    },
+    {
+      "from": "src/probability_model.i::functions::encode_bit_tree_reverse",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_distance"
+    },
+    {
+      "from": "src/packet_slab.i::structs::PacketSlab_struct",
+      "to": "src/packet_slab_neighbour.i::structs::PacketSlab"
+    },
+    {
+      "from": "src/packet_slab.i::functions::packet_slab_new",
+      "to": "src/main.i::functions::main"
+    },
+    {
+      "from": "src/packet_slab.i::functions::packet_slab_free",
+      "to": "src/main.i::functions::main"
+    },
+    {
+      "from": "src/packet_slab.i::functions::packet_slab_count",
+      "to": "src/packet_slab_neighbour.i::functions::packet_slab_neighbour_generate"
+    },
+    {
+      "from": "src/packet_slab.i::functions::packet_slab_packets",
+      "to": "src/packet_slab_neighbour.i::functions::packet_slab_neighbour_generate"
+    },
+    {
+      "from": "src/packet_slab.i::functions::packet_slab_packets",
+      "to": "src/main.i::functions::main"
+    },
+    {
+      "from": "src/packet_slab.i::functions::packet_slab_packets",
+      "to": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_heap_apply"
+    },
+    {
+      "from": "src/packet_slab.i::functions::packet_slab_packets",
+      "to": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_stack_apply"
+    },
+    {
+      "from": "src/lzma_header_encoder.i::functions::lzma_encode_header_properties",
+      "to": "src/lzma_header_encoder.i::functions::lzma_encode_header"
+    },
+    {
+      "from": "src/lzma_header_encoder.i::functions::lzma_encode_header",
+      "to": "src/main.i::functions::main"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::structs::MaxHeap",
+      "to": "src/top_k_packet_finder.i::structs::TopKPacketFinder_struct"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::structs::MaxHeap",
+      "to": "src/max_heap.i::functions::max_heap_new"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::structs::MaxHeap",
+      "to": "src/max_heap.i::functions::max_heap_free"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::structs::MaxHeap",
+      "to": "src/max_heap.i::functions::max_heap_count"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::structs::MaxHeap",
+      "to": "src/max_heap.i::functions::max_heap_clear"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::structs::MaxHeap",
+      "to": "src/max_heap.i::functions::max_heap_parent"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::structs::MaxHeap",
+      "to": "src/max_heap.i::functions::max_heap_left_child"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::structs::MaxHeap",
+      "to": "src/max_heap.i::functions::max_heap_right_child"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::structs::MaxHeap",
+      "to": "src/max_heap.i::functions::max_heap_bubble_down"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::structs::MaxHeap",
+      "to": "src/max_heap.i::functions::max_heap_bubble_up"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::structs::MaxHeap",
+      "to": "src/max_heap.i::functions::max_heap_insert"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::structs::MaxHeap",
+      "to": "src/max_heap.i::functions::max_heap_maximum"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::structs::MaxHeap",
+      "to": "src/max_heap.i::functions::max_heap_remove_maximum"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::structs::MaxHeap",
+      "to": "src/max_heap.i::functions::max_heap_update_maximum"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::structs::TopKEntry",
+      "to": "src/top_k_packet_finder.i::structs::TopKPacketFinder_struct"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::structs::TopKEntry",
+      "to": "src/top_k_packet_finder.i::functions::top_k_entry_comparator"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::structs::TopKEntry",
+      "to": "src/top_k_packet_finder.i::functions::top_k_packet_finder_new"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::structs::TopKEntry",
+      "to": "src/top_k_packet_finder.i::functions::top_k_entry_finder_insert"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::structs::TopKEntry",
+      "to": "src/top_k_packet_finder.i::functions::top_k_packet_finder_callback"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::structs::TopKPacketFinder_struct",
+      "to": "src/packet_slab_neighbour.i::structs::TopKPacketFinder"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::typedefs::MaxHeapComparator",
+      "to": "src/max_heap.i::structs::MaxHeap_struct"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::typedefs::MaxHeapComparator",
+      "to": "src/max_heap.i::functions::max_heap_new"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::typedefs::MaxHeapComparator",
+      "to": "src/max_heap.i::functions::max_heap_bubble_down"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::typedefs::MaxHeapComparator",
+      "to": "src/max_heap.i::functions::max_heap_bubble_up"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::functions::sign",
+      "to": "src/top_k_packet_finder.i::functions::top_k_entry_comparator"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::functions::top_k_entry_comparator",
+      "to": "src/top_k_packet_finder.i::functions::top_k_packet_finder_new"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::functions::top_k_packet_finder_new",
+      "to": "src/main.i::functions::main"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::functions::top_k_packet_finder_free",
+      "to": "src/main.i::functions::main"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::functions::top_k_packet_finder_count",
+      "to": "src/packet_slab_neighbour.i::functions::pick_random_next_packet_from_top_k"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::functions::top_k_packet_finder_count",
+      "to": "src/top_k_packet_finder.i::functions::top_k_entry_finder_insert"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::functions::top_k_entry_finder_insert",
+      "to": "src/top_k_packet_finder.i::functions::top_k_packet_finder_callback"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::functions::top_k_packet_finder_callback",
+      "to": "src/top_k_packet_finder.i::functions::top_k_packet_finder_find"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::functions::top_k_packet_finder_find",
+      "to": "src/packet_slab_neighbour.i::functions::pick_random_next_packet_from_top_k"
+    },
+    {
+      "from": "src/top_k_packet_finder.i::functions::top_k_packet_finder_pop",
+      "to": "src/packet_slab_neighbour.i::functions::pick_random_next_packet_from_top_k"
+    },
+    {
+      "from": "src/max_heap.i::structs::MaxHeap_struct",
+      "to": "src/top_k_packet_finder.i::structs::MaxHeap"
+    },
+    {
+      "from": "src/max_heap.i::functions::max_heap_new",
+      "to": "src/top_k_packet_finder.i::functions::top_k_packet_finder_new"
+    },
+    {
+      "from": "src/max_heap.i::functions::max_heap_free",
+      "to": "src/top_k_packet_finder.i::functions::top_k_packet_finder_free"
+    },
+    {
+      "from": "src/max_heap.i::functions::max_heap_count",
+      "to": "src/top_k_packet_finder.i::functions::top_k_packet_finder_count"
+    },
+    {
+      "from": "src/max_heap.i::functions::max_heap_clear",
+      "to": "src/top_k_packet_finder.i::functions::top_k_packet_finder_find"
+    },
+    {
+      "from": "src/max_heap.i::functions::swap",
+      "to": "src/max_heap.i::functions::max_heap_bubble_down"
+    },
+    {
+      "from": "src/max_heap.i::functions::swap",
+      "to": "src/max_heap.i::functions::max_heap_bubble_up"
+    },
+    {
+      "from": "src/max_heap.i::functions::max_heap_parent",
+      "to": "src/max_heap.i::functions::max_heap_bubble_up"
+    },
+    {
+      "from": "src/max_heap.i::functions::max_heap_left_child",
+      "to": "src/max_heap.i::functions::max_heap_bubble_down"
+    },
+    {
+      "from": "src/max_heap.i::functions::max_heap_right_child",
+      "to": "src/max_heap.i::functions::max_heap_bubble_down"
+    },
+    {
+      "from": "src/max_heap.i::functions::max_heap_bubble_down",
+      "to": "src/max_heap.i::functions::max_heap_remove_maximum"
+    },
+    {
+      "from": "src/max_heap.i::functions::max_heap_bubble_down",
+      "to": "src/max_heap.i::functions::max_heap_update_maximum"
+    },
+    {
+      "from": "src/max_heap.i::functions::max_heap_bubble_up",
+      "to": "src/max_heap.i::functions::max_heap_insert"
+    },
+    {
+      "from": "src/max_heap.i::functions::max_heap_insert",
+      "to": "src/top_k_packet_finder.i::functions::top_k_entry_finder_insert"
+    },
+    {
+      "from": "src/max_heap.i::functions::max_heap_maximum",
+      "to": "src/top_k_packet_finder.i::functions::top_k_entry_finder_insert"
+    },
+    {
+      "from": "src/max_heap.i::functions::max_heap_maximum",
+      "to": "src/top_k_packet_finder.i::functions::top_k_packet_finder_pop"
+    },
+    {
+      "from": "src/max_heap.i::functions::max_heap_remove_maximum",
+      "to": "src/top_k_packet_finder.i::functions::top_k_packet_finder_pop"
+    },
+    {
+      "from": "src/max_heap.i::functions::max_heap_update_maximum",
+      "to": "src/top_k_packet_finder.i::functions::top_k_entry_finder_insert"
+    },
+    {
+      "from": "src/substring_enumerator.i::structs::SubstringEnumerator_struct",
+      "to": "src/packet_enumerator.i::structs::SubstringEnumerator"
+    },
+    {
+      "from": "src/substring_enumerator.i::functions::substring_enumerator_memory_usage",
+      "to": "src/packet_enumerator.i::functions::packet_enumerator_memory_usage"
+    },
+    {
+      "from": "src/substring_enumerator.i::functions::memoize_bigram_positions",
+      "to": "src/substring_enumerator.i::functions::substring_enumerator_new"
+    },
+    {
+      "from": "src/substring_enumerator.i::functions::substring_enumerator_new",
+      "to": "src/packet_enumerator.i::functions::packet_enumerator_new"
+    },
+    {
+      "from": "src/substring_enumerator.i::functions::substring_enumerator_free",
+      "to": "src/packet_enumerator.i::functions::packet_enumerator_free"
+    },
+    {
+      "from": "src/substring_enumerator.i::functions::substring_enumerator_for_each",
+      "to": "src/packet_enumerator.i::functions::packet_enumerator_for_each"
+    },
+    {
+      "from": "src/perplexity_encoder.i::globals::LOG2_LOOKUP",
+      "to": "src/perplexity_encoder.i::functions::perplexity_encoder_encode_bit"
+    },
+    {
+      "from": "src/perplexity_encoder.i::functions::perplexity_encoder_encode_bit",
+      "to": "src/perplexity_encoder.i::functions::perplexity_encoder_new"
+    },
+    {
+      "from": "src/perplexity_encoder.i::functions::perplexity_encoder_encode_direct_bits",
+      "to": "src/perplexity_encoder.i::functions::perplexity_encoder_new"
+    },
+    {
+      "from": "src/perplexity_encoder.i::functions::perplexity_encoder_new",
+      "to": "src/packet_slab_neighbour.i::functions::packet_slab_neighbour_generate"
+    },
+    {
+      "from": "src/perplexity_encoder.i::functions::perplexity_encoder_new",
+      "to": "src/top_k_packet_finder.i::functions::top_k_packet_finder_callback"
+    },
+    {
+      "from": "src/packet_slab_undo_stack.i::structs::PacketSlabUndoHeap_struct",
+      "to": "src/packet_slab_neighbour.i::structs::PacketSlabUndoHeap"
+    },
+    {
+      "from": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_heap_new",
+      "to": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_stack_insert"
+    },
+    {
+      "from": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_heap_free",
+      "to": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_stack_free"
+    },
+    {
+      "from": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_heap_free",
+      "to": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_stack_apply"
+    },
+    {
+      "from": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_heap_apply",
+      "to": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_stack_apply"
+    },
+    {
+      "from": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_stack_new",
+      "to": "src/packet_slab_neighbour.i::functions::packet_slab_neighbour_new"
+    },
+    {
+      "from": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_stack_free",
+      "to": "src/packet_slab_neighbour.i::functions::packet_slab_neighbour_free"
+    },
+    {
+      "from": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_stack_insert",
+      "to": "src/packet_slab_neighbour.i::functions::save_packet_at_position"
+    },
+    {
+      "from": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_stack_apply",
+      "to": "src/packet_slab_neighbour.i::functions::packet_slab_neighbour_undo"
+    },
+    {
+      "from": "src/packet_slab_undo_stack.i::functions::packet_slab_undo_stack_count",
+      "to": "src/packet_slab_neighbour.i::functions::packet_slab_neighbour_undo_count"
+    },
+    {
+      "from": "src/lzma_state.i::functions::lzma_state_init_probs",
+      "to": "src/lzma_state.i::functions::lzma_state_init"
+    },
+    {
+      "from": "src/lzma_state.i::functions::lzma_state_init",
+      "to": "src/main.i::functions::main"
+    },
+    {
+      "from": "src/lzma_state.i::functions::lzma_state_update_ctx_state",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_packet"
+    },
+    {
+      "from": "src/lzma_state.i::functions::lzma_state_push_distance",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_match"
+    },
+    {
+      "from": "src/lzma_state.i::functions::lzma_state_promote_distance_at",
+      "to": "src/lzma_packet_encoder.i::functions::lzma_encode_long_rep"
+    }
+  ]
+}

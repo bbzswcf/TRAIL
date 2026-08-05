@@ -1,0 +1,33 @@
+{
+  "project_name": "NandC",
+  "files": {
+    "nand.i": {
+      "relative_path": "nand.i",
+      "original_file": "nand.c",
+      "includes": [],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "nand": "static _Bool nand(_Bool a, _Bool b)\n{\n    return !(a && b);\n}",
+          "not": "static _Bool not(_Bool a)\n{\n    return nand(a, 1);\n}",
+          "or": "static _Bool or (_Bool a, _Bool b)\n{\n    return nand(not(a), not(b));\n}",
+          "and": "static _Bool and (_Bool a, _Bool b)\n{\n    return not(nand(a, b));\n}",
+          "xor": "static _Bool xor (_Bool a, _Bool b) { return or (and(a, not(b)), and(not(a), b)); }",
+          "add_bit": "static _Bool\n    add_bit(_Bool a, _Bool b, _Bool carry, _Bool *carry_result)\n{\n    *carry_result = and(or (a, b), or (and(a, b), carry));\n    return xor(xor(a, b), carry);\n}",
+          "half_sub": "static _Bool half_sub(_Bool a, _Bool b, _Bool *carry_result)\n{\n    *carry_result = and(not(a), b);\n    return xor(a, b);\n}",
+          "sub_bit": "static _Bool sub_bit(_Bool a, _Bool b, _Bool carry, _Bool *carry_result)\n{\n    _Bool b1;\n    _Bool b2;\n    _Bool result = half_sub(half_sub(a, b, &b1), carry, &b2);\n    *carry_result = or (b1, b2);\n    return result;\n}",
+          "bll": "const char *bll(_Bool x)\n{\n    return x ? \"true\" : \"false\";\n}",
+          "print_add_bit": "void print_add_bit(_Bool a, _Bool b, _Bool carry)\n{\n    printf(\"a      : %s\\n\", bll(a));\n    printf(\"b      : %s\\n\", bll(b));\n    printf(\"carry  : %s\\n\", bll(carry));\n    _Bool res_carry;\n    printf(\"result :\\n\");\n    printf(\"  bit  : %s\\n\", bll(add_bit(a, b, carry, &res_carry)));\n    printf(\"  carry: %s\\n\", bll(res_carry));\n}",
+          "add_u4": "u4 add_u4(u4 a, u4 b)\n{\n    _Bool carry = 0;\n    u4 result = 0;\n    result |= ((u4)add_bit((a >> 0) & 0b1, (b >> 0) & 0b1, carry, &carry)) << 0;\n    result |= ((u4)add_bit((a >> 1) & 0b1, (b >> 1) & 0b1, carry, &carry)) << 1;\n    result |= ((u4)add_bit((a >> 2) & 0b1, (b >> 2) & 0b1, carry, &carry)) << 2;\n    result |= ((u4)add_bit((a >> 3) & 0b1, (b >> 3) & 0b1, carry, &carry)) << 3;\n    return result;\n}",
+          "sub_u4": "u4 sub_u4(u4 a, u4 b)\n{\n    _Bool carry = 0;\n    u4 result = 0;\n    result |= ((u4)sub_bit((a >> 0) & 0b1, (b >> 0) & 0b1, carry, &carry)) << 0;\n    result |= ((u4)sub_bit((a >> 1) & 0b1, (b >> 1) & 0b1, carry, &carry)) << 1;\n    result |= ((u4)sub_bit((a >> 2) & 0b1, (b >> 2) & 0b1, carry, &carry)) << 2;\n    result |= ((u4)sub_bit((a >> 3) & 0b1, (b >> 3) & 0b1, carry, &carry)) << 3;\n    return result;\n}"
+        },
+        "typedefs": {
+          "u4": "typedef uint8_t u4;"
+        }
+      }
+    }
+  }
+}

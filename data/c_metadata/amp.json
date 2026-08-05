@@ -1,0 +1,28 @@
+{
+  "project_name": "amp",
+  "files": {
+    "src/amp.i": {
+      "relative_path": "src/amp.i",
+      "original_file": "src/amp.c",
+      "includes": [
+        "amp.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "amp_t": "typedef struct\n{\n    short version;\n    short argc;\n    char *buf;\n} amp_t;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "read_u32_be": "static uint32_t read_u32_be(char *buf)\n{\n    uint32_t n = 0;\n    n |= buf[0] << 24;\n    n |= buf[1] << 16;\n    n |= buf[2] << 8;\n    n |= buf[3];\n    return n;\n}",
+          "write_u32_be": "static void write_u32_be(char *buf, uint32_t n)\n{\n    buf[0] = n >> 24 & 0xff;\n    buf[1] = n >> 16 & 0xff;\n    buf[2] = n >> 8 & 0xff;\n    buf[3] = n & 0xff;\n}",
+          "amp_decode": "void amp_decode(amp_t *msg, char *buf)\n{\n    msg->version = buf[0] >> 4;\n    msg->argc = buf[0] & 0xf;\n    msg->buf = buf + 1;\n}",
+          "amp_decode_arg": "char *amp_decode_arg(amp_t *msg)\n{\n    uint32_t len = read_u32_be(msg->buf);\n    msg->buf += 4;\n    char *buf = malloc(len);\n    if (!buf)\n        return ((void *)0);\n    memcpy(buf, msg->buf, len);\n    msg->buf += len;\n    return buf;\n}",
+          "amp_encode": "char *amp_encode(char **argv, int argc)\n{\n    size_t len = 1;\n    size_t lens[argc];\n    for (int i = 0; i < argc; ++i)\n    {\n        len += 4;\n        lens[i] = strlen(argv[i]);\n        len += lens[i];\n    }\n    char *buf = malloc(len);\n    char *ret = buf;\n    if (!buf)\n        return ((void *)0);\n    *buf++ = 1 << 4 | argc;\n    for (int i = 0; i < argc; ++i)\n    {\n        size_t len = lens[i];\n        write_u32_be(buf, len);\n        buf += 4;\n        memcpy(buf, argv[i], len);\n        buf += len;\n    }\n    return ret;\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

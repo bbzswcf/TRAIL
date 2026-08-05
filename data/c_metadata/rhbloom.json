@@ -1,0 +1,35 @@
+{
+  "project_name": "rhbloom",
+  "files": {
+    "rhbloom.i": {
+      "relative_path": "rhbloom.i",
+      "original_file": "rhbloom.c",
+      "includes": [
+        "rhbloom.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "rhbloom": "struct rhbloom\n{\n    void *(*malloc)(size_t);\n    void (*free)(void *);\n    size_t count;\n    size_t nbuckets;\n    uint64_t *buckets;\n    size_t k;\n    size_t m;\n    uint8_t *bits;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "rhbloom_new_with_allocator": "struct rhbloom *rhbloom_new_with_allocator(size_t n, double p, void *(*_malloc)(size_t), void (*_free)(void *))\n{\n    if (n < 16)\n        n = 16;\n    size_t m = n * log(p) / log(1 / pow(2, log(2)));\n    size_t k = round(((double)m / (double)(n)) * log(2));\n    size_t m0 = 2;\n    while (m0 < m)\n    {\n        m0 *= 2;\n    }\n    size_t k0 = round((double)m / (double)m0 * (double)k);\n    _malloc = _malloc ? _malloc : malloc;\n    _free = _free ? _free : free;\n    struct rhbloom *rhbloom = _malloc(sizeof(struct rhbloom));\n    if (!_malloc)\n    {\n        return 0;\n    }\n    rhbloom->malloc = _malloc;\n    rhbloom->free = _free;\n    rhbloom->count = 0;\n    rhbloom->nbuckets = 0;\n    rhbloom->buckets = 0;\n    rhbloom->k = k0;\n    rhbloom->m = m0;\n    rhbloom->bits = 0;\n    return rhbloom;\n}",
+          "rhbloom_new": "struct rhbloom *rhbloom_new(size_t n, double p)\n{\n    return rhbloom_new_with_allocator(n, p, malloc, free);\n}",
+          "rhbloom_free": "void rhbloom_free(struct rhbloom *rhbloom)\n{\n    if (rhbloom->bits)\n    {\n        rhbloom->free(rhbloom->bits);\n    }\n    if (rhbloom->buckets)\n    {\n        rhbloom->free(rhbloom->buckets);\n    }\n    rhbloom->count = 0;\n    rhbloom->nbuckets = 0;\n    rhbloom->buckets = 0;\n    rhbloom->bits = 0;\n    rhbloom->free(rhbloom);\n}",
+          "rhbloom_mix": "static uint64_t rhbloom_mix(uint64_t key)\n{\n    key ^= key >> 30;\n    key *= 0xbf58476d1ce4e5b9UL;\n    key ^= key >> 27;\n    key *= 0x94d049bb133111ebUL;\n    key ^= key >> 31;\n    return key;\n}",
+          "rhbloom_testadd": "static _Bool rhbloom_testadd(struct rhbloom *rhbloom, uint64_t key, _Bool add)\n{\n    key = ((uint64_t)(key) << 8 >> 8);\n    size_t i = 0;\n    size_t j = key & (rhbloom->m - 1);\n    while (1)\n    {\n        if (add)\n        {\n            rhbloom->bits[j >> 3] |= add << (j & 7);\n        }\n        else if (!((rhbloom->bits[j >> 3] >> (j & 7)) & 1))\n        {\n            return 0;\n        }\n        if (i == rhbloom->k - 1)\n        {\n            break;\n        }\n        key *= 0x94d049bb133111ebUL;\n        key ^= key >> 31;\n        j = key & (rhbloom->m - 1);\n        i++;\n    }\n    return 1;\n}",
+          "rhbloom_grow": "static _Bool rhbloom_grow(struct rhbloom *rhbloom)\n{\n    size_t nbuckets_old = rhbloom->nbuckets;\n    uint64_t *buckets_old = rhbloom->buckets;\n    size_t nbuckets_new = nbuckets_old == 0 ? 16 : nbuckets_old * 2;\n    if (nbuckets_new * 8 >= rhbloom->m >> 3)\n    {\n        rhbloom->bits = rhbloom->malloc(rhbloom->m >> 3);\n        if (!rhbloom->bits)\n        {\n            return 0;\n        }\n        memset(rhbloom->bits, 0, rhbloom->m >> 3);\n        rhbloom->count = 0;\n        rhbloom->nbuckets = 0;\n        rhbloom->buckets = 0;\n        for (size_t i = 0; i < nbuckets_old; i++)\n        {\n            if ((int)((uint64_t)(buckets_old[i]) >> 56))\n            {\n                rhbloom_testadd(rhbloom, buckets_old[i], 1);\n            }\n        }\n    }\n    else\n    {\n        uint64_t *buckets = rhbloom->malloc(nbuckets_new << 3);\n        if (!buckets)\n        {\n            return 0;\n        }\n        memset(buckets, 0, nbuckets_new << 3);\n        rhbloom->count = 0;\n        rhbloom->nbuckets = nbuckets_new;\n        rhbloom->buckets = buckets;\n        for (size_t i = 0; i < nbuckets_old; i++)\n        {\n            if ((int)((uint64_t)(buckets_old[i]) >> 56))\n            {\n                rhbloom_addkey(rhbloom, buckets_old[i]);\n            }\n        }\n    }\n    if (buckets_old)\n    {\n        rhbloom->free(buckets_old);\n    }\n    return 1;\n}",
+          "rhbloom_addkey": "static _Bool rhbloom_addkey(struct rhbloom *rhbloom, uint64_t key)\n{\n    key = ((uint64_t)(key) << 8 >> 8);\n    int dib = 1;\n    size_t i = key & (rhbloom->nbuckets - 1);\n    while (1)\n    {\n        if ((int)((uint64_t)(rhbloom->buckets[i]) >> 56) == 0)\n        {\n            rhbloom->buckets[i] = (((uint64_t)((key)) << 8 >> 8) | ((uint64_t)(dib) << 56));\n            rhbloom->count++;\n            return 1;\n        }\n        if (((uint64_t)(rhbloom->buckets[i]) << 8 >> 8) == key)\n        {\n            return 1;\n        }\n        if ((int)((uint64_t)(rhbloom->buckets[i]) >> 56) < dib)\n        {\n            uint64_t tmp = rhbloom->buckets[i];\n            rhbloom->buckets[i] = (((uint64_t)((key)) << 8 >> 8) | ((uint64_t)(dib) << 56));\n            key = ((uint64_t)(tmp) << 8 >> 8);\n            dib = (int)((uint64_t)(tmp) >> 56);\n        }\n        dib++;\n        i = (i + 1) & (rhbloom->nbuckets - 1);\n    }\n}",
+          "rhbloom_add": "_Bool rhbloom_add(struct rhbloom *rhbloom, uint64_t key)\n{\n    key = rhbloom_mix(key);\n    while (1)\n    {\n        if (rhbloom->bits)\n        {\n            rhbloom_testadd(rhbloom, key, 1);\n            return 1;\n        }\n        if (rhbloom->count == rhbloom->nbuckets >> 1)\n        {\n            if (!rhbloom_grow(rhbloom))\n            {\n                return 0;\n            }\n            continue;\n        }\n        break;\n    }\n    return rhbloom_addkey(rhbloom, key);\n}",
+          "rhbloom_test": "_Bool rhbloom_test(struct rhbloom *rhbloom, uint64_t key)\n{\n    key = rhbloom_mix(key);\n    if (rhbloom->bits)\n    {\n        return rhbloom_testadd(rhbloom, key, 0);\n    }\n    if (!rhbloom->buckets)\n    {\n        return 0;\n    }\n    key = ((uint64_t)(key) << 8 >> 8);\n    int dib = 1;\n    size_t i = key & (rhbloom->nbuckets - 1);\n    while (1)\n    {\n        _Bool yes = ((uint64_t)(rhbloom->buckets[i]) << 8 >> 8) == key;\n        _Bool no = (int)((uint64_t)(rhbloom->buckets[i]) >> 56) < dib;\n        if (yes || no)\n        {\n            return yes;\n        }\n        dib++;\n        i = (i + 1) & (rhbloom->nbuckets - 1);\n    }\n}",
+          "rhbloom_memsize": "size_t rhbloom_memsize(struct rhbloom *rhbloom)\n{\n    size_t size = sizeof(struct rhbloom);\n    size += rhbloom->bits ? rhbloom->m >> 3 : rhbloom->nbuckets << 3;\n    return size;\n}",
+          "rhbloom_upgraded": "_Bool rhbloom_upgraded(struct rhbloom *rhbloom)\n{\n    return !!rhbloom->bits;\n}",
+          "rhbloom_clear": "void rhbloom_clear(struct rhbloom *rhbloom)\n{\n    if (rhbloom->bits)\n    {\n        memset(rhbloom->bits, 0, rhbloom->m >> 3);\n    }\n    else if (rhbloom->buckets)\n    {\n        memset(rhbloom->buckets, 0, rhbloom->nbuckets << 3);\n        rhbloom->count = 0;\n    }\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

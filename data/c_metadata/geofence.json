@@ -1,0 +1,27 @@
+{
+  "project_name": "geofence",
+  "files": {
+    "src/geofence.i": {
+      "relative_path": "src/geofence.i",
+      "original_file": "src/geofence.c",
+      "includes": [
+        "geofence.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "point": "typedef struct point\n{\n    double x;\n    double y;\n} point;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "lat2y_m": "double lat2y_m(double lat)\n{\n    return log(tan(((lat) / (180 / 3.14159265358979323846)) / 2 + 3.14159265358979323846 / 4)) * 6378137;\n}",
+          "lon2x_m": "double lon2x_m(double lon)\n{\n    return ((lon) / (180 / 3.14159265358979323846)) * 6378137;\n}",
+          "is_position_in_geofence": "_Bool is_position_in_geofence(point *p_ptr, const point *vertices, size_t number_of_vertices)\n{\n    point xy[number_of_vertices];\n    for (size_t i = 0; i < number_of_vertices; i++)\n    {\n        xy[i].x = lon2x_m(vertices[i].x);\n        xy[i].y = lat2y_m(vertices[i].y);\n    }\n    point *p_m = (point *)malloc(sizeof(point));\n    p_m->x = lon2x_m(p_ptr->x);\n    p_m->y = lat2y_m(p_ptr->y);\n    return is_point_in_polygon(p_m, xy, number_of_vertices);\n}",
+          "is_point_in_polygon": "_Bool is_point_in_polygon(point *p_ptr, const point *vertices, size_t number_of_vertices)\n{\n    int number_of_intersections = 0;\n    _Bool inside = 0;\n    double x = p_ptr->x;\n    double y = p_ptr->y;\n    if (number_of_vertices < 3)\n    {\n        return 0;\n    }\n    for (size_t i = 0; i < number_of_vertices; i++)\n    {\n        double x1 = vertices[i].x;\n        double y1 = vertices[i].y;\n        double x2 = vertices[(i + 1) % number_of_vertices].x;\n        double y2 = vertices[(i + 1) % number_of_vertices].y;\n        if ((y1 > y && y2 > y) || (y1 < y && y2 < y))\n        {\n            continue;\n        }\n        else\n        {\n            double s = x1 + (x2 - x1) * ((y - y1) / (y2 - y1));\n            if (s <= x)\n            {\n                number_of_intersections++;\n                if (x == x1 && y == y1)\n                {\n                    number_of_intersections--;\n                }\n                else if (s == x1 && y == y1)\n                {\n                    number_of_intersections--;\n                }\n            }\n        }\n    }\n    return (number_of_intersections % 2 == 1);\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

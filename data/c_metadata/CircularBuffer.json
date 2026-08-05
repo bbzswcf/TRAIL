@@ -1,0 +1,35 @@
+{
+  "project_name": "CircularBuffer",
+  "files": {
+    "src/circular_buffer.i": {
+      "relative_path": "src/circular_buffer.i",
+      "original_file": "src/circular_buffer.c",
+      "includes": [
+        "circular_buffer.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "CircularBuffer": "typedef struct s_circularBuffer *CircularBuffer;",
+          "s_circularBuffer": "struct s_circularBuffer\n{\n    size_t size;\n    size_t dataSize;\n    size_t tailOffset;\n    size_t headOffset;\n    void *buffer;\n}"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "CircularBufferCreate": "extern CircularBuffer CircularBufferCreate(size_t size)\n{\n    size_t totalSize = sizeof(struct s_circularBuffer) + size;\n    void *p = malloc(totalSize);\n    CircularBuffer buffer = (CircularBuffer)p;\n    buffer->buffer = p + sizeof(struct s_circularBuffer);\n    buffer->size = size;\n    CircularBufferReset(buffer);\n    return buffer;\n}",
+          "CircularBufferFree": "void CircularBufferFree(CircularBuffer cBuf)\n{\n    CircularBufferReset(cBuf);\n    cBuf->size = 0;\n    cBuf->dataSize = 0;\n    cBuf->buffer = ((void *)0);\n    free(cBuf);\n}",
+          "CircularBufferReset": "void CircularBufferReset(CircularBuffer cBuf)\n{\n    cBuf->headOffset = -1;\n    cBuf->tailOffset = -1;\n    cBuf->dataSize = 0;\n}",
+          "CircularBufferGetCapacity": "size_t CircularBufferGetCapacity(CircularBuffer cBuf)\n{\n    return cBuf->size;\n}",
+          "CircularBufferGetSize": "size_t CircularBufferGetSize(CircularBuffer cBuf)\n{\n    return cBuf->size;\n}",
+          "CircularBufferGetDataSize": "size_t CircularBufferGetDataSize(CircularBuffer cBuf)\n{\n    return cBuf->dataSize;\n}",
+          "CircularBufferPush": "void CircularBufferPush(CircularBuffer cBuf, void *src, size_t length)\n{\n    if (length == 0)\n        return;\n    size_t writableLen = length;\n    void *pSrc = src;\n    if (writableLen > cBuf->size)\n    {\n        size_t overFlowLen = writableLen - cBuf->size;\n        writableLen = cBuf->size;\n        pSrc = src + overFlowLen;\n    }\n    _Bool resetHead = 0;\n    if (cBuf->tailOffset + writableLen < cBuf->size)\n    {\n        memcpy(&cBuf->buffer[cBuf->tailOffset + 1], pSrc, writableLen);\n        if ((cBuf->tailOffset < cBuf->headOffset) && (cBuf->tailOffset + writableLen >= cBuf->headOffset))\n            resetHead = 1;\n        cBuf->tailOffset += writableLen;\n    }\n    else\n    {\n        size_t remainSize = cBuf->size - cBuf->tailOffset - 1;\n        memcpy(&cBuf->buffer[cBuf->tailOffset + 1], pSrc, remainSize);\n        size_t coverSize = writableLen - remainSize;\n        memcpy(cBuf->buffer, pSrc + remainSize, coverSize);\n        if (cBuf->tailOffset < cBuf->headOffset)\n            resetHead = 1;\n        else\n        {\n            if (coverSize > cBuf->headOffset)\n                resetHead = 1;\n        }\n        cBuf->tailOffset = coverSize - 1;\n    }\n    if (cBuf->headOffset == -1)\n        cBuf->headOffset = 0;\n    if (resetHead)\n    {\n        if (cBuf->tailOffset + 1 < cBuf->size)\n            cBuf->headOffset = cBuf->tailOffset + 1;\n        else\n            cBuf->headOffset = 0;\n        cBuf->dataSize = cBuf->size;\n    }\n    else\n    {\n        if (cBuf->tailOffset >= cBuf->headOffset)\n            cBuf->dataSize = cBuf->tailOffset - cBuf->headOffset + 1;\n        else\n            cBuf->dataSize = cBuf->size - (cBuf->headOffset - cBuf->tailOffset - 1);\n    }\n}",
+          "inter_circularBuffer_read": "size_t inter_circularBuffer_read(CircularBuffer cBuf, size_t length, void *dataOut, _Bool resetHead)\n{\n    if (cBuf->dataSize == 0 || length == 0)\n        return 0;\n    size_t rdLen = length;\n    if (cBuf->dataSize < rdLen)\n        rdLen = cBuf->dataSize;\n    if (cBuf->headOffset <= cBuf->tailOffset)\n    {\n        if (dataOut)\n            memcpy(dataOut, &cBuf->buffer[cBuf->headOffset], rdLen);\n        if (resetHead)\n        {\n            cBuf->headOffset += rdLen;\n            if (cBuf->headOffset > cBuf->tailOffset)\n            {\n                cBuf->headOffset = -1;\n                cBuf->tailOffset = -1;\n            }\n        }\n    }\n    else\n    {\n        if (cBuf->headOffset + rdLen <= cBuf->size)\n        {\n            if (dataOut)\n                memcpy(dataOut, &cBuf->buffer[cBuf->headOffset], rdLen);\n            if (resetHead)\n            {\n                cBuf->headOffset += rdLen;\n                if (cBuf->headOffset == cBuf->size)\n                    cBuf->headOffset = 0;\n            }\n        }\n        else\n        {\n            size_t frg1Len = cBuf->size - cBuf->headOffset;\n            if (dataOut)\n                memcpy(dataOut, &cBuf->buffer[cBuf->headOffset], frg1Len);\n            size_t frg2len = rdLen - frg1Len;\n            if (dataOut)\n                memcpy(dataOut + frg1Len, cBuf->buffer, frg2len);\n            if (resetHead)\n            {\n                cBuf->headOffset = frg2len;\n                if (cBuf->headOffset > cBuf->tailOffset)\n                {\n                    cBuf->headOffset = -1;\n                    cBuf->tailOffset = -1;\n                }\n            }\n        }\n    }\n    if (resetHead)\n        cBuf->dataSize -= rdLen;\n    return rdLen;\n}",
+          "CircularBufferPop": "size_t CircularBufferPop(CircularBuffer cBuf, size_t length, void *dataOut)\n{\n    return inter_circularBuffer_read(cBuf, length, dataOut, 1);\n}",
+          "CircularBufferRead": "size_t CircularBufferRead(CircularBuffer cBuf, size_t length, void *dataOut)\n{\n    return inter_circularBuffer_read(cBuf, length, dataOut, 0);\n}",
+          "CircularBufferPrint": "void CircularBufferPrint(CircularBuffer cBuf, _Bool hex)\n{\n    char *b = cBuf->buffer;\n    size_t cSize = CircularBufferGetSize(cBuf);\n    char *str = malloc(2 * cSize + 1);\n    char c;\n    for (size_t i = 0; i < cSize; i++)\n    {\n        if (CircularBufferGetDataSize(cBuf) == 0)\n        {\n            c = '_';\n        }\n        else if (cBuf->tailOffset < cBuf->headOffset)\n        {\n            if (i > cBuf->tailOffset && i < cBuf->headOffset)\n                c = '_';\n            else\n                c = b[i];\n        }\n        else\n        {\n            if (i > cBuf->tailOffset || i < cBuf->headOffset)\n                c = '_';\n            else\n                c = b[i];\n        }\n        if (hex)\n            sprintf(str + i * 2, \"%02X|\", c);\n        else\n            sprintf(str + i * 2, \"%c|\", c);\n    }\n    printf(\"CircularBuffer: %s <size %zu dataSize:%zu>\\n\", str, CircularBufferGetSize(cBuf),\n           CircularBufferGetDataSize(cBuf));\n    free(str);\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

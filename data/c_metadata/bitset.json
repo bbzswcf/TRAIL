@@ -1,0 +1,37 @@
+{
+  "project_name": "bitset",
+  "files": {
+    "src/bitset.i": {
+      "relative_path": "src/bitset.i",
+      "original_file": "src/bitset.c",
+      "includes": [
+        "./include/cborg/bitset.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "bitset_t": "typedef struct bitset_t\n{\n    _Bool flip;\n    size_t size;\n    size_t count;\n    uint8_t *array;\n} bitset_t;"
+        },
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "cb_bitset_new": "bitset_t *cb_bitset_new(size_t nb_bits)\n{\n    bitset_t *bs = (bitset_t *)calloc(1, sizeof(bitset_t));\n    bs->array = (uint8_t *)calloc(((nb_bits + 7) >> 3), sizeof(uint8_t));\n    bs->size = nb_bits;\n    return bs;\n}",
+          "cb_bitset_delete": "void cb_bitset_delete(bitset_t *bs)\n{\n    free(bs->array);\n    free(bs);\n}",
+          "cb_bitset_count": "size_t cb_bitset_count(bitset_t *bs)\n{\n    return (bs->flip ? (bs->size - bs->count) : bs->count);\n}",
+          "cb_bitset_size": "size_t cb_bitset_size(bitset_t *bs)\n{\n    return bs->size;\n}",
+          "cb_bitset_test": "_Bool cb_bitset_test(bitset_t *bs, size_t idx)\n{\n    return bs->flip ^ ((bs->array[((idx) >> 3)] & (1 << ((idx) & 0x7))) != 0);\n}",
+          "cb_bitset_any": "_Bool cb_bitset_any(bitset_t *bs)\n{\n    return (bs->flip ? (bs->count != bs->size) : (bs->count != 0));\n}",
+          "cb_bitset_none": "_Bool cb_bitset_none(bitset_t *bs)\n{\n    return !(cb_bitset_any(bs));\n}",
+          "cb_bitset_all": "_Bool cb_bitset_all(bitset_t *bs)\n{\n    return (bs->flip ? (bs->count == 0) : (bs->count == bs->size));\n}",
+          "cb_bitset_set": "void cb_bitset_set(bitset_t *bs, size_t idx, _Bool value)\n{\n    _Bool flip_value = bs->flip ? !value : value;\n    size_t previous_count = __builtin_popcount(bs->array[((idx) >> 3)]);\n    if (flip_value)\n    {\n        bs->array[((idx) >> 3)] |= (1 << ((idx) & 0x7));\n    }\n    else\n    {\n        bs->array[((idx) >> 3)] &= ~(1 << ((idx) & 0x7));\n    }\n    bs->count += (__builtin_popcount(bs->array[((idx) >> 3)]) - previous_count);\n}",
+          "cb_bitset_reset": "void cb_bitset_reset(bitset_t *bs)\n{\n    memset(bs->array, 0, ((bs->size + 7) >> 3));\n    bs->flip = 0;\n    bs->count = 0;\n}",
+          "cb_bitset_flip": "void cb_bitset_flip(bitset_t *bs)\n{\n    bs->flip = !(bs->flip);\n}",
+          "cb_bitset_to_string": "char *cb_bitset_to_string(bitset_t *bs)\n{\n    char *res = (char *)malloc(sizeof(char) * (bs->size + 1));\n    for (size_t i = 0; i < bs->size; i++)\n    {\n        res[i] = cb_bitset_test(bs, i) ? '1' : '0';\n    }\n    res[bs->size] = '\\0';\n    return res;\n}",
+          "cb_bitset_write": "void cb_bitset_write(bitset_t *bs, const char *path)\n{\n    FILE *file = fopen(path, \"wb\");\n    size_t bytes_to_write = ((bs->size + 7) >> 3);\n    size_t bytes_writen = 0;\n    size_t total_writen = 0;\n    if (file == ((void *)0))\n    {\n        fprintf(stdout, \"%s\\n\", strerror((*__errno_location())));\n        exit(1);\n    }\n    fwrite(&(bs->size), sizeof(size_t), 1, file);\n    fwrite(&(bs->count), sizeof(size_t), 1, file);\n    fwrite(&(bs->flip), sizeof(_Bool), 1, file);\n    while ((bytes_writen = fwrite(bs->array + total_writen, sizeof(uint8_t), bytes_to_write - total_writen, file)) > 0)\n    {\n        total_writen += bytes_writen;\n    }\n    fclose(file);\n}",
+          "cb_bitset_read": "bitset_t *cb_bitset_read(const char *path)\n{\n    FILE *file = fopen(path, \"rb\");\n    size_t size = 0;\n    if (file == ((void *)0))\n    {\n        fprintf(stdout, \"%s\\n\", strerror((*__errno_location())));\n        exit(1);\n    }\n    fread(&size, sizeof(size_t), 1, file);\n    bitset_t *bs = cb_bitset_new(size);\n    fread(&(bs->count), sizeof(size_t), 1, file);\n    fread(&(bs->flip), sizeof(_Bool), 1, file);\n    while (fread(bs->array, sizeof(uint8_t), bs->size, file) > 0)\n        ;\n    fclose(file);\n    return bs;\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

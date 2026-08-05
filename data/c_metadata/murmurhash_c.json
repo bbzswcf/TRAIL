@@ -1,0 +1,23 @@
+{
+  "project_name": "murmurhash_c",
+  "files": {
+    "murmurhash.i": {
+      "relative_path": "murmurhash.i",
+      "original_file": "murmurhash.c",
+      "includes": [
+        "murmurhash.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {},
+        "functions": {
+          "htole32": "static uint32_t htole32(uint32_t value)\n{\n    return value;\n}",
+          "murmurhash": "uint32_t murmurhash(const char *key, uint32_t len, uint32_t seed)\n{\n    uint32_t c1 = 0xcc9e2d51;\n    uint32_t c2 = 0x1b873593;\n    uint32_t r1 = 15;\n    uint32_t r2 = 13;\n    uint32_t m = 5;\n    uint32_t n = 0xe6546b64;\n    uint32_t h = 0;\n    uint32_t k = 0;\n    uint8_t *d = (uint8_t *)key;\n    const uint32_t *chunks = ((void *)0);\n    const uint8_t *tail = ((void *)0);\n    int i = 0;\n    int l = len / 4;\n    h = seed;\n    chunks = (const uint32_t *)(d + l * 4);\n    tail = (const uint8_t *)(d + l * 4);\n    for (i = -l; i != 0; ++i)\n    {\n        k = htole32(chunks[i]);\n        k *= c1;\n        k = (k << r1) | (k >> (32 - r1));\n        k *= c2;\n        h ^= k;\n        h = (h << r2) | (h >> (32 - r2));\n        h = h * m + n;\n    }\n    k = 0;\n    switch (len & 3)\n    {\n    case 3:\n        k ^= (tail[2] << 16);\n    case 2:\n        k ^= (tail[1] << 8);\n    case 1:\n        k ^= tail[0];\n        k *= c1;\n        k = (k << r1) | (k >> (32 - r1));\n        k *= c2;\n        h ^= k;\n    }\n    h ^= len;\n    h ^= (h >> 16);\n    h *= 0x85ebca6b;\n    h ^= (h >> 13);\n    h *= 0xc2b2ae35;\n    h ^= (h >> 16);\n    return h;\n}"
+        },
+        "typedefs": {}
+      }
+    }
+  }
+}

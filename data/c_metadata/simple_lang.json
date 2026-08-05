@@ -1,0 +1,190 @@
+{
+  "project_name": "simple_lang",
+  "files": {
+    "LangKernel/vm.i": {
+      "relative_path": "LangKernel/vm.i",
+      "original_file": "LangKernel/vm.c",
+      "includes": [
+        "vm.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "Token": "typedef struct\n{\n    TokenType type;\n    char *value;\n} Token;",
+          "ASTNode": "typedef struct ASTNode\n{\n    TokenType type;\n    struct ASTNode *left;\n    struct ASTNode *right;\n    char *value;\n} ASTNode;",
+          "Instruction": "typedef struct\n{\n    OpCode opcode;\n    char *operand;\n} Instruction;",
+          "Frame": "typedef struct\n{\n    int stack[200];\n    int sp;\n    int variables[100];\n    char *var_names[100];\n    int var_count;\n} Frame;"
+        },
+        "unions": {},
+        "enums": {
+          "TokenType": "typedef enum\n{\n    TOKEN_INT,\n    TOKEN_IDENTIFIER,\n    TOKEN_ASSIGN,\n    TOKEN_PLUS,\n    TOKEN_MINUS,\n    TOKEN_SEMICOLON,\n    TOKEN_LET,\n    TOKEN_EOF,\n    TOKEN_DIS\n} TokenType;",
+          "OpCode": "typedef enum\n{\n    LOAD_CONST,\n    LOAD_NAME,\n    STORE_NAME,\n    BINARY_ADD,\n    BINARY_SUB,\n    STK_DIS,\n} OpCode;"
+        },
+        "functions": {
+          "new_instruction": "Instruction *new_instruction(OpCode opcode, const char *operand)\n{\n    Instruction *instruction = (Instruction *)malloc(sizeof(Instruction));\n    instruction->opcode = opcode;\n    if (operand)\n    {\n        instruction->operand = strdup(operand);\n    }\n    else\n    {\n        instruction->operand = ((void *)0);\n    }\n    return instruction;\n}",
+          "free_instruction": "void free_instruction(Instruction *instruction)\n{\n    free(instruction);\n}",
+          "init_frame": "Frame *init_frame()\n{\n    Frame *frame = (Frame *)malloc(sizeof(Frame));\n    frame->sp = 0;\n    frame->var_count = 0;\n    return frame;\n}",
+          "free_frame": "void free_frame(Frame *frame)\n{\n    free(frame);\n}",
+          "eval": "void eval(Frame *frame, Instruction *instructions, int instr_count)\n{\n    for (int pc = 0; pc < instr_count; pc++)\n    {\n        Instruction instr = instructions[pc];\n        switch (instr.opcode)\n        {\n        case LOAD_CONST:\n            frame->stack[++frame->sp] = atoi(instr.operand);\n            break;\n        case LOAD_NAME:\n            for (int i = 0; i < frame->var_count; i++)\n            {\n                if (strcmp(frame->var_names[i], instr.operand) == 0)\n                {\n                    frame->stack[++frame->sp] = frame->variables[i];\n                    break;\n                }\n            }\n            break;\n        case STORE_NAME:\n            for (int i = 0; i < frame->var_count; i++)\n            {\n                if (strcmp(frame->var_names[i], instr.operand) == 0)\n                {\n                    frame->variables[i] = frame->stack[frame->sp--];\n                    break;\n                }\n            }\n            if (frame->var_count == 0 || strcmp(frame->var_names[frame->var_count - 1], instr.operand) != 0)\n            {\n                frame->var_names[frame->var_count] = strdup(instr.operand);\n                frame->variables[frame->var_count] = frame->stack[frame->sp--];\n                frame->var_count++;\n            }\n            break;\n        case BINARY_ADD:\n            frame->stack[frame->sp - 1] = frame->stack[frame->sp - 1] + frame->stack[frame->sp];\n            frame->sp--;\n            break;\n        case BINARY_SUB:\n            frame->stack[frame->sp - 1] = frame->stack[frame->sp - 1] - frame->stack[frame->sp];\n            frame->sp--;\n            break;\n        case STK_DIS:\n            printf(\"%d\\n\", frame->stack[frame->sp]);\n            break;\n        }\n    }\n    free(instructions);\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "LangKernel/misc.i": {
+      "relative_path": "LangKernel/misc.i",
+      "original_file": "LangKernel/misc.c",
+      "includes": [
+        "misc.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "Token": "typedef struct\n{\n    TokenType type;\n    char *value;\n} Token;",
+          "ASTNode": "typedef struct ASTNode\n{\n    TokenType type;\n    struct ASTNode *left;\n    struct ASTNode *right;\n    char *value;\n} ASTNode;",
+          "Instruction": "typedef struct\n{\n    OpCode opcode;\n    char *operand;\n} Instruction;",
+          "Frame": "typedef struct\n{\n    int stack[200];\n    int sp;\n    int variables[100];\n    char *var_names[100];\n    int var_count;\n} Frame;"
+        },
+        "unions": {},
+        "enums": {
+          "TokenType": "typedef enum\n{\n    TOKEN_INT,\n    TOKEN_IDENTIFIER,\n    TOKEN_ASSIGN,\n    TOKEN_PLUS,\n    TOKEN_MINUS,\n    TOKEN_SEMICOLON,\n    TOKEN_LET,\n    TOKEN_EOF,\n    TOKEN_DIS\n} TokenType;",
+          "OpCode": "typedef enum\n{\n    LOAD_CONST,\n    LOAD_NAME,\n    STORE_NAME,\n    BINARY_ADD,\n    BINARY_SUB,\n    STK_DIS,\n} OpCode;"
+        },
+        "functions": {
+          "get_opcode_name": "char *get_opcode_name(OpCode opcode)\n{\n    switch (opcode)\n    {\n    case LOAD_CONST:\n        return \"LOAD_CONST\";\n        break;\n    case LOAD_NAME:\n        return \"LOAD_NAME\";\n        break;\n    case STORE_NAME:\n        return \"STORE_NAME\";\n        break;\n    case BINARY_SUB:\n        return \"BINARY_SUB\";\n        break;\n    case BINARY_ADD:\n        return \"BINARY_ADD\";\n        break;\n    case STK_DIS:\n        return \"STK_DIS\";\n        break;\n    default:\n        return \"UNKNOWN_OPCODE\";\n    }\n}",
+          "get_token_type_name": "char *get_token_type_name(TokenType tokenType)\n{\n    switch (tokenType)\n    {\n    case TOKEN_INT:\n        return \"TOKEN_INT\";\n        break;\n    case TOKEN_IDENTIFIER:\n        return \"TOKEN_IDENTIFIER\";\n        break;\n    case TOKEN_ASSIGN:\n        return \"TOKEN_ASSIGN\";\n        break;\n    case TOKEN_PLUS:\n        return \"TOKEN_PLUS\";\n        break;\n    case TOKEN_MINUS:\n        return \"TOKEN_MINUS\";\n        break;\n    case TOKEN_SEMICOLON:\n        return \"TOKEN_SEMICOLON\";\n        break;\n    case TOKEN_LET:\n        return \"TOKEN_LET\";\n        break;\n    case TOKEN_EOF:\n        return \"TOKEN_EOF\";\n        break;\n    case TOKEN_DIS:\n        return \"TOKEN_DIS\";\n        break;\n    default:\n        return \"UNKNOWN_TOKEN\";\n    }\n}",
+          "show_opcode": "void show_opcode(Instruction *instruction, int instr_count)\n{\n    printf(\"bytecode:\\n\");\n    for (int i = 0; i < instr_count; i++)\n    {\n        if (instruction[i].operand)\n        {\n            printf(\"%-15s \\t (%s)\\n\", get_opcode_name(instruction[i].opcode), instruction[i].operand);\n        }\n        else\n        {\n            printf(\"%-15s \\t *\\n\", get_opcode_name(instruction[i].opcode));\n        }\n    }\n    printf(\"\\n\");\n}",
+          "show_tokens": "void show_tokens(Token *tokens)\n{\n    printf(\"tokens:\\n\");\n    for (int i = 0; tokens[i].type != TOKEN_EOF; i++)\n    {\n        printf(\"%-15s \\t (%s)\\n\", get_token_type_name(tokens[i].type), tokens[i].value);\n    }\n    printf(\"\\n\");\n}",
+          "print_ast": "void print_ast(ASTNode *node, int level)\n{\n    if (!node)\n        return;\n    for (int i = 0; i < level; i++)\n    {\n        printf(\"  \");\n    }\n    switch (node->type)\n    {\n    case TOKEN_INT:\n        printf(\"INT: %s\\n\", node->value);\n        break;\n    case TOKEN_IDENTIFIER:\n        printf(\"IDENTIFIER: %s\\n\", node->value);\n        break;\n    case TOKEN_ASSIGN:\n        printf(\"ASSIGN: %s\\n\", node->value);\n        break;\n    case TOKEN_LET:\n        printf(\"LET: %s\\n\", node->value);\n        break;\n    case TOKEN_PLUS:\n        printf(\"PLUS\\n\");\n        break;\n    case TOKEN_MINUS:\n        printf(\"MINUS\\n\");\n        break;\n    case TOKEN_DIS:\n        printf(\"DISPLAY\\n\");\n        break;\n    default:\n        printf(\"UNKNOWN\\n\");\n        break;\n    }\n    if (node->left)\n    {\n        print_ast(node->left, level + 1);\n    }\n    if (node->right)\n    {\n        print_ast(node->right, level + 1);\n    }\n}",
+          "print_asts": "void print_asts(ASTNode **asts)\n{\n    printf(\"AST:\\n\");\n    for (int i = 0; asts[i] != ((void *)0); i++)\n    {\n        print_ast(asts[i], 0);\n        printf(\"\\n\");\n    }\n    printf(\"\\n\");\n}",
+          "read_file": "char *read_file(const char *source_path)\n{\n    struct dirent *entry;\n    char *source = (char *)malloc(sizeof(char) * 2000);\n    FILE *file = fopen(source_path, \"r\");\n    if (file == ((void *)0))\n    {\n        perror(\"Could not open file\");\n        exit(-1);\n    }\n    int pos = 0;\n    char ch;\n    while ((ch = fgetc(file)) != (-1))\n    {\n        memcpy(&source[pos], &ch, sizeof(char));\n        pos++;\n    }\n    source[pos] = '\\0';\n    fclose(file);\n    return source;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "LangKernel/lexer.i": {
+      "relative_path": "LangKernel/lexer.i",
+      "original_file": "LangKernel/lexer.c",
+      "includes": [
+        "settings.h",
+        "lexer.h",
+        "utils.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "Token": "typedef struct\n{\n    TokenType type;\n    char *value;\n} Token;"
+        },
+        "unions": {},
+        "enums": {
+          "TokenType": "typedef enum\n{\n    TOKEN_INT,\n    TOKEN_IDENTIFIER,\n    TOKEN_ASSIGN,\n    TOKEN_PLUS,\n    TOKEN_MINUS,\n    TOKEN_SEMICOLON,\n    TOKEN_LET,\n    TOKEN_EOF,\n    TOKEN_DIS\n} TokenType;"
+        },
+        "functions": {
+          "new_token": "Token *new_token(TokenType type, const char *value)\n{\n    Token *token = (Token *)malloc(sizeof(Token));\n    token->type = type;\n    token->value = strdup(value);\n    return token;\n}",
+          "free_token": "void free_token(Token *token)\n{\n    free(token->value);\n    free(token);\n}",
+          "tokenize": "Token *tokenize(const char *source)\n{\n    Token *tokens = (Token *)malloc(sizeof(Token) * 200);\n    int pos = 0;\n    int len = strlen(source);\n    int index = 0;\n    while (pos < len)\n    {\n        if (((*__ctype_b_loc())[(int)((source[pos]))] & (unsigned short int)_ISspace))\n        {\n            pos++;\n        }\n        else if (((*__ctype_b_loc())[(int)((source[pos]))] & (unsigned short int)_ISdigit))\n        {\n            int start = pos;\n            while (((*__ctype_b_loc())[(int)((source[pos]))] & (unsigned short int)_ISdigit))\n            {\n                pos++;\n            }\n            char *num = strndup(&source[start], pos - start);\n            tokens[index] = *new_token(TOKEN_INT, num);\n            index++;\n            free(num);\n        }\n        else if (((*__ctype_b_loc())[(int)((source[pos]))] & (unsigned short int)_ISalpha))\n        {\n            int start = pos;\n            while (((*__ctype_b_loc())[(int)((source[pos]))] & (unsigned short int)_ISalpha))\n            {\n                pos++;\n            }\n            char *indent = strndup(&source[start], pos - start);\n            if (strcmp(indent, \"let\") == 0)\n            {\n                tokens[index] = *new_token(TOKEN_LET, indent);\n                index++;\n            }\n            else if (strcmp(indent, \"dis\") == 0)\n            {\n                tokens[index] = *new_token(TOKEN_DIS, indent);\n                index++;\n            }\n            else\n            {\n                tokens[index] = *new_token(TOKEN_IDENTIFIER, indent);\n                index++;\n            }\n            free(indent);\n        }\n        else\n        {\n            switch (source[pos])\n            {\n            case '+':\n                tokens[index] = *new_token(TOKEN_PLUS, \"+\");\n                index++;\n                break;\n            case '-':\n                tokens[index] = *new_token(TOKEN_MINUS, \"-\");\n                index++;\n                break;\n            case ';':\n                tokens[index] = *new_token(TOKEN_SEMICOLON, \";\");\n                index++;\n                break;\n            case '=':\n                tokens[index] = *new_token(TOKEN_ASSIGN, \"=\");\n                index++;\n                break;\n            default:\n                fprintf(stderr, \"SyntaxError: unexpected character %c\\n\", source[pos]);\n                exit(1);\n            }\n            pos++;\n        }\n    }\n    tokens[index] = *new_token(TOKEN_EOF, \"\");\n    return tokens;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "LangKernel/ast.i": {
+      "relative_path": "LangKernel/ast.i",
+      "original_file": "LangKernel/ast.c",
+      "includes": [
+        "ast.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "Token": "typedef struct\n{\n    TokenType type;\n    char *value;\n} Token;",
+          "ASTNode": "typedef struct ASTNode\n{\n    TokenType type;\n    struct ASTNode *left;\n    struct ASTNode *right;\n    char *value;\n} ASTNode;"
+        },
+        "unions": {},
+        "enums": {
+          "TokenType": "typedef enum\n{\n    TOKEN_INT,\n    TOKEN_IDENTIFIER,\n    TOKEN_ASSIGN,\n    TOKEN_PLUS,\n    TOKEN_MINUS,\n    TOKEN_SEMICOLON,\n    TOKEN_LET,\n    TOKEN_EOF,\n    TOKEN_DIS\n} TokenType;"
+        },
+        "functions": {
+          "new_ast_node": "ASTNode *new_ast_node(TokenType type, const char *value)\n{\n    ASTNode *node = (ASTNode *)malloc(sizeof(ASTNode));\n    node->type = type;\n    node->left = ((void *)0);\n    node->right = ((void *)0);\n    if (value)\n    {\n        node->value = strdup(value);\n    }\n    else\n    {\n        node->value = ((void *)0);\n    }\n    return node;\n}",
+          "free_ast_node": "void free_ast_node(ASTNode *node)\n{\n    if (node->left)\n        free_ast_node(node->left);\n    if (node->right)\n        free_ast_node(node->right);\n    if (node->value)\n        free(node->value);\n    free(node);\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "LangKernel/parser.i": {
+      "relative_path": "LangKernel/parser.i",
+      "original_file": "LangKernel/parser.c",
+      "includes": [
+        "settings.h",
+        "parser.h"
+      ],
+      "declarations": {
+        "globals": {
+          "tokens": "static Token *tokens;",
+          "pos": "static int pos;"
+        },
+        "structs": {
+          "Token": "typedef struct\n{\n    TokenType type;\n    char *value;\n} Token;",
+          "ASTNode": "typedef struct ASTNode\n{\n    TokenType type;\n    struct ASTNode *left;\n    struct ASTNode *right;\n    char *value;\n} ASTNode;"
+        },
+        "unions": {},
+        "enums": {
+          "TokenType": "typedef enum\n{\n    TOKEN_INT,\n    TOKEN_IDENTIFIER,\n    TOKEN_ASSIGN,\n    TOKEN_PLUS,\n    TOKEN_MINUS,\n    TOKEN_SEMICOLON,\n    TOKEN_LET,\n    TOKEN_EOF,\n    TOKEN_DIS\n} TokenType;"
+        },
+        "functions": {
+          "lookahead": "Token *lookahead()\n{\n    return &tokens[pos];\n}",
+          "consume": "Token *consume()\n{\n    return &tokens[pos++];\n}",
+          "parse_primary": "ASTNode *parse_primary()\n{\n    Token *token = consume();\n    if (token->type == TOKEN_INT)\n    {\n        return new_ast_node(TOKEN_INT, token->value);\n    }\n    else if (token->type == TOKEN_IDENTIFIER)\n    {\n        return new_ast_node(TOKEN_IDENTIFIER, token->value);\n    }\n    else\n    {\n        fprintf(stderr, \"Unexpected token in primary expression: %s\\n\", token->value);\n        exit(1);\n    }\n}",
+          "parse_expression": "ASTNode *parse_expression()\n{\n    ASTNode *left = parse_primary();\n    Token *token = lookahead();\n    while (token->type == TOKEN_PLUS || token->type == TOKEN_MINUS)\n    {\n        token = consume();\n        ASTNode *right = parse_primary();\n        ASTNode *node = new_ast_node(token->type, token->value);\n        node->left = left;\n        node->right = right;\n        left = node;\n        token = lookahead();\n    }\n    return left;\n}",
+          "parse_statement": "ASTNode *parse_statement()\n{\n    Token *token = consume();\n    if (token->type == TOKEN_LET)\n    {\n        Token *identifier = consume();\n        if (identifier->type != TOKEN_IDENTIFIER)\n        {\n            fprintf(stderr, \"Expected identifier after 'let'\\n\");\n            exit(1);\n        }\n        if (consume()->type != TOKEN_ASSIGN)\n        {\n            fprintf(stderr, \"Expected '=' after identifier\\n\");\n            exit(1);\n        }\n        ASTNode *expr = parse_expression();\n        if (consume()->type != TOKEN_SEMICOLON)\n        {\n            fprintf(stderr, \"Expected ';' at end of statement\\n\");\n            exit(1);\n        }\n        ASTNode *node = new_ast_node(TOKEN_LET, identifier->value);\n        node->left = expr;\n        return node;\n    }\n    else if (token->type == TOKEN_IDENTIFIER)\n    {\n        Token *identifier = token;\n        if (consume()->type != TOKEN_ASSIGN)\n        {\n            fprintf(stderr, \"Expected '=' after identifier\\n\");\n            exit(1);\n        }\n        ASTNode *expr = parse_expression();\n        if (consume()->type != TOKEN_SEMICOLON)\n        {\n            fprintf(stderr, \"Expected ';' at end of statement\\n\");\n            exit(1);\n        }\n        ASTNode *node = new_ast_node(TOKEN_ASSIGN, identifier->value);\n        node->left = expr;\n        return node;\n    }\n    else if (token->type == TOKEN_DIS)\n    {\n        ASTNode *expr = parse_expression();\n        ASTNode *node = new_ast_node(TOKEN_DIS, ((void *)0));\n        if (consume()->type != TOKEN_SEMICOLON)\n        {\n            fprintf(stderr, \"Expected ';' at end of statement\\n\");\n            exit(1);\n        }\n        node->left = expr;\n        return node;\n    }\n    else\n    {\n        fprintf(stderr, \"Unexpected token: %s\\n\", token->value);\n        exit(1);\n    }\n}",
+          "parse": "ASTNode **parse(Token *tokens_array)\n{\n    tokens = tokens_array;\n    pos = 0;\n    ASTNode **ast_nodes = (ASTNode **)malloc(sizeof(ASTNode *) * 100);\n    int count = 0;\n    while (tokens[pos].type != TOKEN_EOF)\n    {\n        ast_nodes[count++] = parse_statement();\n    }\n    ast_nodes[count] = ((void *)0);\n    return ast_nodes;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "LangKernel/compiler.i": {
+      "relative_path": "LangKernel/compiler.i",
+      "original_file": "LangKernel/compiler.c",
+      "includes": [
+        "settings.h",
+        "compiler.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {
+          "Token": "typedef struct\n{\n    TokenType type;\n    char *value;\n} Token;",
+          "ASTNode": "typedef struct ASTNode\n{\n    TokenType type;\n    struct ASTNode *left;\n    struct ASTNode *right;\n    char *value;\n} ASTNode;",
+          "Instruction": "typedef struct\n{\n    OpCode opcode;\n    char *operand;\n} Instruction;",
+          "Frame": "typedef struct\n{\n    int stack[200];\n    int sp;\n    int variables[100];\n    char *var_names[100];\n    int var_count;\n} Frame;"
+        },
+        "unions": {},
+        "enums": {
+          "TokenType": "typedef enum\n{\n    TOKEN_INT,\n    TOKEN_IDENTIFIER,\n    TOKEN_ASSIGN,\n    TOKEN_PLUS,\n    TOKEN_MINUS,\n    TOKEN_SEMICOLON,\n    TOKEN_LET,\n    TOKEN_EOF,\n    TOKEN_DIS\n} TokenType;",
+          "OpCode": "typedef enum\n{\n    LOAD_CONST,\n    LOAD_NAME,\n    STORE_NAME,\n    BINARY_ADD,\n    BINARY_SUB,\n    STK_DIS,\n} OpCode;"
+        },
+        "functions": {
+          "emit": "void emit(Instruction *instructions, int *count, OpCode opcode, const char *operand)\n{\n    instructions[*count] = *new_instruction(opcode, operand);\n    (*count)++;\n}",
+          "compile_expression": "void compile_expression(ASTNode *node, Instruction *instructions, int *count)\n{\n    if (node->type == TOKEN_INT)\n    {\n        emit(instructions, count, LOAD_CONST, node->value);\n    }\n    else if (node->type == TOKEN_IDENTIFIER)\n    {\n        emit(instructions, count, LOAD_NAME, node->value);\n    }\n    else if (node->type == TOKEN_PLUS)\n    {\n        compile_expression(node->left, instructions, count);\n        compile_expression(node->right, instructions, count);\n        emit(instructions, count, BINARY_ADD, ((void *)0));\n    }\n    else if (node->type == TOKEN_MINUS)\n    {\n        compile_expression(node->left, instructions, count);\n        compile_expression(node->right, instructions, count);\n        emit(instructions, count, BINARY_SUB, ((void *)0));\n    }\n}",
+          "compile_statement": "Instruction *compile_statement(ASTNode *ast, int *instr_count)\n{\n    Instruction *instructions = (Instruction *)malloc(sizeof(Instruction) * 100);\n    *instr_count = 0;\n    if (ast->type == TOKEN_LET || ast->type == TOKEN_ASSIGN)\n    {\n        compile_expression(ast->left, instructions, instr_count);\n        emit(instructions, instr_count, STORE_NAME, ast->value);\n    }\n    else if (ast->type == TOKEN_DIS)\n    {\n        compile_expression(ast->left, instructions, instr_count);\n        emit(instructions, instr_count, STK_DIS, ast->value);\n    }\n    return instructions;\n}",
+          "compile_asts": "Instruction *compile_asts(ASTNode **asts, int *total_instr_count)\n{\n    *total_instr_count = 0;\n    Instruction **instr_of_all = (Instruction **)malloc(sizeof(Instruction) * 100 * 100);\n    int *instr_count_of_all = (int *)malloc(sizeof(int) * 100);\n    for (int i = 0; asts[i] != ((void *)0); i++)\n    {\n        instr_of_all[i] = compile_statement(asts[i], &instr_count_of_all[i]);\n    }\n    for (int i = 0; asts[i] != ((void *)0); i++)\n    {\n        *total_instr_count += instr_count_of_all[i];\n    }\n    Instruction *all_instr = (Instruction *)malloc(sizeof(Instruction) * *total_instr_count);\n    memcpy(all_instr, instr_of_all[0], sizeof(Instruction) * instr_count_of_all[0]);\n    int copied_count = instr_count_of_all[0];\n    for (int i = 1; asts[i] != ((void *)0); i++)\n    {\n        memcpy(&all_instr[copied_count], instr_of_all[i], sizeof(Instruction) * instr_count_of_all[i]);\n        copied_count += instr_count_of_all[i];\n    }\n    return all_instr;\n}",
+          "compile": "Instruction *compile(const char *source, int *instr_count)\n{\n    Token *tokens = tokenize(source);\n    ASTNode **ast_nodes = parse(tokens);\n    Instruction *instructions = compile_asts(ast_nodes, instr_count);\n    return instructions;\n}"
+        },
+        "typedefs": {}
+      }
+    },
+    "LangKernel/utils.i": {
+      "relative_path": "LangKernel/utils.i",
+      "original_file": "LangKernel/utils.c",
+      "includes": [
+        "utils.h",
+        "utils.h"
+      ],
+      "declarations": {
+        "globals": {},
+        "structs": {},
+        "unions": {},
+        "enums": {},
+        "functions": {},
+        "typedefs": {}
+      }
+    }
+  }
+}
