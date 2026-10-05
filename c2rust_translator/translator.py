@@ -15,34 +15,34 @@ import tree_sitter_c as ts_c
 import tree_sitter_rust as ts_rust
 
 try:
-    from .adversarial_insights import (
+    from .adversarial_rules import (
         ChallengeToolChecker,
         ChallengeSanityChecker,
         EvidenceGate,
         FailureAttributor,
-        InsightBank,
-        InsightRecord,
+        RuleBank,
+        RuleRecord,
         LLMActivationValidator,
         LLMCompositionRelationReviewer,
         LLMSemanticOracleValidator,
         LLMStructuredChallengerAgent,
         LLMStructuredRefinerAgent,
         LLMTraceContradictionReviewer,
-        LLMTraceInsightSynthesizer,
+        LLMTraceRuleSynthesizer,
         RetrievalEngine,
         SyntheticChallengeGenerator,
-        exclusive_insight_bank_lock,
+        exclusive_rule_bank_lock,
         run_offline_adversarial_learning,
     )
     from .alignment_planner import AlignmentPlanner, CBinding
     from .compilation_validator import CompilationValidator
-    from .insights import (
-        DEFAULT_INSIGHTS,
-        LLMInsightInteractionScorer,
+    from .rules import (
+        DEFAULT_RULES,
+        LLMRuleInteractionScorer,
         RelationBackedInteractionScorer,
-        load_insight_library,
-        select_insights,
-        select_insights_with_metadata,
+        load_rule_library,
+        select_rules,
+        select_rules_with_metadata,
     )
     from .orchestrator_reporting import generate_translation_report, save_translation_history_artifacts
     from .prompts import (
@@ -59,34 +59,34 @@ try:
     from .translation_agent import create_agent
 except ImportError:
     sys.path.insert(0, str(Path(__file__).parent))
-    from adversarial_insights import (
+    from adversarial_rules import (
         ChallengeToolChecker,
         ChallengeSanityChecker,
         EvidenceGate,
         FailureAttributor,
-        InsightBank,
-        InsightRecord,
+        RuleBank,
+        RuleRecord,
         LLMActivationValidator,
         LLMCompositionRelationReviewer,
         LLMSemanticOracleValidator,
         LLMStructuredChallengerAgent,
         LLMStructuredRefinerAgent,
         LLMTraceContradictionReviewer,
-        LLMTraceInsightSynthesizer,
+        LLMTraceRuleSynthesizer,
         RetrievalEngine,
         SyntheticChallengeGenerator,
-        exclusive_insight_bank_lock,
+        exclusive_rule_bank_lock,
         run_offline_adversarial_learning,
     )
     from alignment_planner import AlignmentPlanner, CBinding
     from compilation_validator import CompilationValidator
-    from insights import (
-        DEFAULT_INSIGHTS,
-        LLMInsightInteractionScorer,
+    from rules import (
+        DEFAULT_RULES,
+        LLMRuleInteractionScorer,
         RelationBackedInteractionScorer,
-        load_insight_library,
-        select_insights,
-        select_insights_with_metadata,
+        load_rule_library,
+        select_rules,
+        select_rules_with_metadata,
     )
     from orchestrator_reporting import generate_translation_report, save_translation_history_artifacts
     from prompts import (
@@ -169,15 +169,15 @@ class Translator:
         self.stop_on_first_failure = config.get("stop_on_first_failure", True)
         self.alignment_mode = config.get("alignment_mode", "llm")
         self.alignment_confidence_threshold = config.get("alignment_confidence_threshold", 0.65)
-        self.insights_enabled = config.get("insights_enabled", True)
-        self.insight_limit = max(config.get("insight_limit", 5), 0)
+        self.rules_enabled = config.get("rules_enabled", True)
+        self.rule_limit = max(config.get("rule_limit", 5), 0)
         self.experiment_profile = config.get("experiment_profile", "custom")
         self.experiment_ablation_label = config.get("experiment_ablation_label", "custom")
-        self.insight_stage = config.get("insight_stage", "custom")
-        self.insight_mining = config.get("insight_mining", self.insights_enabled)
-        self.single_insight_adversarial_learning = config.get("single_insight_adversarial_learning", False)
-        self.compositional_insight_adversarial_learning = config.get(
-            "compositional_insight_adversarial_learning", False
+        self.rule_stage = config.get("rule_stage", "custom")
+        self.rule_mining = config.get("rule_mining", self.rules_enabled)
+        self.single_rule_adversarial_learning = config.get("single_rule_adversarial_learning", False)
+        self.compositional_rule_adversarial_learning = config.get(
+            "compositional_rule_adversarial_learning", False
         )
         self.adversarial_rounds = max(config.get("adversarial_rounds", 0), 0)
         self.model_display_name = config.get("model_display_name", "")
@@ -212,7 +212,7 @@ class Translator:
         self.test_fix_history: list[dict] = []
         self.llm_calls: list[dict] = []
         self.callable_failures = 0
-        self._configure_insights(config)
+        self._configure_rules(config)
 
     def run(self) -> None:
         print(f"\n{'=' * 80}")
@@ -335,12 +335,12 @@ class Translator:
             if module_path is None:
                 raise FileNotFoundError(f"Cannot resolve output module for {item.module}")
             allow_shared_items = self._allow_shared_item_repair()
-            insight_context = self._select_insight_context(
+            rule_context = self._select_rule_context(
                 contract=item.stub,
                 module_id=module_id,
-                limit=getattr(self, "insight_limit", 5),
+                limit=getattr(self, "rule_limit", 5),
             )
-            history["selected_insights"] = insight_context
+            history["selected_rules"] = rule_context
 
             prompt = build_translate_prompt(
                 contract=item.stub,
@@ -351,7 +351,7 @@ class Translator:
                 file_context=self.file_contexts.get(module_id, []),
                 shared_item_context=self._shared_item_context(self._shared_context_modules_for_item(item)),
                 allow_shared_item_fixes=allow_shared_items,
-                insight_context=insight_context,
+                rule_context=rule_context,
             )
             history["initial_translation_prompt"] = prompt
             print("    Calling LLM for translation...")
@@ -364,7 +364,7 @@ class Translator:
                     module_path,
                     prompt,
                     phase_label="translation",
-                    insights=insight_context,
+                    rules=rule_context,
                 )
             else:
                 result, rust_code, output_retries = self._request_patchable_code(
@@ -372,7 +372,7 @@ class Translator:
                     prompt,
                     phase_label="translation",
                     module_id=module_id,
-                    insights=insight_context,
+                    rules=rule_context,
                 )
             history["initial_translation"] = rust_code
             history["initial_translation_raw_response"] = result.raw_text
@@ -1281,7 +1281,7 @@ class Translator:
             )
         return context
 
-    def _select_insight_context(
+    def _select_rule_context(
         self,
         *,
         contract: str = "",
@@ -1290,7 +1290,7 @@ class Translator:
         extra_context: str = "",
         limit: int = 5,
     ) -> list[dict]:
-        if not getattr(self, "insights_enabled", True) or limit <= 0:
+        if not getattr(self, "rules_enabled", True) or limit <= 0:
             return []
         parts = [contract, output, extra_context]
         if module_id is not None:
@@ -1318,59 +1318,59 @@ class Translator:
                 parts.append(str(dep.get("rust_code", "")))
 
         query = "\n".join(part for part in parts if part)
-        interaction_scorer = getattr(self, "insight_interaction_scorer", None)
+        interaction_scorer = getattr(self, "rule_interaction_scorer", None)
         if interaction_scorer is not None:
-            insight_pool = getattr(self, "insights", DEFAULT_INSIGHTS)
-            if self.select_insights is not select_insights:
-                insight_pool = tuple(
-                    self.select_insights(
+            rule_pool = getattr(self, "rules", DEFAULT_RULES)
+            if self.select_rules is not select_rules:
+                rule_pool = tuple(
+                    self.select_rules(
                         query,
-                        insights=insight_pool,
+                        rules=rule_pool,
                         limit=max(limit * 3, limit),
                     )
                 )
-            selection = select_insights_with_metadata(
+            selection = select_rules_with_metadata(
                 query,
-                insights=insight_pool,
+                rules=rule_pool,
                 limit=limit,
                 interaction_scorer=interaction_scorer,
             )
-            insight_context = [insight.to_prompt_dict() for insight in selection.insights]
-            insight_context = self._attach_insight_selection_interactions(
-                insight_context,
+            rule_context = [rule.to_prompt_dict() for rule in selection.rules]
+            rule_context = self._attach_rule_selection_interactions(
+                rule_context,
                 [interaction.to_dict() for interaction in selection.interactions],
             )
-            self._record_insight_interaction_scorer_calls(module_id)
-            return self._attach_pre_translation_challenges(insight_context)
+            self._record_rule_interaction_scorer_calls(module_id)
+            return self._attach_pre_translation_challenges(rule_context)
 
-        selected = self.select_insights(
+        selected = self.select_rules(
             query,
-            insights=getattr(self, "insights", DEFAULT_INSIGHTS),
+            rules=getattr(self, "rules", DEFAULT_RULES),
             limit=limit,
         )
-        return self._attach_pre_translation_challenges([insight.to_prompt_dict() for insight in selected])
+        return self._attach_pre_translation_challenges([rule.to_prompt_dict() for rule in selected])
 
-    def _attach_insight_selection_interactions(
+    def _attach_rule_selection_interactions(
         self,
-        insight_context: list[dict],
+        rule_context: list[dict],
         interactions: list[dict],
     ) -> list[dict]:
         if not interactions:
-            return insight_context
+            return rule_context
         interactions_by_id: dict[str, list[dict]] = {}
         for interaction in interactions:
             for key in ("first_id", "second_id"):
-                insight_id = str(interaction.get(key, ""))
-                if insight_id:
-                    interactions_by_id.setdefault(insight_id, []).append(interaction)
-        for item in insight_context:
+                rule_id = str(interaction.get(key, ""))
+                if rule_id:
+                    interactions_by_id.setdefault(rule_id, []).append(interaction)
+        for item in rule_context:
             item_interactions = interactions_by_id.get(str(item.get("id", "")), [])
             if item_interactions:
                 item["selection_interactions"] = item_interactions
-        return insight_context
+        return rule_context
 
-    def _record_insight_interaction_scorer_calls(self, module_id: Optional[tuple] = None) -> None:
-        scorer = getattr(self, "live_insight_interaction_scorer", None)
+    def _record_rule_interaction_scorer_calls(self, module_id: Optional[tuple] = None) -> None:
+        scorer = getattr(self, "live_rule_interaction_scorer", None)
         if scorer is None or not hasattr(scorer, "drain_calls"):
             return
         calls = scorer.drain_calls()
@@ -1383,7 +1383,7 @@ class Translator:
             record: dict[str, Any] = {
                 "sequence": len(self.llm_calls) + 1,
                 "timestamp": time.time(),
-                "phase": "insight_interaction_scoring",
+                "phase": "rule_interaction_scoring",
                 "system": str(call.get("system", "")),
                 "prompt": str(call.get("prompt", "")),
                 "raw_text": str(call.get("raw_text", "")),
@@ -1420,9 +1420,9 @@ class Translator:
         )
         self.llm_calls.append(record)
 
-    def _attach_pre_translation_challenges(self, insight_context: list[dict]) -> list[dict]:
+    def _attach_pre_translation_challenges(self, rule_context: list[dict]) -> list[dict]:
         if not self._pre_translation_challenges_enabled():
-            return insight_context
+            return rule_context
 
         enriched: list[dict] = []
         generator = SyntheticChallengeGenerator()
@@ -1434,14 +1434,14 @@ class Translator:
                 call_recorder=self._record_live_adversarial_llm_call,
             )
 
-        for item in insight_context:
+        for item in rule_context:
             next_item = dict(item)
-            insight = self._insight_record_for_prompt_item(next_item)
+            rule = self._rule_record_for_prompt_item(next_item)
             try:
                 challenge = (
-                    challenger_agent.generate(insight)
+                    challenger_agent.generate(rule)
                     if challenger_agent is not None
-                    else generator.generate(insight)
+                    else generator.generate(rule)
                 )
                 checked_challenge, reference_replay = self._toolcheck_pre_translation_challenge(challenge)
                 challenge_payload = self._pre_translation_challenge_payload(
@@ -1450,29 +1450,29 @@ class Translator:
                 )
                 semantic_validation = self._validate_pre_translation_challenge(
                     checked_challenge,
-                    insight,
+                    rule,
                 )
                 if semantic_validation is not None:
                     challenge_payload.update(semantic_validation)
                 translator_replay = self._toolcheck_pre_translation_translator_replay(
                     checked_challenge,
-                    insight,
+                    rule,
                 )
                 if translator_replay is not None:
                     challenge_payload.update(translator_replay)
-                refinement = self._maybe_refine_pre_translation_insight(
+                refinement = self._maybe_refine_pre_translation_rule(
                     checked_challenge,
-                    insight,
+                    rule,
                 )
                 if refinement is not None:
-                    refined_insight, refinement_payload = refinement
+                    refined_rule, refinement_payload = refinement
                     if bool(refinement_payload.get("accepted", False)):
                         preserved = {
                             key: next_item[key]
                             for key in ("selection_interactions",)
                             if key in next_item
                         }
-                        next_item = refined_insight.to_prompt_dict()
+                        next_item = refined_rule.to_prompt_dict()
                         next_item.update(preserved)
                     next_item["pre_translation_refinement"] = refinement_payload
                 next_item["adversarial_challenge"] = challenge_payload
@@ -1485,7 +1485,7 @@ class Translator:
         config = getattr(self, "config", {}) or {}
         options = config.get("adversarial_learning_options") or {}
         prompt_time_enabled = bool(options.get("pre_translation_challenges", False))
-        if not prompt_time_enabled and not bool(config.get("online_adversarial_insights", False)):
+        if not prompt_time_enabled and not bool(config.get("online_adversarial_rules", False)):
             return False
         return bool(
             prompt_time_enabled
@@ -1493,19 +1493,19 @@ class Translator:
             or options.get("live_structured_agents", False)
         )
 
-    def _insight_record_for_prompt_item(self, item: dict) -> InsightRecord:
-        insight_id = str(item.get("id", ""))
-        for raw in getattr(self, "insights", ()):
+    def _rule_record_for_prompt_item(self, item: dict) -> RuleRecord:
+        rule_id = str(item.get("id", ""))
+        for raw in getattr(self, "rules", ()):
             raw_id = str(getattr(raw, "id", ""))
-            if raw_id != insight_id:
+            if raw_id != rule_id:
                 continue
-            if isinstance(raw, InsightRecord):
+            if isinstance(raw, RuleRecord):
                 return raw
             if hasattr(raw, "to_prompt_dict"):
                 data = raw.to_prompt_dict()
                 data["keywords"] = list(getattr(raw, "keywords", ()))
-                return InsightRecord.from_dict(data)
-        return InsightRecord.from_dict(item)
+                return RuleRecord.from_dict(data)
+        return RuleRecord.from_dict(item)
 
     def _toolcheck_pre_translation_challenge(self, challenge) -> tuple[Any, bool]:
         trace_bundle = getattr(challenge, "trace_bundle", {}) or {}
@@ -1520,37 +1520,37 @@ class Translator:
                 raise
             return checker.check(challenge), False
 
-    def _maybe_refine_pre_translation_insight(
+    def _maybe_refine_pre_translation_rule(
         self,
         challenge,
-        insight: InsightRecord,
-    ) -> tuple[InsightRecord, dict[str, Any]] | None:
+        rule: RuleRecord,
+    ) -> tuple[RuleRecord, dict[str, Any]] | None:
         options = (getattr(self, "config", {}) or {}).get("adversarial_learning_options") or {}
         if not bool(options.get("pre_translation_refinement", False)):
             return None
         refiner = self._pre_translation_refiner(options)
         checker = getattr(self, "_pre_translation_challenge_tool_checker", None) or ChallengeToolChecker()
         max_rounds = self._pre_translation_refinement_round_limit(options)
-        current_insight = insight
+        current_rule = rule
         round_payloads: list[dict[str, Any]] = []
         accepted_rounds = 0
         last_accepted_payload: dict[str, Any] | None = None
 
         for round_number in range(1, max_rounds + 1):
             try:
-                before_source = self.translate_adversarial_challenge(challenge, current_insight)
+                before_source = self.translate_adversarial_challenge(challenge, current_rule)
                 before_checked = checker.check(challenge, rust_source=before_source)
                 proposal = self._propose_pre_translation_refinement(
                     refiner,
-                    current_insight,
+                    current_rule,
                     challenge,
                     before_checked.evidence,
                 )
-                updated_candidate = self._pre_translation_proposal_candidate(current_insight, proposal)
+                updated_candidate = self._pre_translation_proposal_candidate(current_rule, proposal)
                 after_source = self.translate_adversarial_challenge(challenge, updated_candidate)
                 after_checked = checker.check(challenge, rust_source=after_source)
                 result = EvidenceGate().evaluate(
-                    current_insight,
+                    current_rule,
                     proposal,
                     before=before_checked.evidence,
                     after=after_checked.evidence,
@@ -1579,9 +1579,9 @@ class Translator:
             }
             if result.accepted:
                 accepted_rounds += 1
-                current_insight = result.updated_insight
-                payload["version"] = current_insight.version
-                self._maybe_write_back_pre_translation_refinement(current_insight, payload)
+                current_rule = result.updated_rule
+                payload["version"] = current_rule.version
+                self._maybe_write_back_pre_translation_refinement(current_rule, payload)
                 last_accepted_payload = payload
                 round_payloads.append(payload)
                 continue
@@ -1590,7 +1590,7 @@ class Translator:
             break
 
         if not round_payloads:
-            return insight, {
+            return rule, {
                 "accepted": False,
                 "reason": "no refinement rounds configured",
                 "accepted_rounds": 0,
@@ -1600,12 +1600,12 @@ class Translator:
         aggregate_payload = dict(last_accepted_payload or round_payloads[-1])
         aggregate_payload["accepted_rounds"] = accepted_rounds
         aggregate_payload["rounds"] = round_payloads
-        return current_insight, aggregate_payload
+        return current_rule, aggregate_payload
 
-    def _propose_pre_translation_refinement(self, refiner, insight: InsightRecord, challenge, evidence):
+    def _propose_pre_translation_refinement(self, refiner, rule: RuleRecord, challenge, evidence):
         if isinstance(refiner, FailureAttributor):
-            return refiner.propose_update(insight, evidence)
-        return refiner.propose_update(insight, challenge, evidence)
+            return refiner.propose_update(rule, evidence)
+        return refiner.propose_update(rule, challenge, evidence)
 
     def _pre_translation_refiner(self, options: dict[str, Any]):
         configured = options.get("refiner_agent")
@@ -1626,45 +1626,45 @@ class Translator:
         except (TypeError, ValueError):
             return 1
 
-    def _pre_translation_proposal_candidate(self, insight: InsightRecord, proposal) -> InsightRecord:
-        raw = insight.to_dict()
+    def _pre_translation_proposal_candidate(self, rule: RuleRecord, proposal) -> RuleRecord:
+        raw = rule.to_dict()
         field = str(getattr(proposal, "field", ""))
         if field not in {"trigger", "goal", "constraint", "risk"}:
-            raise ValueError(f"Unsupported insight update field: {field}")
+            raise ValueError(f"Unsupported rule update field: {field}")
         raw[field] = str(getattr(proposal, "new_text", ""))
-        raw["version"] = insight.version + 1
-        raw["parents"] = [*insight.parents, f"{insight.id}@v{insight.version}"]
-        return InsightRecord.from_dict(raw)
+        raw["version"] = rule.version + 1
+        raw["parents"] = [*rule.parents, f"{rule.id}@v{rule.version}"]
+        return RuleRecord.from_dict(raw)
 
     def _maybe_write_back_pre_translation_refinement(
         self,
-        updated_insight: InsightRecord,
+        updated_rule: RuleRecord,
         payload: dict[str, Any],
     ) -> None:
         options = (getattr(self, "config", {}) or {}).get("adversarial_learning_options") or {}
         if not bool(options.get("pre_translation_refinement_writeback", False)):
             return
-        raw_bank_path = str((getattr(self, "config", {}) or {}).get("insights_json_bank_path", "") or "")
+        raw_bank_path = str((getattr(self, "config", {}) or {}).get("rules_json_bank_path", "") or "")
         if not raw_bank_path:
             payload["writeback"] = "skipped:no prompt bank"
             return
         bank_path = Path(raw_bank_path)
         try:
-            with exclusive_insight_bank_lock(bank_path):
-                bank = InsightBank.load(bank_path)
+            with exclusive_rule_bank_lock(bank_path):
+                bank = RuleBank.load(bank_path)
                 replaced = False
                 records = []
                 for record in bank.records:
-                    if record.id == updated_insight.id:
-                        records.append(updated_insight)
+                    if record.id == updated_rule.id:
+                        records.append(updated_rule)
                         replaced = True
                     else:
                         records.append(record)
                 if not replaced:
-                    records.append(updated_insight)
+                    records.append(updated_rule)
                 bank.records = records
                 bank.save(bank_path)
-            refresh = getattr(self, "_refresh_json_insight_bank", None)
+            refresh = getattr(self, "_refresh_json_rule_bank", None)
             if callable(refresh):
                 refresh(force=True)
             payload["writeback"] = "updated"
@@ -1684,7 +1684,7 @@ class Translator:
     def _validate_pre_translation_challenge(
         self,
         challenge,
-        insight: InsightRecord,
+        rule: RuleRecord,
     ) -> dict[str, Any] | None:
         options = (getattr(self, "config", {}) or {}).get("adversarial_learning_options") or {}
         activation_validator = self._pre_translation_activation_validator(options)
@@ -1695,7 +1695,7 @@ class Translator:
             result = ChallengeSanityChecker(
                 activation_validator=activation_validator,
                 oracle_validator=oracle_validator,
-            ).check(challenge, insight)
+            ).check(challenge, rule)
         except Exception as exc:
             return {"semantic_validation_error": str(exc)}
         return {
@@ -1739,13 +1739,13 @@ class Translator:
     def _toolcheck_pre_translation_translator_replay(
         self,
         challenge,
-        insight: InsightRecord,
+        rule: RuleRecord,
     ) -> dict[str, Any] | None:
         options = (getattr(self, "config", {}) or {}).get("adversarial_learning_options") or {}
         if not bool(options.get("live_translator_replay", False)):
             return None
         try:
-            rust_source = self.translate_adversarial_challenge(challenge, insight)
+            rust_source = self.translate_adversarial_challenge(challenge, rule)
             checker = getattr(self, "_pre_translation_challenge_tool_checker", None) or ChallengeToolChecker()
             checked = checker.check(challenge, rust_source=rust_source)
         except Exception as exc:
@@ -1761,7 +1761,7 @@ class Translator:
 
     def _pre_translation_challenge_payload(self, challenge, *, reference_replay: bool = False) -> dict[str, Any]:
         payload: dict[str, Any] = {
-            "insight_id": str(getattr(challenge, "insight_id", "")),
+            "rule_id": str(getattr(challenge, "rule_id", "")),
             "fingerprint": str(getattr(challenge, "fingerprint", "")),
             "activation_predicate": str(getattr(challenge, "activation_predicate", "") or ""),
             "rust_interface": str(getattr(challenge, "rust_interface", "")),
@@ -1782,12 +1782,12 @@ class Translator:
     def _allow_shared_item_repair(self) -> bool:
         return self.callable_failures > self.SHARED_ITEM_COMPILE_FAILURE_THRESHOLD
 
-    def _should_use_shared_compile_repair(self, insight_context: list[dict], errors: list[dict], output: str) -> bool:
+    def _should_use_shared_compile_repair(self, rule_context: list[dict], errors: list[dict], output: str) -> bool:
         if self._allow_shared_item_repair():
             return True
 
-        insight_ids = {str(item.get("id", "")) for item in insight_context}
-        if "resource-wrapper-constructor-safety" not in insight_ids:
+        rule_ids = {str(item.get("id", "")) for item in rule_context}
+        if "resource-wrapper-constructor-safety" not in rule_ids:
             return False
 
         error_text = json.dumps(errors, ensure_ascii=False).lower()
@@ -1830,7 +1830,7 @@ class Translator:
                 return False, rust_code
 
             current_code = self._current_callable_code(module_path, item) or rust_code
-            insight_context = self._select_insight_context(
+            rule_context = self._select_rule_context(
                 contract=item.stub,
                 module_id=module_id,
                 output="\n".join(
@@ -1840,10 +1840,10 @@ class Translator:
                         output[-4000:] if len(output) > 4000 else output,
                     ]
                 ),
-                limit=getattr(self, "insight_limit", 5),
+                limit=getattr(self, "rule_limit", 5),
             )
-            record["selected_insights"] = insight_context
-            allow_shared_items = self._should_use_shared_compile_repair(insight_context, errors, output)
+            record["selected_rules"] = rule_context
+            allow_shared_items = self._should_use_shared_compile_repair(rule_context, errors, output)
             if allow_shared_items:
                 prompt = build_shared_compile_fix_prompt(
                     contract=item.stub,
@@ -1862,7 +1862,7 @@ class Translator:
                     callable_category=self.callable_categories.get(module_id, "direct_function"),
                     file_context=self.file_contexts.get(module_id, []),
                     shared_item_context=self._shared_item_context(self._shared_context_modules_for_item(item)),
-                    insight_context=insight_context,
+                    rule_context=rule_context,
                 )
             else:
                 prompt = build_fix_prompt(
@@ -1876,7 +1876,7 @@ class Translator:
                     callable_category=self.callable_categories.get(module_id, "direct_function"),
                     file_context=self.file_contexts.get(module_id, []),
                     shared_item_context=self._shared_item_context(self._shared_context_modules_for_item(item)),
-                    insight_context=insight_context,
+                    rule_context=rule_context,
                 )
             record["fix_prompt"] = prompt
             print(f"    Compilation failed (attempt {attempt + 1}/{self.max_fix_attempts}), calling LLM for fix...")
@@ -1890,7 +1890,7 @@ class Translator:
                         prompt,
                         phase_label=f"fix attempt {attempt + 1}",
                         fallback_rust_code=current_code,
-                        insights=insight_context,
+                        rules=rule_context,
                     )
                     record["shared_item_repair"] = shared_record
                 else:
@@ -1899,7 +1899,7 @@ class Translator:
                         prompt,
                         phase_label=f"fix attempt {attempt + 1}",
                         module_id=module_id,
-                        insights=insight_context,
+                        rules=rule_context,
                     )
             except Exception as exc:
                 record["status"] = "llm_error"
@@ -3548,7 +3548,7 @@ class Translator:
             record["test_source_paths"] = [
                 item.get("path") for item in test_context if isinstance(item.get("path"), str)
             ]
-            insight_context = self._select_insight_context(
+            rule_context = self._select_rule_context(
                 output="\n".join(
                     [
                         prompt_test_output,
@@ -3557,9 +3557,9 @@ class Translator:
                         json.dumps(callable_context, indent=2, ensure_ascii=False),
                     ]
                 ),
-                limit=max(getattr(self, "insight_limit", 5), 6) if getattr(self, "insights_enabled", True) else 0,
+                limit=max(getattr(self, "rule_limit", 5), 6) if getattr(self, "rules_enabled", True) else 0,
             )
-            record["selected_insights"] = insight_context
+            record["selected_rules"] = rule_context
             prompt = build_test_fix_prompt(
                 project_name=self.project_name,
                 test_output=self._truncate_text(prompt_test_output, 12000),
@@ -3567,7 +3567,7 @@ class Translator:
                 test_context=test_context,
                 callable_context=callable_context,
                 shared_item_context=self._shared_item_context(context_modules),
-                insight_context=insight_context,
+                rule_context=rule_context,
             )
             record["prompt"] = prompt
             print(
@@ -8144,19 +8144,19 @@ class Translator:
         module_path.write_bytes(updated)
         return True
 
-    def translate_adversarial_challenge(self, challenge, insight) -> str:
-        insight_payload = insight.to_dict() if hasattr(insight, "to_dict") else dict(insight)
+    def translate_adversarial_challenge(self, challenge, rule) -> str:
+        rule_payload = rule.to_dict() if hasattr(rule, "to_dict") else dict(rule)
         prompt = "\n".join(
             [
                 "Translate this adversarial C challenge into Rust.",
-                "Use the insight as a translation constraint; satisfy its trigger, goal, constraint, and risk when interpreting the C challenge.",
+                "Use the rule as a translation constraint; satisfy its trigger, goal, constraint, and risk when interpreting the C challenge.",
                 "Implement exactly this Rust interface; do not rename the function, change arguments, or change the return type.",
                 "Do not modify the harness or oracle; they define the replay acceptance condition.",
                 "Return only Rust source code; no markdown fences, no prose, and no explanations.",
                 "The Rust source must be self-contained for the generated harness and should avoid external crates.",
                 "",
-                "Insight to apply:",
-                json.dumps(insight_payload, indent=2, ensure_ascii=False),
+                "Rule to apply:",
+                json.dumps(rule_payload, indent=2, ensure_ascii=False),
                 "",
                 "Activation predicate:",
                 str(getattr(challenge, "activation_predicate", "") or ""),
@@ -8192,7 +8192,7 @@ class Translator:
             {
                 "phase": "adversarial_challenge_replay",
                 "challenge_fingerprint": getattr(challenge, "fingerprint", ""),
-                "insight_id": str(insight_payload.get("id", "")),
+                "rule_id": str(rule_payload.get("id", "")),
                 "system": SYSTEM_PROMPT,
                 "prompt": prompt,
                 "raw_response": getattr(result, "raw_text", ""),
@@ -8214,7 +8214,7 @@ class Translator:
         *,
         phase_label: str,
         fallback_rust_code: str = "",
-        insights: Optional[list[dict]] = None,
+        rules: Optional[list[dict]] = None,
     ):
         result = self.agent.translate(SYSTEM_PROMPT, prompt)
         parsed = self._parse_shared_callable_response(result.raw_text)
@@ -8234,7 +8234,7 @@ class Translator:
             extracted_code=rust_code,
             output_issue=issue,
             output_retry_attempt=1,
-            insights=insights,
+            rules=rules,
         )
         self._persist_progress()
         if issue is not None:
@@ -8249,7 +8249,7 @@ class Translator:
         *,
         phase_label: str,
         module_id: Optional[tuple] = None,
-        insights: Optional[list[dict]] = None,
+        rules: Optional[list[dict]] = None,
     ):
         active_prompt = prompt
         output_retries: list[dict] = []
@@ -8270,7 +8270,7 @@ class Translator:
                     extracted_code=candidate_code,
                     output_issue=issue,
                     output_retry_attempt=attempt + 1,
-                    insights=insights,
+                    rules=rules,
                 )
                 self._persist_progress()
             if issue is None:
@@ -8666,7 +8666,7 @@ class Translator:
         extracted_code: str,
         output_issue: Optional[str] = None,
         output_retry_attempt: int = 1,
-        insights: Optional[list[dict]] = None,
+        rules: Optional[list[dict]] = None,
     ) -> dict:
         if not hasattr(self, "llm_calls"):
             self.llm_calls = []
@@ -8696,7 +8696,7 @@ class Translator:
             "dependencies": self._dependency_records(module_id),
             "cycle_peers": [self._module_id_string(peer_id) for peer_id in self.cycle_peers.get(module_id, [])],
             "alignment": binding.to_dict() if binding is not None else None,
-            "insights": insights or [],
+            "rules": rules or [],
         }
 
         self.llm_calls.append(record)
@@ -8721,7 +8721,7 @@ class Translator:
         module_id: Optional[tuple] = None,
     ) -> Optional[dict]:
         config = getattr(self, "config", {})
-        if not bool(config.get("online_adversarial_insights", False)):
+        if not bool(config.get("online_adversarial_rules", False)):
             return None
 
         paths = self._online_adversarial_paths()
@@ -8784,17 +8784,17 @@ class Translator:
                 "compositional_challenges": result.get("compositional_challenges", 0),
             }
         )
-        self._refresh_json_insight_bank_after_online_update(output_bank_path, event)
+        self._refresh_json_rule_bank_after_online_update(output_bank_path, event)
         self.online_adversarial_update_count = getattr(self, "online_adversarial_update_count", 0) + 1
         self._persist_progress()
         return result
 
-    def _refresh_json_insight_bank_after_online_update(
+    def _refresh_json_rule_bank_after_online_update(
         self,
         output_bank_path: Path,
         event: dict[str, Any],
     ) -> None:
-        prompt_bank_path = str((getattr(self, "config", {}) or {}).get("insights_json_bank_path", "") or "")
+        prompt_bank_path = str((getattr(self, "config", {}) or {}).get("rules_json_bank_path", "") or "")
         if not prompt_bank_path:
             event["json_bank_reload"] = "skipped:no prompt bank"
             return
@@ -8805,7 +8805,7 @@ class Translator:
         except OSError as exc:
             event["json_bank_reload"] = f"skipped:path resolution failed: {exc}"
             return
-        refresh = getattr(self, "_refresh_json_insight_bank", None)
+        refresh = getattr(self, "_refresh_json_rule_bank", None)
         if not callable(refresh):
             event["json_bank_reload"] = "skipped:no reload hook"
             return
@@ -8820,21 +8820,21 @@ class Translator:
     def _online_adversarial_paths(self) -> Optional[tuple[Path, Path, Path]]:
         config = getattr(self, "config", {})
         raw_bank = (
-            config.get("adversarial_insight_bank_path")
-            or config.get("insights_json_bank_path")
+            config.get("adversarial_rule_bank_path")
+            or config.get("rules_json_bank_path")
             or ""
         )
         if not raw_bank:
             return None
         bank_path = Path(raw_bank)
         output_bank_path = Path(
-            config.get("adversarial_insight_output_bank_path")
-            or config.get("insights_json_bank_path")
+            config.get("adversarial_rule_output_bank_path")
+            or config.get("rules_json_bank_path")
             or raw_bank
         )
         report_path = Path(
-            config.get("adversarial_insight_report_path")
-            or (self._online_adversarial_run_root() / "adversarial_insight_report.json")
+            config.get("adversarial_rule_report_path")
+            or (self._online_adversarial_run_root() / "adversarial_rule_report.json")
         )
         return bank_path, output_bank_path, report_path
 
@@ -8883,7 +8883,7 @@ class Translator:
                 call_recorder=self._record_live_adversarial_llm_call,
             )
         if bool(options.get("live_trace_synthesis", False)):
-            kwargs["trace_synthesizer"] = LLMTraceInsightSynthesizer(
+            kwargs["trace_synthesizer"] = LLMTraceRuleSynthesizer(
                 self.agent,
                 call_recorder=self._record_live_adversarial_llm_call,
             )
@@ -8929,33 +8929,33 @@ class Translator:
             translation_history=self.translation_history,
             alignment_stats=self.alignment_stats,
             max_test_fix_attempts=self.max_test_fix_attempts,
-            insights_enabled=self.insights_enabled,
-            insight_limit=self.insight_limit,
-            insights_path=str(self.config.get("insights_path", "")),
-            insights_json_bank_path=str(self.config.get("insights_json_bank_path", "")),
-            insight_interaction_scorer=str(self.config.get("insight_interaction_scorer", "")),
-            insight_retrieval_backend_preference=str(
-                self.config.get("insight_retrieval_backend_preference", "")
+            rules_enabled=self.rules_enabled,
+            rule_limit=self.rule_limit,
+            rules_path=str(self.config.get("rules_path", "")),
+            rules_json_bank_path=str(self.config.get("rules_json_bank_path", "")),
+            rule_interaction_scorer=str(self.config.get("rule_interaction_scorer", "")),
+            rule_retrieval_backend_preference=str(
+                self.config.get("rule_retrieval_backend_preference", "")
             ),
-            insight_retrieval_index_cache_path=str(
-                self.config.get("insight_retrieval_index_cache_path", "")
+            rule_retrieval_index_cache_path=str(
+                self.config.get("rule_retrieval_index_cache_path", "")
             ),
-            insight_retrieval_backend=getattr(self, "insight_retrieval_backend", ""),
-            insight_retrieval_status=getattr(self, "insight_retrieval_status", ""),
-            insight_retrieval_cache_status=getattr(self, "insight_retrieval_cache_status", ""),
+            rule_retrieval_backend=getattr(self, "rule_retrieval_backend", ""),
+            rule_retrieval_status=getattr(self, "rule_retrieval_status", ""),
+            rule_retrieval_cache_status=getattr(self, "rule_retrieval_cache_status", ""),
             experiment_profile=self.experiment_profile,
             experiment_ablation_label=self.experiment_ablation_label,
-            insight_stage=self.insight_stage,
-            insight_mining=self.insight_mining,
-            single_insight_adversarial_learning=self.single_insight_adversarial_learning,
-            compositional_insight_adversarial_learning=self.compositional_insight_adversarial_learning,
+            rule_stage=self.rule_stage,
+            rule_mining=self.rule_mining,
+            single_rule_adversarial_learning=self.single_rule_adversarial_learning,
+            compositional_rule_adversarial_learning=self.compositional_rule_adversarial_learning,
             adversarial_rounds=self.adversarial_rounds,
-            online_adversarial_insights=bool(self.config.get("online_adversarial_insights", False)),
-            adversarial_insight_bank_path=str(self.config.get("adversarial_insight_bank_path", "")),
-            adversarial_insight_output_bank_path=str(
-                self.config.get("adversarial_insight_output_bank_path", "")
+            online_adversarial_rules=bool(self.config.get("online_adversarial_rules", False)),
+            adversarial_rule_bank_path=str(self.config.get("adversarial_rule_bank_path", "")),
+            adversarial_rule_output_bank_path=str(
+                self.config.get("adversarial_rule_output_bank_path", "")
             ),
-            adversarial_insight_report_path=str(self.config.get("adversarial_insight_report_path", "")),
+            adversarial_rule_report_path=str(self.config.get("adversarial_rule_report_path", "")),
             adversarial_learning_options=self.config.get("adversarial_learning_options") or {},
             model_display_name=self.model_display_name,
             test_fix_history=self.test_fix_history,
@@ -8963,33 +8963,33 @@ class Translator:
             error=error,
         )
 
-    def _configure_insights(self, config: Dict) -> None:
-        self.insights = DEFAULT_INSIGHTS
-        self.select_insights = select_insights
-        self.insight_interaction_scorer = None
-        self.live_insight_interaction_scorer = None
-        self._refresh_json_insight_bank = None
-        self.insight_retrieval_backend = "python-keyword"
-        self.insight_retrieval_status = "default Python insight selector"
-        self.insight_retrieval_cache_status = "disabled"
-        if str(config.get("insight_interaction_scorer", "heuristic") or "heuristic") == "live":
-            self.live_insight_interaction_scorer = LLMInsightInteractionScorer(self.agent)
-            self.insight_interaction_scorer = self.live_insight_interaction_scorer.score
+    def _configure_rules(self, config: Dict) -> None:
+        self.rules = DEFAULT_RULES
+        self.select_rules = select_rules
+        self.rule_interaction_scorer = None
+        self.live_rule_interaction_scorer = None
+        self._refresh_json_rule_bank = None
+        self.rule_retrieval_backend = "python-keyword"
+        self.rule_retrieval_status = "default Python rule selector"
+        self.rule_retrieval_cache_status = "disabled"
+        if str(config.get("rule_interaction_scorer", "heuristic") or "heuristic") == "live":
+            self.live_rule_interaction_scorer = LLMRuleInteractionScorer(self.agent)
+            self.rule_interaction_scorer = self.live_rule_interaction_scorer.score
 
-        json_bank_path = config.get("insights_json_bank_path")
+        json_bank_path = config.get("rules_json_bank_path")
         if json_bank_path:
-            base_interaction_scorer = self.insight_interaction_scorer
+            base_interaction_scorer = self.rule_interaction_scorer
             json_bank_file = Path(json_bank_path)
-            backend_preference = str(config.get("insight_retrieval_backend_preference", "auto") or "auto")
+            backend_preference = str(config.get("rule_retrieval_backend_preference", "auto") or "auto")
             prefer_embeddings = backend_preference in {"auto", "embedding"}
-            index_cache_path = config.get("insight_retrieval_index_cache_path") or None
+            index_cache_path = config.get("rule_retrieval_index_cache_path") or None
 
             def _json_bank_stamp() -> tuple[int, int]:
                 stat = json_bank_file.stat()
                 return stat.st_mtime_ns, stat.st_size
 
-            def _load_json_bank_engine() -> tuple[InsightBank, RetrievalEngine, tuple[int, int]]:
-                loaded_bank = InsightBank.load(json_bank_file)
+            def _load_json_bank_engine() -> tuple[RuleBank, RetrievalEngine, tuple[int, int]]:
+                loaded_bank = RuleBank.load(json_bank_file)
                 loaded_engine = RetrievalEngine(
                     loaded_bank,
                     prefer_embeddings=prefer_embeddings,
@@ -9002,7 +9002,7 @@ class Translator:
                     bank.relations,
                     fallback=base_interaction_scorer,
                 )
-                self.insight_interaction_scorer = (
+                self.rule_interaction_scorer = (
                     relation_scorer.score
                     if relation_scorer.has_actionable_relations
                     else base_interaction_scorer
@@ -9020,30 +9020,30 @@ class Translator:
                 if not force and current_stamp == bank_stamp:
                     return
                 bank, engine, bank_stamp = _load_json_bank_engine()
-                self.insights = tuple(bank.records)
-                self.insight_retrieval_backend = engine.status.backend
-                self.insight_retrieval_status = f"JSON bank reloaded; {engine.status.reason}"
-                self.insight_retrieval_cache_status = engine.cache_status
+                self.rules = tuple(bank.records)
+                self.rule_retrieval_backend = engine.status.backend
+                self.rule_retrieval_status = f"JSON bank reloaded; {engine.status.reason}"
+                self.rule_retrieval_cache_status = engine.cache_status
                 _configure_relation_scorer()
 
-            def _select_json_insights(text: str, *, insights=None, limit: int = 5):
+            def _select_json_rules(text: str, *, rules=None, limit: int = 5):
                 _refresh_json_bank_if_changed()
                 return engine.select(text, limit=limit)
 
-            self.insights = tuple(bank.records)
-            self.select_insights = _select_json_insights
-            self.insight_retrieval_backend = engine.status.backend
-            self.insight_retrieval_status = engine.status.reason
-            self.insight_retrieval_cache_status = engine.cache_status
-            self._refresh_json_insight_bank = _refresh_json_bank_if_changed
+            self.rules = tuple(bank.records)
+            self.select_rules = _select_json_rules
+            self.rule_retrieval_backend = engine.status.backend
+            self.rule_retrieval_status = engine.status.reason
+            self.rule_retrieval_cache_status = engine.cache_status
+            self._refresh_json_rule_bank = _refresh_json_bank_if_changed
             return
 
-        if config.get("insights_path"):
-            library = load_insight_library(config["insights_path"])
-            self.insights = library.insights
-            self.select_insights = library.select
-            self.insight_retrieval_backend = "python-snapshot"
-            self.insight_retrieval_status = str(library.path or config["insights_path"])
+        if config.get("rules_path"):
+            library = load_rule_library(config["rules_path"])
+            self.rules = library.rules
+            self.select_rules = library.select
+            self.rule_retrieval_backend = "python-snapshot"
+            self.rule_retrieval_status = str(library.path or config["rules_path"])
 
     def _persist_progress(self) -> None:
         self.output_dir.mkdir(parents=True, exist_ok=True)

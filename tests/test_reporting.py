@@ -57,10 +57,10 @@ class ReportingTest(unittest.TestCase):
                 success=True,
                 experiment_profile="full",
                 experiment_ablation_label="TRAIL",
-                insight_stage="multi",
-                insight_mining=True,
-                single_insight_adversarial_learning=True,
-                compositional_insight_adversarial_learning=True,
+                rule_stage="multi",
+                rule_mining=True,
+                single_rule_adversarial_learning=True,
+                compositional_rule_adversarial_learning=True,
                 adversarial_rounds=5,
                 model_display_name="DeepSeek-V4-Flash",
             )
@@ -70,14 +70,14 @@ class ReportingTest(unittest.TestCase):
         config = report["config"]
         self.assertEqual(config["experiment_profile"], "full")
         self.assertEqual(config["experiment_ablation_label"], "TRAIL")
-        self.assertEqual(config["insight_stage"], "multi")
-        self.assertTrue(config["insight_mining"])
-        self.assertTrue(config["single_insight_adversarial_learning"])
-        self.assertTrue(config["compositional_insight_adversarial_learning"])
+        self.assertEqual(config["rule_stage"], "multi")
+        self.assertTrue(config["rule_mining"])
+        self.assertTrue(config["single_rule_adversarial_learning"])
+        self.assertTrue(config["compositional_rule_adversarial_learning"])
         self.assertEqual(config["adversarial_rounds"], 5)
         self.assertEqual(config["model_display_name"], "DeepSeek-V4-Flash")
 
-    def test_translation_report_includes_adversarial_insight_paths(self):
+    def test_translation_report_includes_adversarial_rule_paths(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             output_dir = Path(tmpdir)
 
@@ -91,10 +91,10 @@ class ReportingTest(unittest.TestCase):
                 translation_log=[],
                 translation_history={},
                 success=True,
-                online_adversarial_insights=True,
-                adversarial_insight_bank_path="/repo/banks/input.json",
-                adversarial_insight_output_bank_path="/repo/output/runs/run/adversarial_insights.updated.json",
-                adversarial_insight_report_path="/repo/output/runs/run/adversarial_insight_report.json",
+                online_adversarial_rules=True,
+                adversarial_rule_bank_path="/repo/banks/input.json",
+                adversarial_rule_output_bank_path="/repo/output/runs/run/adversarial_rules.updated.json",
+                adversarial_rule_report_path="/repo/output/runs/run/adversarial_rule_report.json",
                 adversarial_learning_options={
                     "admit_trace_candidates": True,
                     "run_synthetic_challenges": True,
@@ -117,15 +117,15 @@ class ReportingTest(unittest.TestCase):
             report = json.loads(report_path.read_text(encoding="utf-8"))
 
         config = report["config"]
-        self.assertTrue(config["online_adversarial_insights"])
-        self.assertEqual(config["adversarial_insight_bank_path"], "/repo/banks/input.json")
+        self.assertTrue(config["online_adversarial_rules"])
+        self.assertEqual(config["adversarial_rule_bank_path"], "/repo/banks/input.json")
         self.assertEqual(
-            config["adversarial_insight_output_bank_path"],
-            "/repo/output/runs/run/adversarial_insights.updated.json",
+            config["adversarial_rule_output_bank_path"],
+            "/repo/output/runs/run/adversarial_rules.updated.json",
         )
         self.assertEqual(
-            config["adversarial_insight_report_path"],
-            "/repo/output/runs/run/adversarial_insight_report.json",
+            config["adversarial_rule_report_path"],
+            "/repo/output/runs/run/adversarial_rule_report.json",
         )
         self.assertEqual(
             config["adversarial_learning_options"],
@@ -162,14 +162,14 @@ class ReportingTest(unittest.TestCase):
                 translation_log=[],
                 translation_history={
                     ("mod", "fn", "parse"): {
-                        "selected_insights": [
+                        "selected_rules": [
                             {
                                 "id": "capacity-contract",
                                 "pre_translation_refinement": {
                                     "accepted": True,
                                     "field": "risk",
                                     "writeback": "updated",
-                                    "writeback_path": "/repo/output/runs/run/insights.active.json",
+                                    "writeback_path": "/repo/output/runs/run/rules.active.json",
                                 },
                             },
                             {
@@ -183,7 +183,7 @@ class ReportingTest(unittest.TestCase):
                         ],
                         "compilation_attempts": [
                             {
-                                "selected_insights": [
+                                "selected_rules": [
                                     {
                                         "id": "parser-state",
                                         "pre_translation_refinement": {
@@ -211,12 +211,12 @@ class ReportingTest(unittest.TestCase):
                 "pre_translation_refinement_writebacks": 1,
                 "pre_translation_refinement_writeback_errors": 1,
                 "pre_translation_refinement_writeback_paths": [
-                    "/repo/output/runs/run/insights.active.json"
+                    "/repo/output/runs/run/rules.active.json"
                 ],
             },
         )
 
-    def test_translation_report_includes_json_insight_bank_retrieval_metadata(self):
+    def test_translation_report_includes_json_rule_bank_retrieval_metadata(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             output_dir = Path(tmpdir)
 
@@ -230,17 +230,17 @@ class ReportingTest(unittest.TestCase):
                 translation_log=[],
                 translation_history={},
                 success=True,
-                insights_json_bank_path="/repo/banks/prompt_bank.json",
-                insight_retrieval_backend="keyword",
-                insight_retrieval_status="keyword backend requested",
+                rules_json_bank_path="/repo/banks/prompt_bank.json",
+                rule_retrieval_backend="keyword",
+                rule_retrieval_status="keyword backend requested",
             )
 
             report = json.loads(report_path.read_text(encoding="utf-8"))
 
         config = report["config"]
-        self.assertEqual(config["insights_json_bank_path"], "/repo/banks/prompt_bank.json")
-        self.assertEqual(config["insight_retrieval_backend"], "keyword")
-        self.assertEqual(config["insight_retrieval_status"], "keyword backend requested")
+        self.assertEqual(config["rules_json_bank_path"], "/repo/banks/prompt_bank.json")
+        self.assertEqual(config["rule_retrieval_backend"], "keyword")
+        self.assertEqual(config["rule_retrieval_status"], "keyword backend requested")
 
 
 if __name__ == "__main__":

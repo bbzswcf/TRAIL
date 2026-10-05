@@ -6,24 +6,24 @@ from dataclasses import replace
 from unittest import mock
 from pathlib import Path
 
-from c2rust_translator import adversarial_insights as adversarial_core
+from c2rust_translator import adversarial_rules as adversarial_core
 from c2rust_translator.alignment_planner import CBinding
-from c2rust_translator.adversarial_insights import (
+from c2rust_translator.adversarial_rules import (
     ChallengeRecord,
     ExecutionEvidence,
-    InsightBank,
-    InsightRelationRecord,
-    InsightRecord,
-    InsightUpdateProposal,
+    RuleBank,
+    RuleRelationRecord,
+    RuleRecord,
+    RuleUpdateProposal,
     SemanticActivationValidationResult,
     SemanticOracleValidationResult,
 )
-from c2rust_translator.insights import (
-    DEFAULT_INSIGHTS,
-    LLMInsightInteractionScorer,
+from c2rust_translator.rules import (
+    DEFAULT_RULES,
+    LLMRuleInteractionScorer,
     StructuredInteractionScorer,
-    TranslationInsight,
-    select_insights,
+    TranslationRule,
+    select_rules,
 )
 from c2rust_translator.rbench_interface import Callable, InterfaceIndex
 from c2rust_translator.translation_agent import TranslationResult, Usage
@@ -97,12 +97,12 @@ class FakeTestValidator:
 
 
 class TranslatorAdversarialReplayTest(unittest.TestCase):
-    def test_translate_adversarial_challenge_uses_challenge_and_insight_prompt(self):
+    def test_translate_adversarial_challenge_uses_challenge_and_rule_prompt(self):
         translator = Translator.__new__(Translator)
         translator.agent = FakeAgent("```rust\npub fn translate_challenge() -> i32 { 7 }\n```")
         translator.llm_calls = []
 
-        insight = InsightRecord(
+        rule = RuleRecord(
             id="capacity-contract",
             title="Capacity Contract",
             trigger="count and capacity",
@@ -111,7 +111,7 @@ class TranslatorAdversarialReplayTest(unittest.TestCase):
             risk="capacity drift",
         )
         challenge = ChallengeRecord(
-            insight_id="capacity-contract",
+            rule_id="capacity-contract",
             c_program="int challenge_value(void) { return 7; }",
             rust_interface="pub fn translate_challenge() -> i32;",
             harness="#[test]\nfn challenge_contract() { assert_eq!(translate_challenge(), 7); }",
@@ -120,7 +120,7 @@ class TranslatorAdversarialReplayTest(unittest.TestCase):
             activation_predicate="count <= capacity",
         )
 
-        rust_source = translator.translate_adversarial_challenge(challenge, insight)
+        rust_source = translator.translate_adversarial_challenge(challenge, rule)
 
         self.assertEqual(rust_source, "pub fn translate_challenge() -> i32 { 7 }")
         self.assertEqual(len(translator.agent.calls), 1)
@@ -130,7 +130,7 @@ class TranslatorAdversarialReplayTest(unittest.TestCase):
         self.assertIn("Preserve value", prompt)
         self.assertIn("Capacity Contract", prompt)
         self.assertIn("count <= capacity", prompt)
-        self.assertIn("Use the insight as a translation constraint", prompt)
+        self.assertIn("Use the rule as a translation constraint", prompt)
         self.assertIn("Implement exactly this Rust interface", prompt)
         self.assertIn("Do not modify the harness or oracle", prompt)
         self.assertIn("no markdown", prompt)
@@ -140,16 +140,16 @@ class TranslatorAdversarialReplayTest(unittest.TestCase):
             translator.agent.calls[0]["system"],
         )
         self.assertIn("expert in translating C code", translator.llm_calls[0]["system"])
-        self.assertEqual(translator.llm_calls[0]["insight_id"], "capacity-contract")
+        self.assertEqual(translator.llm_calls[0]["rule_id"], "capacity-contract")
         self.assertIn("pub fn translate_challenge", translator.llm_calls[0]["extracted_code"])
 
 
-class TranslatorInsightConfigTest(unittest.TestCase):
-    def test_configure_insights_uses_json_bank_for_prompt_retrieval(self):
+class TranslatorRuleConfigTest(unittest.TestCase):
+    def test_configure_rules_uses_json_bank_for_prompt_retrieval(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             bank_path = Path(tmpdir) / "bank.json"
-            InsightBank([
-                InsightRecord(
+            RuleBank([
+                RuleRecord(
                     id="fixed-c-string",
                     title="Fixed C String",
                     trigger="fixed char array",
@@ -162,23 +162,23 @@ class TranslatorInsightConfigTest(unittest.TestCase):
             ]).save(bank_path)
             translator = Translator.__new__(Translator)
 
-            translator._configure_insights({"insights_json_bank_path": str(bank_path)})
+            translator._configure_rules({"rules_json_bank_path": str(bank_path)})
 
-        selected = translator.select_insights(
+        selected = translator.select_rules(
             "String::from_utf8_lossy shows NUL padding",
-            insights=translator.insights,
+            rules=translator.rules,
             limit=1,
         )
 
-        self.assertEqual([insight.id for insight in selected], ["fixed-c-string"])
-        self.assertEqual(translator.insight_retrieval_backend, "keyword")
-        self.assertIn("keyword", translator.insight_retrieval_status)
+        self.assertEqual([rule.id for rule in selected], ["fixed-c-string"])
+        self.assertEqual(translator.rule_retrieval_backend, "keyword")
+        self.assertIn("keyword", translator.rule_retrieval_status)
 
     def test_json_bank_prompt_retrieval_reloads_updated_bank(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             bank_path = Path(tmpdir) / "bank.json"
-            InsightBank([
-                InsightRecord(
+            RuleBank([
+                RuleRecord(
                     id="fixed-c-string",
                     title="Fixed C String",
                     trigger="fixed char array",
@@ -191,19 +191,19 @@ class TranslatorInsightConfigTest(unittest.TestCase):
             ]).save(bank_path)
             translator = Translator.__new__(Translator)
 
-            translator._configure_insights(
+            translator._configure_rules(
                 {
-                    "insights_json_bank_path": str(bank_path),
-                    "insight_retrieval_backend_preference": "keyword",
+                    "rules_json_bank_path": str(bank_path),
+                    "rule_retrieval_backend_preference": "keyword",
                 }
             )
-            initial = translator.select_insights(
+            initial = translator.select_rules(
                 "String::from_utf8_lossy shows NUL padding",
-                insights=translator.insights,
+                rules=translator.rules,
                 limit=1,
             )
-            InsightBank([
-                InsightRecord(
+            RuleBank([
+                RuleRecord(
                     id="capacity-contract",
                     title="Capacity Contract",
                     trigger="count and capacity",
@@ -215,22 +215,22 @@ class TranslatorInsightConfigTest(unittest.TestCase):
                 )
             ]).save(bank_path)
 
-            reloaded = translator.select_insights(
+            reloaded = translator.select_rules(
                 "caller visible capacity must not be recomputed",
-                insights=translator.insights,
+                rules=translator.rules,
                 limit=1,
             )
 
-        self.assertEqual([insight.id for insight in initial], ["fixed-c-string"])
-        self.assertEqual([insight.id for insight in reloaded], ["capacity-contract"])
-        self.assertEqual([insight.id for insight in translator.insights], ["capacity-contract"])
-        self.assertIn("reloaded", translator.insight_retrieval_status)
+        self.assertEqual([rule.id for rule in initial], ["fixed-c-string"])
+        self.assertEqual([rule.id for rule in reloaded], ["capacity-contract"])
+        self.assertEqual([rule.id for rule in translator.rules], ["capacity-contract"])
+        self.assertIn("reloaded", translator.rule_retrieval_status)
 
     def test_json_bank_prompt_retrieval_uses_interaction_scorer_metadata(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             bank_path = Path(tmpdir) / "bank.json"
-            InsightBank([
-                InsightRecord(
+            RuleBank([
+                RuleRecord(
                     id="anchor",
                     title="Anchor",
                     trigger="shared marker",
@@ -240,7 +240,7 @@ class TranslatorInsightConfigTest(unittest.TestCase):
                     tags=("shared",),
                     keywords=("shared_marker",),
                 ),
-                InsightRecord(
+                RuleRecord(
                     id="support",
                     title="Support",
                     trigger="shared marker",
@@ -250,7 +250,7 @@ class TranslatorInsightConfigTest(unittest.TestCase):
                     tags=("shared",),
                     keywords=("shared_marker",),
                 ),
-                InsightRecord(
+                RuleRecord(
                     id="other",
                     title="Other",
                     trigger="shared marker",
@@ -262,10 +262,10 @@ class TranslatorInsightConfigTest(unittest.TestCase):
                 ),
             ]).save(bank_path)
             translator = Translator.__new__(Translator)
-            translator._configure_insights(
+            translator._configure_rules(
                 {
-                    "insights_json_bank_path": str(bank_path),
-                    "insight_retrieval_backend_preference": "keyword",
+                    "rules_json_bank_path": str(bank_path),
+                    "rule_retrieval_backend_preference": "keyword",
                 }
             )
 
@@ -275,12 +275,12 @@ class TranslatorInsightConfigTest(unittest.TestCase):
                     return {"support": 1.0, "conflict": 0.0, "explanation": "json bank support"}
                 return {"support": 0.0, "conflict": 1.0, "explanation": "json bank conflict"}
 
-            translator.insight_interaction_scorer = StructuredInteractionScorer(fake_agent).score
+            translator.rule_interaction_scorer = StructuredInteractionScorer(fake_agent).score
 
-            insights = translator._select_insight_context(output="shared_marker", limit=2)
+            rules = translator._select_rule_context(output="shared_marker", limit=2)
 
-        self.assertEqual([item["id"] for item in insights], ["anchor", "support"])
-        support_metadata = insights[1]["selection_interactions"]
+        self.assertEqual([item["id"] for item in rules], ["anchor", "support"])
+        support_metadata = rules[1]["selection_interactions"]
         self.assertEqual(support_metadata[0]["first_id"], "support")
         self.assertEqual(support_metadata[0]["second_id"], "anchor")
         self.assertEqual(support_metadata[0]["explanation"], "json bank support")
@@ -288,9 +288,9 @@ class TranslatorInsightConfigTest(unittest.TestCase):
     def test_json_bank_prompt_retrieval_uses_relation_records_as_selection_metadata(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             bank_path = Path(tmpdir) / "bank.json"
-            InsightBank(
+            RuleBank(
                 [
-                    InsightRecord(
+                    RuleRecord(
                         id="anchor",
                         title="Anchor",
                         trigger="shared marker",
@@ -300,7 +300,7 @@ class TranslatorInsightConfigTest(unittest.TestCase):
                         tags=("shared",),
                         keywords=("shared_marker",),
                     ),
-                    InsightRecord(
+                    RuleRecord(
                         id="support",
                         title="Support",
                         trigger="shared marker",
@@ -310,7 +310,7 @@ class TranslatorInsightConfigTest(unittest.TestCase):
                         tags=("shared",),
                         keywords=("shared_marker",),
                     ),
-                    InsightRecord(
+                    RuleRecord(
                         id="other",
                         title="Other",
                         trigger="shared marker",
@@ -322,7 +322,7 @@ class TranslatorInsightConfigTest(unittest.TestCase):
                     ),
                 ],
                 relations=[
-                    InsightRelationRecord(
+                    RuleRelationRecord(
                         first_id="anchor",
                         second_id="support",
                         relation="supports",
@@ -332,17 +332,17 @@ class TranslatorInsightConfigTest(unittest.TestCase):
                 ],
             ).save(bank_path)
             translator = Translator.__new__(Translator)
-            translator._configure_insights(
+            translator._configure_rules(
                 {
-                    "insights_json_bank_path": str(bank_path),
-                    "insight_retrieval_backend_preference": "keyword",
+                    "rules_json_bank_path": str(bank_path),
+                    "rule_retrieval_backend_preference": "keyword",
                 }
             )
 
-            insights = translator._select_insight_context(output="shared_marker", limit=2)
+            rules = translator._select_rule_context(output="shared_marker", limit=2)
 
-        self.assertEqual([item["id"] for item in insights], ["anchor", "support"])
-        support_metadata = insights[1]["selection_interactions"]
+        self.assertEqual([item["id"] for item in rules], ["anchor", "support"])
+        support_metadata = rules[1]["selection_interactions"]
         self.assertEqual(support_metadata[0]["first_id"], "support")
         self.assertEqual(support_metadata[0]["second_id"], "anchor")
         self.assertEqual(support_metadata[0]["relationship"], "support")
@@ -351,9 +351,9 @@ class TranslatorInsightConfigTest(unittest.TestCase):
     def test_json_bank_prompt_retrieval_preserves_record_version_metadata(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             bank_path = Path(tmpdir) / "bank.json"
-            InsightBank(
+            RuleBank(
                 [
-                    InsightRecord(
+                    RuleRecord(
                         id="versioned",
                         title="Versioned",
                         trigger="version marker",
@@ -369,28 +369,28 @@ class TranslatorInsightConfigTest(unittest.TestCase):
                 ]
             ).save(bank_path)
             translator = Translator.__new__(Translator)
-            translator._configure_insights(
+            translator._configure_rules(
                 {
-                    "insights_json_bank_path": str(bank_path),
-                    "insight_retrieval_backend_preference": "keyword",
+                    "rules_json_bank_path": str(bank_path),
+                    "rule_retrieval_backend_preference": "keyword",
                 }
             )
 
-            insights = translator._select_insight_context(output="version_marker", limit=1)
+            rules = translator._select_rule_context(output="version_marker", limit=1)
 
-        self.assertEqual(insights[0]["id"], "versioned")
-        self.assertEqual(insights[0]["version"], 4)
-        self.assertEqual(insights[0]["source"], "trace")
-        self.assertEqual(insights[0]["parents"], ["versioned@3"])
+        self.assertEqual(rules[0]["id"], "versioned")
+        self.assertEqual(rules[0]["version"], 4)
+        self.assertEqual(rules[0]["source"], "trace")
+        self.assertEqual(rules[0]["parents"], ["versioned@3"])
 
-    def test_configure_insights_can_enable_live_interaction_scorer(self):
+    def test_configure_rules_can_enable_live_interaction_scorer(self):
         translator = make_translator(
             agent_payload='{"support": 1.0, "conflict": 0.0, "explanation": "live support"}'
         )
 
-        translator._configure_insights({"insight_interaction_scorer": "live"})
-        translator.insights = (
-            TranslationInsight(
+        translator._configure_rules({"rule_interaction_scorer": "live"})
+        translator.rules = (
+            TranslationRule(
                 id="anchor",
                 title="Anchor",
                 trigger="shared marker",
@@ -401,7 +401,7 @@ class TranslatorInsightConfigTest(unittest.TestCase):
                 tags=("shared",),
                 keywords=("shared_marker",),
             ),
-            TranslationInsight(
+            TranslationRule(
                 id="support",
                 title="Support",
                 trigger="shared marker",
@@ -412,7 +412,7 @@ class TranslatorInsightConfigTest(unittest.TestCase):
                 tags=("shared",),
                 keywords=("shared_marker",),
             ),
-            TranslationInsight(
+            TranslationRule(
                 id="other",
                 title="Other",
                 trigger="shared marker",
@@ -425,15 +425,15 @@ class TranslatorInsightConfigTest(unittest.TestCase):
             ),
         )
 
-        insights = translator._select_insight_context(output="shared_marker", limit=2)
+        rules = translator._select_rule_context(output="shared_marker", limit=2)
 
-        self.assertIsInstance(translator.insight_interaction_scorer.__self__, LLMInsightInteractionScorer)
-        self.assertEqual([item["id"] for item in insights], ["anchor", "support"])
-        self.assertEqual(insights[1]["selection_interactions"][0]["explanation"], "live support")
+        self.assertIsInstance(translator.rule_interaction_scorer.__self__, LLMRuleInteractionScorer)
+        self.assertEqual([item["id"] for item in rules], ["anchor", "support"])
+        self.assertEqual(rules[1]["selection_interactions"][0]["explanation"], "live support")
         self.assertGreaterEqual(len(translator.agent.calls), 1)
         scorer_calls = [
             call for call in translator.llm_calls
-            if call["phase"] == "insight_interaction_scoring"
+            if call["phase"] == "rule_interaction_scoring"
         ]
         self.assertGreaterEqual(len(scorer_calls), 1)
         self.assertIn("anchor", scorer_calls[0]["prompt"])
@@ -444,9 +444,9 @@ class TranslatorInsightConfigTest(unittest.TestCase):
             agent_payload='{"support": 1.0, "conflict": 0.0, "explanation": "small pool support"}'
         )
 
-        translator._configure_insights({"insight_interaction_scorer": "live"})
-        translator.insights = (
-            TranslationInsight(
+        translator._configure_rules({"rule_interaction_scorer": "live"})
+        translator.rules = (
+            TranslationRule(
                 id="anchor",
                 title="Anchor",
                 trigger="shared marker",
@@ -457,7 +457,7 @@ class TranslatorInsightConfigTest(unittest.TestCase):
                 tags=("shared",),
                 keywords=("shared_marker",),
             ),
-            TranslationInsight(
+            TranslationRule(
                 id="support",
                 title="Support",
                 trigger="shared marker",
@@ -470,21 +470,21 @@ class TranslatorInsightConfigTest(unittest.TestCase):
             ),
         )
 
-        insights = translator._select_insight_context(output="shared_marker", limit=2)
+        rules = translator._select_rule_context(output="shared_marker", limit=2)
 
-        self.assertEqual([item["id"] for item in insights], ["anchor", "support"])
-        self.assertEqual(insights[1]["selection_interactions"][0]["explanation"], "small pool support")
+        self.assertEqual([item["id"] for item in rules], ["anchor", "support"])
+        self.assertEqual(rules[1]["selection_interactions"][0]["explanation"], "small pool support")
         scorer_calls = [
             call for call in translator.llm_calls
-            if call["phase"] == "insight_interaction_scoring"
+            if call["phase"] == "rule_interaction_scoring"
         ]
         self.assertEqual(len(scorer_calls), 1)
         self.assertEqual(scorer_calls[0]["first_id"], "support")
         self.assertEqual(scorer_calls[0]["second_id"], "anchor")
 
-    def test_select_insight_context_attaches_pre_translation_challenge_when_enabled(self):
+    def test_select_rule_context_attaches_pre_translation_challenge_when_enabled(self):
         translator = make_translator()
-        record = InsightRecord(
+        record = RuleRecord(
             id="capacity-contract",
             title="Capacity Contract",
             trigger="C parser stores count and capacity separately",
@@ -494,8 +494,8 @@ class TranslatorInsightConfigTest(unittest.TestCase):
             tags=("capacity",),
             keywords=("capacity",),
         )
-        translator.insights = (record,)
-        translator.select_insights = lambda text, insights, limit=5: list(insights)[:limit]
+        translator.rules = (record,)
+        translator.select_rules = lambda text, rules, limit=5: list(rules)[:limit]
         class FakePreTranslationChecker:
             def __init__(self):
                 self.sources = []
@@ -514,18 +514,18 @@ class TranslatorInsightConfigTest(unittest.TestCase):
         checker = FakePreTranslationChecker()
         translator._pre_translation_challenge_tool_checker = checker
         translator.config = {
-            "online_adversarial_insights": True,
+            "online_adversarial_rules": True,
             "adversarial_learning_options": {
                 "run_synthetic_challenges": True,
                 "live_structured_agents": False,
             },
         }
 
-        insights = translator._select_insight_context(contract="capacity", limit=1)
+        rules = translator._select_rule_context(contract="capacity", limit=1)
 
-        self.assertEqual(len(insights), 1)
-        challenge = insights[0]["adversarial_challenge"]
-        self.assertEqual(challenge["insight_id"], "capacity-contract")
+        self.assertEqual(len(rules), 1)
+        challenge = rules[0]["adversarial_challenge"]
+        self.assertEqual(challenge["rule_id"], "capacity-contract")
         self.assertIn("translate_challenge", challenge["rust_interface"])
         self.assertIn("count/capacity", challenge["oracle"])
         self.assertTrue(challenge["reference_replay"])
@@ -542,7 +542,7 @@ class TranslatorInsightConfigTest(unittest.TestCase):
 
     def test_pre_translation_challenge_can_run_without_online_update_when_prompt_time_enabled(self):
         translator = make_translator()
-        record = InsightRecord(
+        record = RuleRecord(
             id="capacity-contract",
             title="Capacity Contract",
             trigger="C parser stores count and capacity separately",
@@ -552,8 +552,8 @@ class TranslatorInsightConfigTest(unittest.TestCase):
             tags=("capacity",),
             keywords=("capacity",),
         )
-        translator.insights = (record,)
-        translator.select_insights = lambda text, insights, limit=5: list(insights)[:limit]
+        translator.rules = (record,)
+        translator.select_rules = lambda text, rules, limit=5: list(rules)[:limit]
 
         class FakePreTranslationChecker:
             def check(self, challenge, *, rust_source=None):
@@ -568,23 +568,23 @@ class TranslatorInsightConfigTest(unittest.TestCase):
 
         translator._pre_translation_challenge_tool_checker = FakePreTranslationChecker()
         translator.config = {
-            "online_adversarial_insights": False,
+            "online_adversarial_rules": False,
             "adversarial_learning_options": {
                 "pre_translation_challenges": True,
             },
         }
 
-        insights = translator._select_insight_context(contract="capacity", limit=1)
+        rules = translator._select_rule_context(contract="capacity", limit=1)
 
-        self.assertEqual(insights[0]["adversarial_challenge"]["insight_id"], "capacity-contract")
+        self.assertEqual(rules[0]["adversarial_challenge"]["rule_id"], "capacity-contract")
         self.assertEqual(
-            insights[0]["adversarial_challenge"]["tool_evidence"]["output"],
+            rules[0]["adversarial_challenge"]["tool_evidence"]["output"],
             "prompt-time replay ok",
         )
 
     def test_pre_translation_challenge_can_attach_live_translator_replay_evidence(self):
         translator = make_translator()
-        record = InsightRecord(
+        record = RuleRecord(
             id="capacity-contract",
             title="Capacity Contract",
             trigger="C parser stores count and capacity separately",
@@ -594,8 +594,8 @@ class TranslatorInsightConfigTest(unittest.TestCase):
             tags=("capacity",),
             keywords=("capacity",),
         )
-        translator.insights = (record,)
-        translator.select_insights = lambda text, insights, limit=5: list(insights)[:limit]
+        translator.rules = (record,)
+        translator.select_rules = lambda text, rules, limit=5: list(rules)[:limit]
 
         class FakePreTranslationChecker:
             def __init__(self):
@@ -619,9 +619,9 @@ class TranslatorInsightConfigTest(unittest.TestCase):
 
         checker = FakePreTranslationChecker()
         translator._pre_translation_challenge_tool_checker = checker
-        translator.translate_adversarial_challenge = lambda challenge, insight: "translator generated source"
+        translator.translate_adversarial_challenge = lambda challenge, rule: "translator generated source"
         translator.config = {
-            "online_adversarial_insights": True,
+            "online_adversarial_rules": True,
             "adversarial_learning_options": {
                 "run_synthetic_challenges": True,
                 "live_structured_agents": False,
@@ -629,9 +629,9 @@ class TranslatorInsightConfigTest(unittest.TestCase):
             },
         }
 
-        insights = translator._select_insight_context(contract="capacity", limit=1)
+        rules = translator._select_rule_context(contract="capacity", limit=1)
 
-        challenge = insights[0]["adversarial_challenge"]
+        challenge = rules[0]["adversarial_challenge"]
         self.assertEqual(
             challenge["translator_replay"],
             {
@@ -644,7 +644,7 @@ class TranslatorInsightConfigTest(unittest.TestCase):
 
     def test_pre_translation_challenge_records_semantic_validator_metadata(self):
         translator = make_translator()
-        record = InsightRecord(
+        record = RuleRecord(
             id="capacity-contract",
             title="Capacity Contract",
             trigger="C parser stores count and capacity separately",
@@ -654,8 +654,8 @@ class TranslatorInsightConfigTest(unittest.TestCase):
             tags=("capacity",),
             keywords=("capacity",),
         )
-        translator.insights = (record,)
-        translator.select_insights = lambda text, insights, limit=5: list(insights)[:limit]
+        translator.rules = (record,)
+        translator.select_rules = lambda text, rules, limit=5: list(rules)[:limit]
 
         class FakePreTranslationChecker:
             def check(self, challenge, *, rust_source=None):
@@ -672,7 +672,7 @@ class TranslatorInsightConfigTest(unittest.TestCase):
             def __init__(self):
                 self.local_activation_values = []
 
-            def validate(self, challenge, insight, *, local_activation_valid):
+            def validate(self, challenge, rule, *, local_activation_valid):
                 self.local_activation_values.append(local_activation_valid)
                 return SemanticActivationValidationResult(
                     activates=True,
@@ -683,7 +683,7 @@ class TranslatorInsightConfigTest(unittest.TestCase):
             def __init__(self):
                 self.calls = 0
 
-            def validate(self, challenge, insight):
+            def validate(self, challenge, rule):
                 self.calls += 1
                 return SemanticOracleValidationResult(
                     valid=False,
@@ -694,7 +694,7 @@ class TranslatorInsightConfigTest(unittest.TestCase):
         oracle_validator = RejectingOracleValidator()
         translator._pre_translation_challenge_tool_checker = FakePreTranslationChecker()
         translator.config = {
-            "online_adversarial_insights": True,
+            "online_adversarial_rules": True,
             "adversarial_learning_options": {
                 "run_synthetic_challenges": True,
                 "activation_validator": activation_validator,
@@ -702,9 +702,9 @@ class TranslatorInsightConfigTest(unittest.TestCase):
             },
         }
 
-        insights = translator._select_insight_context(contract="capacity", limit=1)
+        rules = translator._select_rule_context(contract="capacity", limit=1)
 
-        semantic_validation = insights[0]["adversarial_challenge"]["semantic_validation"]
+        semantic_validation = rules[0]["adversarial_challenge"]["semantic_validation"]
         self.assertFalse(semantic_validation["valid"])
         self.assertEqual(semantic_validation["failed_checks"], ["oracle_semantic"])
         self.assertEqual(
@@ -733,7 +733,7 @@ class TranslatorInsightConfigTest(unittest.TestCase):
                 '{"valid": true, "reason": "live oracle covers capacity"}',
             ]
         )
-        record = InsightRecord(
+        record = RuleRecord(
             id="capacity-contract",
             title="Capacity Contract",
             trigger="C parser stores count and capacity separately",
@@ -743,8 +743,8 @@ class TranslatorInsightConfigTest(unittest.TestCase):
             tags=("capacity",),
             keywords=("capacity",),
         )
-        translator.insights = (record,)
-        translator.select_insights = lambda text, insights, limit=5: list(insights)[:limit]
+        translator.rules = (record,)
+        translator.select_rules = lambda text, rules, limit=5: list(rules)[:limit]
 
         class FakePreTranslationChecker:
             def check(self, challenge, *, rust_source=None):
@@ -759,7 +759,7 @@ class TranslatorInsightConfigTest(unittest.TestCase):
 
         translator._pre_translation_challenge_tool_checker = FakePreTranslationChecker()
         translator.config = {
-            "online_adversarial_insights": True,
+            "online_adversarial_rules": True,
             "adversarial_learning_options": {
                 "run_synthetic_challenges": True,
                 "live_activation_validation": True,
@@ -767,9 +767,9 @@ class TranslatorInsightConfigTest(unittest.TestCase):
             },
         }
 
-        insights = translator._select_insight_context(contract="capacity", limit=1)
+        rules = translator._select_rule_context(contract="capacity", limit=1)
 
-        semantic_validation = insights[0]["adversarial_challenge"]["semantic_validation"]
+        semantic_validation = rules[0]["adversarial_challenge"]["semantic_validation"]
         self.assertTrue(semantic_validation["valid"])
         self.assertEqual(semantic_validation["failed_checks"], [])
         self.assertEqual(
@@ -786,9 +786,9 @@ class TranslatorInsightConfigTest(unittest.TestCase):
             ["activation_validation", "semantic_oracle_validation"],
         )
 
-    def test_pre_translation_refinement_updates_prompt_insight_when_replay_gate_accepts(self):
+    def test_pre_translation_refinement_updates_prompt_rule_when_replay_gate_accepts(self):
         translator = make_translator()
-        record = InsightRecord(
+        record = RuleRecord(
             id="capacity-contract",
             title="Capacity Contract",
             trigger="C parser stores count and capacity separately",
@@ -798,8 +798,8 @@ class TranslatorInsightConfigTest(unittest.TestCase):
             tags=("capacity",),
             keywords=("capacity",),
         )
-        translator.insights = (record,)
-        translator.select_insights = lambda text, insights, limit=5: list(insights)[:limit]
+        translator.rules = (record,)
+        translator.select_rules = lambda text, rules, limit=5: list(rules)[:limit]
 
         class FakePreTranslationChecker:
             def __init__(self):
@@ -831,13 +831,13 @@ class TranslatorInsightConfigTest(unittest.TestCase):
             def __init__(self):
                 self.evidence_outputs = []
 
-            def propose_update(self, insight, challenge, evidence):
+            def propose_update(self, rule, challenge, evidence):
                 self.evidence_outputs.append(evidence.output)
-                return InsightUpdateProposal(
-                    insight_id=insight.id,
+                return RuleUpdateProposal(
+                    rule_id=rule.id,
                     field="constraint",
-                    old_text=insight.constraint,
-                    new_text=insight.constraint + "; require caller-visible capacity",
+                    old_text=rule.constraint,
+                    new_text=rule.constraint + "; require caller-visible capacity",
                     rationale="constraint_violation: replay showed collapsed capacity",
                 )
 
@@ -845,12 +845,12 @@ class TranslatorInsightConfigTest(unittest.TestCase):
         refiner = FakeRefiner()
         translator._pre_translation_challenge_tool_checker = checker
         translator.translate_adversarial_challenge = (
-            lambda challenge, insight: "after source"
-            if "caller-visible capacity" in insight.constraint
+            lambda challenge, rule: "after source"
+            if "caller-visible capacity" in rule.constraint
             else "before source"
         )
         translator.config = {
-            "online_adversarial_insights": True,
+            "online_adversarial_rules": True,
             "adversarial_learning_options": {
                 "run_synthetic_challenges": True,
                 "pre_translation_refinement": True,
@@ -858,9 +858,9 @@ class TranslatorInsightConfigTest(unittest.TestCase):
             },
         }
 
-        insights = translator._select_insight_context(contract="capacity", limit=1)
+        rules = translator._select_rule_context(contract="capacity", limit=1)
 
-        refined = insights[0]
+        refined = rules[0]
         self.assertEqual(
             refined["constraint"],
             "Do not collapse capacity to element count; require caller-visible capacity",
@@ -889,7 +889,7 @@ class TranslatorInsightConfigTest(unittest.TestCase):
 
     def test_pre_translation_refinement_can_apply_multiple_accepted_rounds(self):
         translator = make_translator()
-        record = InsightRecord(
+        record = RuleRecord(
             id="capacity-contract",
             title="Capacity Contract",
             trigger="C parser stores count and capacity separately",
@@ -899,8 +899,8 @@ class TranslatorInsightConfigTest(unittest.TestCase):
             tags=("capacity",),
             keywords=("capacity",),
         )
-        translator.insights = (record,)
-        translator.select_insights = lambda text, insights, limit=5: list(insights)[:limit]
+        translator.rules = (record,)
+        translator.select_rules = lambda text, rules, limit=5: list(rules)[:limit]
 
         class FakePreTranslationChecker:
             def check(self, challenge, *, rust_source=None):
@@ -940,21 +940,21 @@ class TranslatorInsightConfigTest(unittest.TestCase):
             def __init__(self):
                 self.evidence_outputs = []
 
-            def propose_update(self, insight, challenge, evidence):
+            def propose_update(self, rule, challenge, evidence):
                 self.evidence_outputs.append(evidence.output)
                 if len(self.evidence_outputs) == 1:
-                    return InsightUpdateProposal(
-                        insight_id=insight.id,
+                    return RuleUpdateProposal(
+                        rule_id=rule.id,
                         field="constraint",
-                        old_text=insight.constraint,
-                        new_text=insight.constraint + "; require caller-visible capacity",
+                        old_text=rule.constraint,
+                        new_text=rule.constraint + "; require caller-visible capacity",
                         rationale="constraint_violation: replay showed collapsed capacity",
                     )
-                return InsightUpdateProposal(
-                    insight_id=insight.id,
+                return RuleUpdateProposal(
+                    rule_id=rule.id,
                     field="risk",
-                    old_text=insight.risk,
-                    new_text=insight.risk + "; configured capacity hidden",
+                    old_text=rule.risk,
+                    new_text=rule.risk + "; configured capacity hidden",
                     rationale="missing_risk: replay showed hidden configured capacity",
                 )
 
@@ -969,9 +969,9 @@ class TranslatorInsightConfigTest(unittest.TestCase):
             ]
         )
         translator._pre_translation_challenge_tool_checker = checker
-        translator.translate_adversarial_challenge = lambda challenge, insight: next(translated_sources)
+        translator.translate_adversarial_challenge = lambda challenge, rule: next(translated_sources)
         translator.config = {
-            "online_adversarial_insights": True,
+            "online_adversarial_rules": True,
             "adversarial_learning_options": {
                 "run_synthetic_challenges": True,
                 "pre_translation_refinement": True,
@@ -980,9 +980,9 @@ class TranslatorInsightConfigTest(unittest.TestCase):
             },
         }
 
-        insights = translator._select_insight_context(contract="capacity", limit=1)
+        rules = translator._select_rule_context(contract="capacity", limit=1)
 
-        refined = insights[0]
+        refined = rules[0]
         self.assertEqual(refined["version"], 3)
         self.assertIn("caller-visible capacity", refined["constraint"])
         self.assertIn("configured capacity hidden", refined["risk"])
@@ -1003,7 +1003,7 @@ class TranslatorInsightConfigTest(unittest.TestCase):
 
     def test_pre_translation_refinement_can_use_heuristic_fallback_refiner(self):
         translator = make_translator()
-        record = InsightRecord(
+        record = RuleRecord(
             id="capacity-contract",
             title="Capacity Contract",
             trigger="C parser stores count and capacity separately",
@@ -1013,8 +1013,8 @@ class TranslatorInsightConfigTest(unittest.TestCase):
             tags=("capacity",),
             keywords=("capacity",),
         )
-        translator.insights = (record,)
-        translator.select_insights = lambda text, insights, limit=5: list(insights)[:limit]
+        translator.rules = (record,)
+        translator.select_rules = lambda text, rules, limit=5: list(rules)[:limit]
 
         class FakePreTranslationChecker:
             def check(self, challenge, *, rust_source=None):
@@ -1040,21 +1040,21 @@ class TranslatorInsightConfigTest(unittest.TestCase):
 
         translator._pre_translation_challenge_tool_checker = FakePreTranslationChecker()
         translator.translate_adversarial_challenge = (
-            lambda challenge, insight: "after source"
-            if "capacity collapsed" in insight.risk
+            lambda challenge, rule: "after source"
+            if "capacity collapsed" in rule.risk
             else "before source"
         )
         translator.config = {
-            "online_adversarial_insights": True,
+            "online_adversarial_rules": True,
             "adversarial_learning_options": {
                 "run_synthetic_challenges": True,
                 "pre_translation_refinement": True,
             },
         }
 
-        insights = translator._select_insight_context(contract="capacity", limit=1)
+        rules = translator._select_rule_context(contract="capacity", limit=1)
 
-        refined = insights[0]
+        refined = rules[0]
         self.assertIn("capacity collapsed", refined["risk"])
         self.assertTrue(refined["pre_translation_refinement"]["accepted"])
         self.assertEqual(refined["pre_translation_refinement"]["field"], "risk")
@@ -1062,7 +1062,7 @@ class TranslatorInsightConfigTest(unittest.TestCase):
     def test_pre_translation_refinement_writeback_updates_active_json_bank(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             bank_path = Path(tmpdir) / "bank.json"
-            record = InsightRecord(
+            record = RuleRecord(
                 id="capacity-contract",
                 title="Capacity Contract",
                 trigger="C parser stores count and capacity separately",
@@ -1072,12 +1072,12 @@ class TranslatorInsightConfigTest(unittest.TestCase):
                 tags=("capacity",),
                 keywords=("capacity",),
             )
-            InsightBank([record]).save(bank_path)
+            RuleBank([record]).save(bank_path)
             translator = make_translator()
             config = {
-                "insights_json_bank_path": str(bank_path),
-                "insight_retrieval_backend_preference": "keyword",
-                "online_adversarial_insights": True,
+                "rules_json_bank_path": str(bank_path),
+                "rule_retrieval_backend_preference": "keyword",
+                "online_adversarial_rules": True,
                 "adversarial_learning_options": {
                     "run_synthetic_challenges": True,
                     "pre_translation_refinement": True,
@@ -1085,7 +1085,7 @@ class TranslatorInsightConfigTest(unittest.TestCase):
                 },
             }
             translator.config = config
-            translator._configure_insights(config)
+            translator._configure_rules(config)
 
             class FakePreTranslationChecker:
                 def check(self, challenge, *, rust_source=None):
@@ -1111,17 +1111,17 @@ class TranslatorInsightConfigTest(unittest.TestCase):
 
             translator._pre_translation_challenge_tool_checker = FakePreTranslationChecker()
             translator.translate_adversarial_challenge = (
-                lambda challenge, insight: "after source"
-                if "capacity collapsed" in insight.risk
+                lambda challenge, rule: "after source"
+                if "capacity collapsed" in rule.risk
                 else "before source"
             )
 
-            with mock.patch("c2rust_translator.adversarial_insights.fcntl.flock") as flock:
-                insights = translator._select_insight_context(contract="capacity", limit=1)
-            persisted = InsightBank.load(bank_path).records[0]
+            with mock.patch("c2rust_translator.adversarial_rules.fcntl.flock") as flock:
+                rules = translator._select_rule_context(contract="capacity", limit=1)
+            persisted = RuleBank.load(bank_path).records[0]
 
-        self.assertTrue(insights[0]["pre_translation_refinement"]["accepted"])
-        self.assertEqual(insights[0]["pre_translation_refinement"]["writeback"], "updated")
+        self.assertTrue(rules[0]["pre_translation_refinement"]["accepted"])
+        self.assertEqual(rules[0]["pre_translation_refinement"]["writeback"], "updated")
         self.assertEqual(
             [call.args[1] for call in flock.call_args_list],
             [
@@ -1131,7 +1131,7 @@ class TranslatorInsightConfigTest(unittest.TestCase):
         )
         self.assertEqual(persisted.version, 2)
         self.assertIn("capacity collapsed", persisted.risk)
-        self.assertEqual([insight.version for insight in translator.insights], [2])
+        self.assertEqual([rule.version for rule in translator.rules], [2])
 
 
 def make_callable(name, *, module="mod", kind="fn", type_name=None):
@@ -1171,8 +1171,8 @@ def make_translator(*, mode="rule", agent_payload="{}"):
     translator.max_test_fix_attempts = 3
     translator.test_fix_history = []
     translator.callable_failures = 0
-    translator.insights = DEFAULT_INSIGHTS
-    translator.select_insights = select_insights
+    translator.rules = DEFAULT_RULES
+    translator.select_rules = select_rules
     return translator
 
 
@@ -1581,10 +1581,10 @@ class TranslatorAlignmentTest(unittest.TestCase):
             run_root = Path(tmpdir) / "run"
             project_dir = run_root / "demo"
             bank_path = Path(tmpdir) / "bank.json"
-            InsightBank([
-                InsightRecord(
-                    id="seed-insight",
-                    title="Seed Insight",
+            RuleBank([
+                RuleRecord(
+                    id="seed-rule",
+                    title="Seed Rule",
                     trigger="seed trigger",
                     goal="seed goal",
                     constraint="seed constraint",
@@ -1602,11 +1602,11 @@ class TranslatorAlignmentTest(unittest.TestCase):
             module_path.write_text("pub fn alpha() { unimplemented!() }\n", encoding="utf-8")
             translator.skeleton = type("FakeSkeleton", (), {"module_files": {"mod": "mod.rs"}})()
             translator.config = {
-                "online_adversarial_insights": True,
-                "insights_json_bank_path": str(bank_path),
-                "adversarial_insight_bank_path": str(bank_path),
-                "adversarial_insight_output_bank_path": str(bank_path),
-                "adversarial_insight_report_path": str(run_root / "adversarial_insight_report.json"),
+                "online_adversarial_rules": True,
+                "rules_json_bank_path": str(bank_path),
+                "adversarial_rule_bank_path": str(bank_path),
+                "adversarial_rule_output_bank_path": str(bank_path),
+                "adversarial_rule_report_path": str(run_root / "adversarial_rule_report.json"),
                 "adversarial_learning_options": {
                     "admit_trace_candidates": True,
                     "run_synthetic_challenges": False,
@@ -1621,10 +1621,10 @@ class TranslatorAlignmentTest(unittest.TestCase):
                     "live_translator_replay": False,
                 },
             }
-            translator._configure_insights(
+            translator._configure_rules(
                 {
-                    "insights_json_bank_path": str(bank_path),
-                    "insight_retrieval_backend_preference": "keyword",
+                    "rules_json_bank_path": str(bank_path),
+                    "rule_retrieval_backend_preference": "keyword",
                 }
             )
 
@@ -1632,12 +1632,12 @@ class TranslatorAlignmentTest(unittest.TestCase):
                 self.assertEqual(Path(run_root_arg), run_root)
                 self.assertEqual(Path(bank_arg), bank_path)
                 self.assertEqual(Path(output_bank_arg), bank_path)
-                self.assertEqual(Path(report_arg), run_root / "adversarial_insight_report.json")
+                self.assertEqual(Path(report_arg), run_root / "adversarial_rule_report.json")
                 self.assertTrue(kwargs["admit_trace_candidates"])
-                InsightBank([
-                    InsightRecord(
-                        id="seed-insight",
-                        title="Seed Insight",
+                RuleBank([
+                    RuleRecord(
+                        id="seed-rule",
+                        title="Seed Rule",
                         trigger="seed trigger",
                         goal="seed goal",
                         constraint="seed constraint",
@@ -1645,7 +1645,7 @@ class TranslatorAlignmentTest(unittest.TestCase):
                         tags=("seed",),
                         keywords=("seed",),
                     ),
-                    InsightRecord(
+                    RuleRecord(
                         id="online-capacity",
                         title="Online Capacity",
                         trigger="online capacity trigger",
@@ -1666,7 +1666,7 @@ class TranslatorAlignmentTest(unittest.TestCase):
             ) as online_update:
                 ok = translator._translate_one(item)
 
-            selected = translator._select_insight_context(
+            selected = translator._select_rule_context(
                 contract="onlinecapacity",
                 module_id=module_id,
                 limit=1,
@@ -1687,10 +1687,10 @@ class TranslatorAlignmentTest(unittest.TestCase):
             project_dir = run_root / "demo"
             project_dir.mkdir(parents=True)
             bank_path = Path(tmpdir) / "bank.json"
-            InsightBank([
-                InsightRecord(
-                    id="seed-insight",
-                    title="Seed Insight",
+            RuleBank([
+                RuleRecord(
+                    id="seed-rule",
+                    title="Seed Rule",
                     trigger="seed trigger",
                     goal="seed goal",
                     constraint="seed constraint",
@@ -1699,23 +1699,23 @@ class TranslatorAlignmentTest(unittest.TestCase):
             ]).save(bank_path)
             translator.output_dir = project_dir
             translator.config = {
-                "online_adversarial_insights": True,
-                "insights_json_bank_path": str(bank_path),
-                "adversarial_insight_bank_path": str(bank_path),
-                "adversarial_insight_output_bank_path": str(bank_path),
-                "adversarial_insight_report_path": str(run_root / "adversarial_insight_report.json"),
+                "online_adversarial_rules": True,
+                "rules_json_bank_path": str(bank_path),
+                "adversarial_rule_bank_path": str(bank_path),
+                "adversarial_rule_output_bank_path": str(bank_path),
+                "adversarial_rule_report_path": str(run_root / "adversarial_rule_report.json"),
                 "adversarial_learning_options": {},
             }
-            translator._configure_insights(
+            translator._configure_rules(
                 {
-                    "insights_json_bank_path": str(bank_path),
-                    "insight_retrieval_backend_preference": "keyword",
+                    "rules_json_bank_path": str(bank_path),
+                    "rule_retrieval_backend_preference": "keyword",
                 }
             )
 
             def update_bank(_run_root_arg, _bank_arg, output_bank_arg, report_arg, **_kwargs):
-                InsightBank([
-                    InsightRecord(
+                RuleBank([
+                    RuleRecord(
                         id="online-new",
                         title="Online New",
                         trigger="online trigger",
@@ -1737,10 +1737,10 @@ class TranslatorAlignmentTest(unittest.TestCase):
                     module_id=module_id,
                 )
 
-            insight_ids = [record.id for record in translator.insights]
+            rule_ids = [record.id for record in translator.rules]
 
         self.assertEqual(result["accepted_updates"], 1)
-        self.assertEqual(insight_ids, ["online-new"])
+        self.assertEqual(rule_ids, ["online-new"])
         self.assertEqual(translator.online_adversarial_updates[-1]["json_bank_reload"], "reloaded")
 
     def test_test_repair_loop_patches_targeted_callable_and_reruns_tests(self):
@@ -5876,7 +5876,7 @@ fn test_interleave_roundtrip() {
         self.assertEqual(test_history[0]["kind"], "single_lane_decode_test_heuristic")
         self.assertTrue(test_history[0]["test_improved"])
 
-    def test_selected_insights_are_recorded_on_llm_calls(self):
+    def test_selected_rules_are_recorded_on_llm_calls(self):
         translator = make_translator()
         item = make_callable("push", kind="method", type_name="CircularBuffer")
         module_id = translator._callable_id(item)
@@ -5897,7 +5897,7 @@ fn test_interleave_roundtrip() {
         }
         translator.translation_history[module_id] = {"llm_calls": []}
 
-        insights = translator._select_insight_context(
+        rules = translator._select_rule_context(
             contract=item.stub,
             module_id=module_id,
             output="error: expected usize, found isize",
@@ -5917,17 +5917,17 @@ fn test_interleave_roundtrip() {
             prompt="prompt",
             result=result,
             extracted_code=result.code,
-            insights=insights,
+            rules=rules,
         )
 
-        insight_ids = [item["id"] for item in record["insights"]]
-        self.assertIn("sentinel-state-transitions", insight_ids)
-        self.assertIn("signed-unsigned-boundaries", insight_ids)
+        rule_ids = [item["id"] for item in record["rules"]]
+        self.assertIn("sentinel-state-transitions", rule_ids)
+        self.assertIn("signed-unsigned-boundaries", rule_ids)
 
-    def test_structured_interaction_explanations_are_recorded_on_selected_insights(self):
+    def test_structured_interaction_explanations_are_recorded_on_selected_rules(self):
         translator = make_translator()
-        translator.insights = (
-            TranslationInsight(
+        translator.rules = (
+            TranslationRule(
                 id="anchor",
                 title="Anchor",
                 trigger="shared marker",
@@ -5938,7 +5938,7 @@ fn test_interleave_roundtrip() {
                 tags=("shared",),
                 keywords=("shared_marker",),
             ),
-            TranslationInsight(
+            TranslationRule(
                 id="support",
                 title="Support",
                 trigger="shared marker",
@@ -5949,7 +5949,7 @@ fn test_interleave_roundtrip() {
                 tags=("shared",),
                 keywords=("shared_marker",),
             ),
-            TranslationInsight(
+            TranslationRule(
                 id="other",
                 title="Other",
                 trigger="shared marker",
@@ -5968,30 +5968,30 @@ fn test_interleave_roundtrip() {
                 return {"support": 1.0, "conflict": 0.0, "explanation": "support reinforces anchor"}
             return {"support": 0.0, "conflict": 1.0, "explanation": "other conflicts"}
 
-        translator.insight_interaction_scorer = StructuredInteractionScorer(fake_agent).score
+        translator.rule_interaction_scorer = StructuredInteractionScorer(fake_agent).score
 
-        insights = translator._select_insight_context(output="shared_marker", limit=2)
+        rules = translator._select_rule_context(output="shared_marker", limit=2)
 
-        self.assertEqual([item["id"] for item in insights], ["anchor", "support"])
-        support_metadata = insights[1]["selection_interactions"]
+        self.assertEqual([item["id"] for item in rules], ["anchor", "support"])
+        support_metadata = rules[1]["selection_interactions"]
         self.assertEqual(support_metadata[0]["first_id"], "support")
         self.assertEqual(support_metadata[0]["second_id"], "anchor")
         self.assertEqual(support_metadata[0]["explanation"], "support reinforces anchor")
 
-    def test_insight_selection_can_be_disabled_for_ablation_runs(self):
+    def test_rule_selection_can_be_disabled_for_ablation_runs(self):
         translator = make_translator()
-        translator.insights_enabled = False
+        translator.rules_enabled = False
         item = make_callable("leftpad")
         module_id = translator._callable_id(item)
 
-        insights = translator._select_insight_context(
+        rules = translator._select_rule_context(
             contract=item.stub,
             module_id=module_id,
             output="error: expected usize",
             limit=5,
         )
 
-        self.assertEqual(insights, [])
+        self.assertEqual(rules, [])
 
     def test_request_patchable_code_retries_unpatchable_output_with_full_rewrite(self):
         translator = make_translator()

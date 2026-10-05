@@ -12,7 +12,7 @@ from c2rust_translator.artifacts import default_run_root, project_root, resolve_
 from c2rust_translator.rbench_interface import InterfaceIndex
 from c2rust_translator.rust_skeleton_generator import Skeleton
 from c2rust_translator.translation_runner import (
-    _resolve_insights_path,
+    _resolve_rules_path,
     build_arg_parser,
     discover_available_projects,
     load_env_file,
@@ -107,7 +107,7 @@ def copy_project_output(source: Path, destination: Path) -> None:
 def prepare_translator(root_dir: Path, run_root: Path, project: str, args: argparse.Namespace) -> tuple[Translator, list]:
     config = project_config(root_dir, run_root, project, args)
     config["clean_output_dir"] = False
-    config["insights_path"] = _resolve_insights_path(root_dir, getattr(args, "insights_path", ""))
+    config["rules_path"] = _resolve_rules_path(root_dir, getattr(args, "rules_path", ""))
     translator = Translator(config)
     translator.skeleton = Skeleton(str(translator.rbench_path), str(translator.output_dir), clean=False)
     translator.skeleton._index_modules()

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from c2rust_translator.artifacts import resolve_run_root
-from c2rust_translator.insights import DEFAULT_INSIGHTS, empirical_weak_pair_penalty, score_insight_interaction
+from c2rust_translator.rules import DEFAULT_RULES, empirical_weak_pair_penalty, score_rule_interaction
 
 
 DEFAULT_EXCLUDED_PROJECTS = {"fslib", "libfor", "tisp"}
@@ -16,7 +16,7 @@ DEFAULT_EXCLUDED_PROJECTS = {"fslib", "libfor", "tisp"}
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Find weak multi-insight combinations from historical translation artifacts."
+        description="Find weak multi-rule combinations from historical translation artifacts."
     )
     parser.add_argument("runs", nargs="+", help="Run ids under output/runs/ to analyze; legacy output/<run_id> is also supported.")
     parser.add_argument("--limit", type=int, default=20, help="Maximum pair rows to print.")
@@ -64,19 +64,19 @@ def iter_jsonl(path: Path) -> Iterable[dict[str, Any]]:
             yield value
 
 
-def insight_ids(record: dict[str, Any]) -> list[str]:
-    raw_items = record.get("insights") or record.get("selected_insights") or []
+def rule_ids(record: dict[str, Any]) -> list[str]:
+    raw_items = record.get("rules") or record.get("selected_rules") or []
     ids: list[str] = []
     seen: set[str] = set()
     for item in raw_items:
-        insight_id = ""
+        rule_id = ""
         if isinstance(item, dict):
-            insight_id = str(item.get("id", ""))
+            rule_id = str(item.get("id", ""))
         elif isinstance(item, str):
-            insight_id = item
-        if insight_id and insight_id not in seen:
-            seen.add(insight_id)
-            ids.append(insight_id)
+            rule_id = item
+        if rule_id and rule_id not in seen:
+            seen.add(rule_id)
+            ids.append(rule_id)
     return ids
 
 
@@ -102,7 +102,7 @@ def iter_project_records(project_dir: Path) -> Iterable[dict[str, Any]]:
 
 def analyze_run(root: Path, run_id: str, include_excluded: bool) -> dict[str, Any]:
     run_root = resolve_run_root(root, run_id)
-    id_to_insight = {insight.id: insight for insight in DEFAULT_INSIGHTS}
+    id_to_rule = {rule.id: rule for rule in DEFAULT_RULES}
     pair_stats: dict[tuple[str, str], dict[str, Any]] = defaultdict(
         lambda: {
             "failed_projects": set(),
@@ -126,7 +126,7 @@ def analyze_run(root: Path, run_id: str, include_excluded: bool) -> dict[str, An
         failed_projects += int(not success)
 
         for record in iter_project_records(project_dir):
-            ids = [insight_id for insight_id in insight_ids(record) if insight_id in id_to_insight]
+            ids = [rule_id for rule_id in rule_ids(record) if rule_id in id_to_rule]
             if len(ids) < 2:
                 continue
             phase = str(record.get("phase") or "unknown")
@@ -143,7 +143,7 @@ def analyze_run(root: Path, run_id: str, include_excluded: bool) -> dict[str, An
     rows: list[dict[str, Any]] = []
     for pair, stats in pair_stats.items():
         first, second = pair
-        interaction = score_insight_interaction(id_to_insight[first], id_to_insight[second])
+        interaction = score_rule_interaction(id_to_rule[first], id_to_rule[second])
         empirical_penalty = empirical_weak_pair_penalty(first, second)
         failed_project_count = len(stats["failed_projects"])
         passed_project_count = len(stats["passed_projects"])
@@ -210,7 +210,7 @@ def main() -> None:
             f"failed_projects={report['failed_projects']}"
         )
         if not report["pairs"]:
-            print("  no multi-insight weak pairs matched the filters")
+            print("  no multi-rule weak pairs matched the filters")
             continue
         for row in report["pairs"]:
             interaction = row["interaction"]

@@ -58,11 +58,11 @@ docs/
 reference_baseline/
 TRANSLATION_WORKFLOW.md
 
-# Published insight banks
-snapshots/insights/*
-!snapshots/insights/gpt_final_insight_bank.json
-!snapshots/insights/deepseek_final_insight_bank.json
-!snapshots/insights/kimi_final_insight_bank.json
+# Published rule banks
+snapshots/rules/*
+!snapshots/rules/gpt_final_rule_bank.json
+!snapshots/rules/deepseek_final_rule_bank.json
+!snapshots/rules/kimi_final_rule_bank.json
 
 # Local experiment results
 EXPERIMENT_RESULTS.md

@@ -14,49 +14,49 @@ from pathlib import Path
 from typing import Iterable, Optional, Type
 
 try:
-    from .adversarial_insights import (
-        InsightBank,
+    from .adversarial_rules import (
+        RuleBank,
         LLMActivationValidator,
         LLMCompositionRelationReviewer,
         LLMSemanticOracleValidator,
         LLMStructuredChallengerAgent,
         LLMStructuredRefinerAgent,
         LLMTraceContradictionReviewer,
-        LLMTraceInsightSynthesizer,
+        LLMTraceRuleSynthesizer,
         TranslatorChallengeReplayAdapter,
         run_offline_adversarial_learning,
     )
     from .artifacts import default_run_root, project_root
     from .experiment_profiles import (
-        model_default_insight_bank_path,
+        model_default_rule_bank_path,
         model_display_name,
         profile_choices,
         resolve_experiment_profile,
     )
-    from .insights import DEFAULT_INSIGHTS, load_insight_library
+    from .rules import DEFAULT_RULES, load_rule_library
     from .translation_agent import DEFAULT_RESPONSES_API_URL, DEFAULT_RESPONSES_MODEL, create_agent
     from .translator import Translator
 except ImportError:
-    from adversarial_insights import (
-        InsightBank,
+    from adversarial_rules import (
+        RuleBank,
         LLMActivationValidator,
         LLMCompositionRelationReviewer,
         LLMSemanticOracleValidator,
         LLMStructuredChallengerAgent,
         LLMStructuredRefinerAgent,
         LLMTraceContradictionReviewer,
-        LLMTraceInsightSynthesizer,
+        LLMTraceRuleSynthesizer,
         TranslatorChallengeReplayAdapter,
         run_offline_adversarial_learning,
     )
     from artifacts import default_run_root, project_root
     from experiment_profiles import (
-        model_default_insight_bank_path,
+        model_default_rule_bank_path,
         model_display_name,
         profile_choices,
         resolve_experiment_profile,
     )
-    from insights import DEFAULT_INSIGHTS, load_insight_library
+    from rules import DEFAULT_RULES, load_rule_library
     from translation_agent import DEFAULT_RESPONSES_API_URL, DEFAULT_RESPONSES_MODEL, create_agent
     from translator import Translator
 
@@ -64,13 +64,13 @@ except ImportError:
 RUN_ID_TIMESTAMP_FORMAT = "%Y%m%d-%H%M%S"
 DEFAULT_CHAT_BASE_URL = "https://api.openai.com/v1"
 DEFAULT_GOOGLE_GENAI_API_URL = "https://generativelanguage.googleapis.com"
-DEFAULT_ADVERSARIAL_INSIGHT_OUTPUT_BANK = "adversarial_insights.updated.json"
-DEFAULT_ADVERSARIAL_INSIGHT_REPORT = "adversarial_insight_report.json"
-DEFAULT_ACTIVE_INSIGHT_BANK = "insights.active.json"
+DEFAULT_ADVERSARIAL_RULE_OUTPUT_BANK = "adversarial_rules.updated.json"
+DEFAULT_ADVERSARIAL_RULE_REPORT = "adversarial_rule_report.json"
+DEFAULT_ACTIVE_RULE_BANK = "rules.active.json"
 DEFAULT_PRE_TRANSLATION_REFINEMENT_ROUNDS = 1
-_ACTIVE_INSIGHT_BANK_LOCK = threading.Lock()
+_ACTIVE_RULE_BANK_LOCK = threading.Lock()
 
-SINGLE_INSIGHT_ADVERSARIAL_OPTION_KEYS = {
+SINGLE_RULE_ADVERSARIAL_OPTION_KEYS = {
     "admit_trace_candidates",
     "run_synthetic_challenges",
     "live_structured_agents",
@@ -385,58 +385,58 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="Minimum LLM alignment confidence accepted as a safe binding",
     )
     parser.add_argument(
-        "--insights-mode",
+        "--rules-mode",
         choices=["default", "off"],
-        default=os.getenv("INSIGHTS_MODE", "default"),
-        help="Use structured translation insights in LLM prompts, or disable them for ablation (env: INSIGHTS_MODE)",
+        default=os.getenv("RULES_MODE", "default"),
+        help="Use structured translation rules in LLM prompts, or disable them for ablation (env: RULES_MODE)",
     )
     parser.add_argument(
-        "--insight-limit",
+        "--rule-limit",
         type=int,
-        default=_env_int("INSIGHT_LIMIT", 5),
-        help="Maximum selected translation insights to include per prompt (env: INSIGHT_LIMIT)",
+        default=_env_int("RULE_LIMIT", 5),
+        help="Maximum selected translation rules to include per prompt (env: RULE_LIMIT)",
     )
     parser.add_argument(
-        "--insights-path",
-        default=os.getenv("INSIGHTS_PATH", ""),
-        help="Optional Python file exporting DEFAULT_INSIGHTS and select_insights for this run (env: INSIGHTS_PATH)",
+        "--rules-path",
+        default=os.getenv("RULES_PATH", ""),
+        help="Optional Python file exporting DEFAULT_RULES and select_rules for this run (env: RULES_PATH)",
     )
     parser.add_argument(
-        "--insights-json-bank",
-        default=os.getenv("INSIGHTS_JSON_BANK", ""),
+        "--rules-json-bank",
+        default=os.getenv("RULES_JSON_BANK", ""),
         help=(
-            "Optional JSON insight bank for prompt-time insight retrieval "
-            "(env: INSIGHTS_JSON_BANK). When set, it overrides profile-selected final banks "
-            "and Python insight snapshots for prompt injection."
+            "Optional JSON rule bank for prompt-time rule retrieval "
+            "(env: RULES_JSON_BANK). When set, it overrides profile-selected final banks "
+            "and Python rule snapshots for prompt injection."
         ),
     )
     parser.add_argument(
-        "--insight-retrieval-backend",
+        "--rule-retrieval-backend",
         choices=["auto", "keyword", "embedding"],
-        default=os.getenv("INSIGHT_RETRIEVAL_BACKEND", "auto"),
+        default=os.getenv("RULE_RETRIEVAL_BACKEND", "auto"),
         help=(
-            "Retrieval backend preference for --insights-json-bank. "
+            "Retrieval backend preference for --rules-json-bank. "
             "'auto' and 'embedding' try FAISS/BGE with keyword fallback; 'keyword' disables embeddings "
-            "(env: INSIGHT_RETRIEVAL_BACKEND)."
+            "(env: RULE_RETRIEVAL_BACKEND)."
         ),
     )
     parser.add_argument(
-        "--insight-retrieval-index-cache",
-        default=os.getenv("INSIGHT_RETRIEVAL_INDEX_CACHE", ""),
+        "--rule-retrieval-index-cache",
+        default=os.getenv("RULE_RETRIEVAL_INDEX_CACHE", ""),
         help=(
             "Optional FAISS index cache path for JSON bank retrieval. "
-            "Defaults to <run_root>/insight_retrieval.faiss when JSON bank retrieval uses auto/embedding "
-            "(env: INSIGHT_RETRIEVAL_INDEX_CACHE)."
+            "Defaults to <run_root>/rule_retrieval.faiss when JSON bank retrieval uses auto/embedding "
+            "(env: RULE_RETRIEVAL_INDEX_CACHE)."
         ),
     )
     parser.add_argument(
-        "--insight-interaction-scorer",
+        "--rule-interaction-scorer",
         choices=["heuristic", "live"],
-        default=os.getenv("INSIGHT_INTERACTION_SCORER", "heuristic"),
+        default=os.getenv("RULE_INTERACTION_SCORER", "heuristic"),
         help=(
-            "Support/conflict scorer for multi-insight selection. "
+            "Support/conflict scorer for multi-rule selection. "
             "'heuristic' uses local scores; 'live' asks the configured LLM for structured JSON scores "
-            "(env: INSIGHT_INTERACTION_SCORER)."
+            "(env: RULE_INTERACTION_SCORER)."
         ),
     )
     parser.add_argument(
@@ -444,7 +444,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
         choices=profile_choices(),
         default=os.getenv("EXPERIMENT_PROFILE", ""),
         help=(
-            "Named experiment profile. When set, applies the model-matched final JSON insight bank and "
+            "Named experiment profile. When set, applies the model-matched final JSON rule bank and "
             "structured ablation metadata (env: EXPERIMENT_PROFILE)."
         ),
     )
@@ -458,52 +458,52 @@ def build_arg_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
-        "--adversarial-insight-bank",
-        default=os.getenv("ADVERSARIAL_INSIGHT_BANK", ""),
+        "--adversarial-rule-bank",
+        default=os.getenv("ADVERSARIAL_RULE_BANK", ""),
         help=(
-            "Optional JSON insight bank for adversarial insight learning. When insights/profile "
+            "Optional JSON rule bank for adversarial rule learning. When rules/profile "
             "mining are enabled, this bank is also the prompt retrieval bank and default mutable "
-            "online update bank (env: ADVERSARIAL_INSIGHT_BANK)."
+            "online update bank (env: ADVERSARIAL_RULE_BANK)."
         ),
     )
     parser.add_argument(
-        "--adversarial-insight-output-bank",
-        default=os.getenv("ADVERSARIAL_INSIGHT_OUTPUT_BANK", ""),
+        "--adversarial-rule-output-bank",
+        default=os.getenv("ADVERSARIAL_RULE_OUTPUT_BANK", ""),
         help=(
-            "Output JSON insight bank for post-run adversarial insight learning. "
+            "Output JSON rule bank for post-run adversarial rule learning. "
             "Defaults to the active prompt bank for online same-bank updates, otherwise "
-            f"<run_root>/{DEFAULT_ADVERSARIAL_INSIGHT_OUTPUT_BANK}."
+            f"<run_root>/{DEFAULT_ADVERSARIAL_RULE_OUTPUT_BANK}."
         ),
     )
     parser.add_argument(
-        "--adversarial-insight-report",
-        default=os.getenv("ADVERSARIAL_INSIGHT_REPORT", ""),
+        "--adversarial-rule-report",
+        default=os.getenv("ADVERSARIAL_RULE_REPORT", ""),
         help=(
-            "Output JSON report for post-run adversarial insight learning. "
-            f"Defaults to <run_root>/{DEFAULT_ADVERSARIAL_INSIGHT_REPORT}."
+            "Output JSON report for post-run adversarial rule learning. "
+            f"Defaults to <run_root>/{DEFAULT_ADVERSARIAL_RULE_REPORT}."
         ),
     )
     parser.add_argument(
-        "--online-adversarial-insights",
+        "--online-adversarial-rules",
         action="store_true",
-        default=os.getenv("ONLINE_ADVERSARIAL_INSIGHTS", "").lower() in {"1", "true", "yes"},
+        default=os.getenv("ONLINE_ADVERSARIAL_RULES", "").lower() in {"1", "true", "yes"},
         help=(
-            "Run adversarial insight learning after each sequential project. "
-            "When --adversarial-insight-bank is omitted, this uses --insights-json-bank as the mutable bank "
-            "(env: ONLINE_ADVERSARIAL_INSIGHTS)."
+            "Run adversarial rule learning after each sequential project. "
+            "When --adversarial-rule-bank is omitted, this uses --rules-json-bank as the mutable bank "
+            "(env: ONLINE_ADVERSARIAL_RULES)."
         ),
     )
     parser.add_argument(
         "--adversarial-admit-trace-candidates",
         action="store_true",
         default=os.getenv("ADVERSARIAL_ADMIT_TRACE_CANDIDATES", "").lower() in {"1", "true", "yes"},
-        help="Validate trace-mined candidate insights during adversarial bank updates.",
+        help="Validate trace-mined candidate rules during adversarial bank updates.",
     )
     parser.add_argument(
         "--adversarial-run-synthetic-challenges",
         action="store_true",
         default=os.getenv("ADVERSARIAL_RUN_SYNTHETIC_CHALLENGES", "").lower() in {"1", "true", "yes"},
-        help="Execute deterministic single-insight synthetic challenges during adversarial bank updates.",
+        help="Execute deterministic single-rule synthetic challenges during adversarial bank updates.",
     )
     parser.add_argument(
         "--adversarial-run-compositional-challenges",
@@ -516,7 +516,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         default=os.getenv("ADVERSARIAL_ADMIT_COMPOSITION_FAILURE_CANDIDATES", "").lower()
         in {"1", "true", "yes"},
-        help="Turn compiling but test-failing compositional challenge evidence into validated candidate insights.",
+        help="Turn compiling but test-failing compositional challenge evidence into validated candidate rules.",
     )
     parser.add_argument(
         "--adversarial-live-structured-agents",
@@ -528,7 +528,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--adversarial-live-trace-synthesis",
         action="store_true",
         default=os.getenv("ADVERSARIAL_LIVE_TRACE_SYNTHESIS", "").lower() in {"1", "true", "yes"},
-        help="Use the configured LLM provider to synthesize trace-mined candidate insights.",
+        help="Use the configured LLM provider to synthesize trace-mined candidate rules.",
     )
     parser.add_argument(
         "--adversarial-live-trace-contradiction-review",
@@ -555,7 +555,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--adversarial-live-activation-validation",
         action="store_true",
         default=os.getenv("ADVERSARIAL_LIVE_ACTIVATION_VALIDATION", "").lower() in {"1", "true", "yes"},
-        help="Use the configured LLM provider to validate whether challenges activate their target insights.",
+        help="Use the configured LLM provider to validate whether challenges activate their target rules.",
     )
     parser.add_argument(
         "--adversarial-live-translator-replay",
@@ -569,7 +569,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default=os.getenv("ADVERSARIAL_PRE_TRANSLATION_CHALLENGES", "").lower()
         in {"1", "true", "yes"},
         help=(
-            "Attach pre-translation adversarial challenge metadata to selected prompt insights without "
+            "Attach pre-translation adversarial challenge metadata to selected prompt rules without "
             "requiring callable-level online adversarial updates."
         ),
     )
@@ -578,8 +578,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         default=os.getenv("ADVERSARIAL_PRE_TRANSLATION_REFINEMENT", "").lower() in {"1", "true", "yes"},
         help=(
-            "Use evidence-gated challenge replay to refine selected insights locally before building "
-            "translation/fix prompts. By default this only updates the prompt-local insight; combine with "
+            "Use evidence-gated challenge replay to refine selected rules locally before building "
+            "translation/fix prompts. By default this only updates the prompt-local rule; combine with "
             "--adversarial-pre-translation-refinement-writeback to persist accepted updates."
         ),
     )
@@ -598,7 +598,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
         type=int,
         default=_optional_env_int("ADVERSARIAL_PRE_TRANSLATION_REFINEMENT_ROUNDS"),
         help=(
-            "Maximum accepted prompt-local pre-translation refinement rounds per selected insight. "
+            "Maximum accepted prompt-local pre-translation refinement rounds per selected rule. "
             "Defaults to 1 for custom runs and to the profile K for profiles that enable "
             "pre-translation refinement "
             "(env: ADVERSARIAL_PRE_TRANSLATION_REFINEMENT_ROUNDS)."
@@ -719,7 +719,7 @@ def build_llm_config(args: argparse.Namespace) -> dict:
     return config
 
 
-def _resolve_insights_path(root_dir: Path, raw_path: str) -> str:
+def _resolve_rules_path(root_dir: Path, raw_path: str) -> str:
     if not raw_path:
         return ""
     path = Path(raw_path).expanduser()
@@ -735,107 +735,107 @@ def _resolve_optional_path(root_dir: Path, raw_path: str) -> Path:
     return path.resolve()
 
 
-def adversarial_insight_update_paths(
+def adversarial_rule_update_paths(
     root_dir: Path,
     run_root: Path,
     args: argparse.Namespace,
     *,
-    insights_json_bank_path: str = "",
+    rules_json_bank_path: str = "",
 ) -> tuple[Path | None, Path | None, Path | None]:
-    raw_bank = getattr(args, "adversarial_insight_bank", "") or ""
+    raw_bank = getattr(args, "adversarial_rule_bank", "") or ""
     online_uses_prompt_bank = False
-    if not raw_bank and online_adversarial_insights_enabled(args):
-        raw_bank = insights_json_bank_path or getattr(args, "insights_json_bank", "") or ""
+    if not raw_bank and online_adversarial_rules_enabled(args):
+        raw_bank = rules_json_bank_path or getattr(args, "rules_json_bank", "") or ""
         online_uses_prompt_bank = bool(raw_bank)
     if not raw_bank:
         return None, None, None
 
     bank_path = _resolve_optional_path(root_dir, raw_bank)
     if (
-        online_adversarial_insights_enabled(args)
-        and insights_json_bank_path
-        and bank_path.resolve() == Path(insights_json_bank_path).expanduser().resolve()
+        online_adversarial_rules_enabled(args)
+        and rules_json_bank_path
+        and bank_path.resolve() == Path(rules_json_bank_path).expanduser().resolve()
     ):
         online_uses_prompt_bank = True
-    raw_output_bank = getattr(args, "adversarial_insight_output_bank", "") or ""
-    raw_report = getattr(args, "adversarial_insight_report", "") or ""
+    raw_output_bank = getattr(args, "adversarial_rule_output_bank", "") or ""
+    raw_report = getattr(args, "adversarial_rule_report", "") or ""
     output_bank_path = (
         _resolve_optional_path(root_dir, raw_output_bank)
         if raw_output_bank
         else bank_path
         if online_uses_prompt_bank
-        else run_root / DEFAULT_ADVERSARIAL_INSIGHT_OUTPUT_BANK
+        else run_root / DEFAULT_ADVERSARIAL_RULE_OUTPUT_BANK
     )
     report_path = (
         _resolve_optional_path(root_dir, raw_report)
         if raw_report
-        else run_root / DEFAULT_ADVERSARIAL_INSIGHT_REPORT
+        else run_root / DEFAULT_ADVERSARIAL_RULE_REPORT
     )
     return bank_path, output_bank_path, report_path
 
 
-def ensure_active_json_insight_bank(
+def ensure_active_json_rule_bank(
     root_dir: Path,
     run_root: Path,
     *,
-    insights_path: str,
+    rules_path: str,
     source_json_bank_path: str = "",
 ) -> str:
-    bank_path = run_root / DEFAULT_ACTIVE_INSIGHT_BANK
-    with _ACTIVE_INSIGHT_BANK_LOCK:
+    bank_path = run_root / DEFAULT_ACTIVE_RULE_BANK
+    with _ACTIVE_RULE_BANK_LOCK:
         if bank_path.exists():
             return str(bank_path)
 
         if source_json_bank_path:
-            source_bank = InsightBank.load(_resolve_insights_path(root_dir, source_json_bank_path))
+            source_bank = RuleBank.load(_resolve_rules_path(root_dir, source_json_bank_path))
             source_bank.save(bank_path)
-        elif insights_path:
-            library = load_insight_library(_resolve_insights_path(root_dir, insights_path))
-            source_insights = library.insights
-            InsightBank.from_legacy(source_insights).save(bank_path)
+        elif rules_path:
+            library = load_rule_library(_resolve_rules_path(root_dir, rules_path))
+            source_rules = library.rules
+            RuleBank.from_legacy(source_rules).save(bank_path)
         else:
-            source_insights = DEFAULT_INSIGHTS
-            InsightBank.from_legacy(source_insights).save(bank_path)
+            source_rules = DEFAULT_RULES
+            RuleBank.from_legacy(source_rules).save(bank_path)
     return str(bank_path)
 
 
-def active_json_insight_bank_path(
+def active_json_rule_bank_path(
     root_dir: Path,
     run_root: Path,
     args: argparse.Namespace,
     *,
     project_name: str = "",
 ) -> str:
-    raw_bank = getattr(args, "insights_json_bank", "") or ""
+    raw_bank = getattr(args, "rules_json_bank", "") or ""
     if raw_bank:
-        return _resolve_insights_path(root_dir, raw_bank)
-    raw_adversarial_bank = getattr(args, "adversarial_insight_bank", "") or ""
+        return _resolve_rules_path(root_dir, raw_bank)
+    raw_adversarial_bank = getattr(args, "adversarial_rule_bank", "") or ""
     if raw_adversarial_bank and _explicit_adversarial_bank_primary_store_enabled(args):
-        return _resolve_insights_path(root_dir, raw_adversarial_bank)
+        return _resolve_rules_path(root_dir, raw_adversarial_bank)
 
     raw_profile = getattr(args, "experiment_profile", "") or ""
     profile = resolve_experiment_profile(raw_profile) if raw_profile else None
-    insights_enabled = getattr(args, "insights_mode", "default") != "off"
+    rules_enabled = getattr(args, "rules_mode", "default") != "off"
     if profile is not None:
-        insights_enabled = insights_enabled and profile.insights_enabled
-    if not insights_enabled:
+        rules_enabled = rules_enabled and profile.rules_enabled
+    if not rules_enabled:
         return ""
 
-    raw_insights_path = getattr(args, "insights_path", "") or ""
-    profile_insights_path = profile.default_insights_path if profile else ""
-    effective_insights_path = raw_insights_path or profile_insights_path
+    raw_rules_path = getattr(args, "rules_path", "") or ""
+    profile_rules_path = profile.default_rules_path if profile else ""
+    effective_rules_path = raw_rules_path or profile_rules_path
     source_json_bank_path = ""
-    if not raw_insights_path and profile is not None:
-        source_json_bank_path = model_default_insight_bank_path(str(getattr(args, "model", "") or ""))
+    if not raw_rules_path and profile is not None:
+        source_json_bank_path = model_default_rule_bank_path(str(getattr(args, "model", "") or ""))
     bank_root = (
         project_root(run_root, project_name)
         if project_name and project_local_online_bank_enabled(args)
         else run_root
     )
-    return ensure_active_json_insight_bank(
+    return ensure_active_json_rule_bank(
         root_dir,
         bank_root,
-        insights_path=effective_insights_path,
+        rules_path=effective_rules_path,
         source_json_bank_path=source_json_bank_path,
     )
 
@@ -912,11 +912,11 @@ def profile_adversarial_learning_defaults(args: argparse.Namespace) -> dict[str,
         return defaults
 
     profile = resolve_experiment_profile(raw_profile)
-    if not profile.insights_enabled or not profile.insight_mining:
+    if not profile.rules_enabled or not profile.rule_mining:
         return defaults
 
-    if profile.single_insight_adversarial_learning:
-        for key in SINGLE_INSIGHT_ADVERSARIAL_OPTION_KEYS:
+    if profile.single_rule_adversarial_learning:
+        for key in SINGLE_RULE_ADVERSARIAL_OPTION_KEYS:
             defaults[key] = True
         if (
             _effective_jobs(args) == 1
@@ -926,7 +926,7 @@ def profile_adversarial_learning_defaults(args: argparse.Namespace) -> dict[str,
         ):
             defaults["pre_translation_refinement_writeback"] = True
 
-    if profile.compositional_insight_adversarial_learning:
+    if profile.compositional_rule_adversarial_learning:
         for key in COMPOSITIONAL_ADVERSARIAL_OPTION_KEYS:
             defaults[key] = True
 
@@ -950,16 +950,16 @@ def pre_translation_refinement_round_count(
     if raw_profile:
         profile = resolve_experiment_profile(raw_profile)
         if (
-            profile.insights_enabled
-            and profile.insight_mining
-            and profile.single_insight_adversarial_learning
+            profile.rules_enabled
+            and profile.rule_mining
+            and profile.single_rule_adversarial_learning
         ):
             return max(profile.default_adversarial_rounds, 1)
     return DEFAULT_PRE_TRANSLATION_REFINEMENT_ROUNDS
 
 
-def online_adversarial_insights_enabled(args: argparse.Namespace) -> bool:
-    if bool(getattr(args, "online_adversarial_insights", False)):
+def online_adversarial_rules_enabled(args: argparse.Namespace) -> bool:
+    if bool(getattr(args, "online_adversarial_rules", False)):
         return True
     if _explicit_adversarial_bank_primary_store_enabled(args):
         return True
@@ -975,9 +975,9 @@ def online_adversarial_insights_enabled(args: argparse.Namespace) -> bool:
 def project_local_online_bank_enabled(args: argparse.Namespace) -> bool:
     if _effective_jobs(args) <= 1:
         return False
-    if bool(getattr(args, "insights_json_bank", "") or ""):
+    if bool(getattr(args, "rules_json_bank", "") or ""):
         return False
-    if bool(getattr(args, "adversarial_insight_bank", "") or ""):
+    if bool(getattr(args, "adversarial_rule_bank", "") or ""):
         return False
     return (
         _profile_online_defaults_allowed(args)
@@ -1004,62 +1004,62 @@ def _custom_online_defaults_allowed(args: argparse.Namespace) -> bool:
 
 def _custom_parallel_online_defaults_allowed(args: argparse.Namespace) -> bool:
     return _custom_online_base_defaults_allowed(args) and not bool(
-        getattr(args, "insights_json_bank", "") or ""
+        getattr(args, "rules_json_bank", "") or ""
     )
 
 
 def _custom_parallel_shared_prompt_bank_online_defaults_allowed(args: argparse.Namespace) -> bool:
     return _custom_online_base_defaults_allowed(args) and bool(
-        getattr(args, "insights_json_bank", "") or ""
+        getattr(args, "rules_json_bank", "") or ""
     )
 
 
 def _custom_online_base_defaults_allowed(args: argparse.Namespace) -> bool:
-    if not hasattr(args, "insights_mode"):
+    if not hasattr(args, "rules_mode"):
         return False
     if getattr(args, "experiment_profile", "") or "":
         return False
-    if bool(getattr(args, "adversarial_insight_bank", "") or ""):
+    if bool(getattr(args, "adversarial_rule_bank", "") or ""):
         return False
-    return getattr(args, "insights_mode", "default") != "off"
+    return getattr(args, "rules_mode", "default") != "off"
 
 
 def _shared_prompt_bank_online_enabled(args: argparse.Namespace) -> bool:
     return (
         _effective_jobs(args) > 1
         and (
-            bool(getattr(args, "online_adversarial_insights", False))
+            bool(getattr(args, "online_adversarial_rules", False))
             or _profile_online_defaults_allowed(args)
             or _custom_parallel_shared_prompt_bank_online_defaults_allowed(args)
         )
-        and bool(getattr(args, "insights_json_bank", "") or "")
-        and not bool(getattr(args, "adversarial_insight_bank", "") or "")
+        and bool(getattr(args, "rules_json_bank", "") or "")
+        and not bool(getattr(args, "adversarial_rule_bank", "") or "")
     )
 
 
 def _pre_translation_refinement_writeback_defaults_allowed(args: argparse.Namespace) -> bool:
-    if getattr(args, "insights_mode", "default") == "off":
+    if getattr(args, "rules_mode", "default") == "off":
         return False
-    return online_adversarial_insights_enabled(args)
+    return online_adversarial_rules_enabled(args)
 
 
 def _explicit_parallel_adversarial_bank_online_enabled(args: argparse.Namespace) -> bool:
     return (
         _effective_jobs(args) > 1
         and (
-            bool(getattr(args, "online_adversarial_insights", False))
+            bool(getattr(args, "online_adversarial_rules", False))
             or _explicit_adversarial_bank_primary_store_enabled(args)
         )
-        and bool(getattr(args, "adversarial_insight_bank", "") or "")
+        and bool(getattr(args, "adversarial_rule_bank", "") or "")
     )
 
 
 def _explicit_adversarial_bank_primary_store_enabled(args: argparse.Namespace) -> bool:
-    if not bool(getattr(args, "adversarial_insight_bank", "") or ""):
+    if not bool(getattr(args, "adversarial_rule_bank", "") or ""):
         return False
-    if not hasattr(args, "insights_mode"):
+    if not hasattr(args, "rules_mode"):
         return False
-    if getattr(args, "insights_mode", "default") == "off":
+    if getattr(args, "rules_mode", "default") == "off":
         return False
     raw_profile = getattr(args, "experiment_profile", "") or ""
     if not raw_profile:
@@ -1067,9 +1067,9 @@ def _explicit_adversarial_bank_primary_store_enabled(args: argparse.Namespace) -
 
     profile = resolve_experiment_profile(raw_profile)
     return (
-        profile.insights_enabled
-        and profile.insight_mining
-        and profile.single_insight_adversarial_learning
+        profile.rules_enabled
+        and profile.rule_mining
+        and profile.single_rule_adversarial_learning
     )
 
 
@@ -1080,9 +1080,9 @@ def _profile_online_defaults_allowed(args: argparse.Namespace) -> bool:
 
     profile = resolve_experiment_profile(raw_profile)
     return (
-        profile.insights_enabled
-        and profile.insight_mining
-        and profile.single_insight_adversarial_learning
+        profile.rules_enabled
+        and profile.rule_mining
+        and profile.single_rule_adversarial_learning
     )
 
 
@@ -1100,17 +1100,17 @@ def apply_profile_adversarial_gates(args: argparse.Namespace, flags: dict[str, b
         return gated
 
     profile = resolve_experiment_profile(raw_profile)
-    if not profile.insights_enabled or not profile.insight_mining:
+    if not profile.rules_enabled or not profile.rule_mining:
         for key in gated:
             gated[key] = False
         return gated
 
-    if not profile.single_insight_adversarial_learning:
-        for key in SINGLE_INSIGHT_ADVERSARIAL_OPTION_KEYS | COMPOSITIONAL_ADVERSARIAL_OPTION_KEYS:
+    if not profile.single_rule_adversarial_learning:
+        for key in SINGLE_RULE_ADVERSARIAL_OPTION_KEYS | COMPOSITIONAL_ADVERSARIAL_OPTION_KEYS:
             gated[key] = False
         return gated
 
-    if not profile.compositional_insight_adversarial_learning:
+    if not profile.compositional_rule_adversarial_learning:
         for key in COMPOSITIONAL_ADVERSARIAL_OPTION_KEYS:
             gated[key] = False
 
@@ -1120,22 +1120,22 @@ def apply_profile_adversarial_gates(args: argparse.Namespace, flags: dict[str, b
 def project_config(root_dir: Path, run_root: Path, project_name: str, args: argparse.Namespace) -> dict:
     raw_profile = getattr(args, "experiment_profile", "") or ""
     profile = resolve_experiment_profile(raw_profile) if raw_profile else None
-    raw_insights_path = getattr(args, "insights_path", "")
-    profile_insights_path = profile.default_insights_path if profile else ""
-    effective_insights_path = raw_insights_path or profile_insights_path
+    raw_rules_path = getattr(args, "rules_path", "")
+    profile_rules_path = profile.default_rules_path if profile else ""
+    effective_rules_path = raw_rules_path or profile_rules_path
 
-    insights_enabled = getattr(args, "insights_mode", "default") != "off"
+    rules_enabled = getattr(args, "rules_mode", "default") != "off"
     if profile is not None:
-        insights_enabled = insights_enabled and profile.insights_enabled
-    insight_interaction_scorer = getattr(args, "insight_interaction_scorer", "heuristic") or "heuristic"
+        rules_enabled = rules_enabled and profile.rules_enabled
+    rule_interaction_scorer = getattr(args, "rule_interaction_scorer", "heuristic") or "heuristic"
     if (
-        insight_interaction_scorer == "heuristic"
+        rule_interaction_scorer == "heuristic"
         and profile is not None
-        and insights_enabled
-        and profile.insight_mining
-        and profile.compositional_insight_adversarial_learning
+        and rules_enabled
+        and profile.rule_mining
+        and profile.compositional_rule_adversarial_learning
     ):
-        insight_interaction_scorer = "live"
+        rule_interaction_scorer = "live"
 
     raw_rounds = getattr(args, "adversarial_rounds", None)
     if raw_rounds is None:
@@ -1143,41 +1143,41 @@ def project_config(root_dir: Path, run_root: Path, project_name: str, args: argp
     else:
         adversarial_rounds = max(raw_rounds, 0)
 
-    insights_json_bank_path = active_json_insight_bank_path(
+    rules_json_bank_path = active_json_rule_bank_path(
         root_dir,
         run_root,
         args,
         project_name=project_name,
     )
-    project_local_online_bank = bool(project_local_online_bank_enabled(args) and insights_json_bank_path)
+    project_local_online_bank = bool(project_local_online_bank_enabled(args) and rules_json_bank_path)
     shared_prompt_online_bank = bool(
-        _shared_prompt_bank_online_enabled(args) and insights_json_bank_path
+        _shared_prompt_bank_online_enabled(args) and rules_json_bank_path
     )
     explicit_parallel_adversarial_bank = _explicit_parallel_adversarial_bank_online_enabled(args)
     adversarial_update_run_root = (
-        Path(insights_json_bank_path).parent
+        Path(rules_json_bank_path).parent
         if project_local_online_bank
         else project_root(run_root, project_name)
         if shared_prompt_online_bank or explicit_parallel_adversarial_bank
         else run_root
     )
-    adversarial_bank, adversarial_output_bank, adversarial_report = adversarial_insight_update_paths(
+    adversarial_bank, adversarial_output_bank, adversarial_report = adversarial_rule_update_paths(
         root_dir,
         adversarial_update_run_root,
         args,
-        insights_json_bank_path=insights_json_bank_path,
+        rules_json_bank_path=rules_json_bank_path,
     )
-    retrieval_backend = getattr(args, "insight_retrieval_backend", "auto") or "auto"
+    retrieval_backend = getattr(args, "rule_retrieval_backend", "auto") or "auto"
     retrieval_cache_root = (
-        Path(insights_json_bank_path).parent
+        Path(rules_json_bank_path).parent
         if project_local_online_bank
         else run_root
     )
-    retrieval_index_cache_path = insight_retrieval_index_cache_path(
+    retrieval_index_cache_path = rule_retrieval_index_cache_path(
         root_dir,
         retrieval_cache_root,
-        raw_cache_path=getattr(args, "insight_retrieval_index_cache", "") or "",
-        insights_json_bank_path=insights_json_bank_path,
+        raw_cache_path=getattr(args, "rule_retrieval_index_cache", "") or "",
+        rules_json_bank_path=rules_json_bank_path,
         backend_preference=retrieval_backend,
     )
 
@@ -1191,50 +1191,50 @@ def project_config(root_dir: Path, run_root: Path, project_name: str, args: argp
         "stop_on_first_failure": not args.continue_on_failure,
         "alignment_mode": getattr(args, "alignment_mode", "llm"),
         "alignment_confidence_threshold": getattr(args, "alignment_confidence_threshold", 0.65),
-        "insights_enabled": insights_enabled,
-        "insight_limit": max(getattr(args, "insight_limit", 5), 0),
-        "insights_path": _resolve_insights_path(root_dir, effective_insights_path),
-        "insights_json_bank_path": insights_json_bank_path,
-        "insight_interaction_scorer": insight_interaction_scorer,
-        "insight_retrieval_backend_preference": retrieval_backend,
-        "insight_retrieval_index_cache_path": str(retrieval_index_cache_path),
+        "rules_enabled": rules_enabled,
+        "rule_limit": max(getattr(args, "rule_limit", 5), 0),
+        "rules_path": _resolve_rules_path(root_dir, effective_rules_path),
+        "rules_json_bank_path": rules_json_bank_path,
+        "rule_interaction_scorer": rule_interaction_scorer,
+        "rule_retrieval_backend_preference": retrieval_backend,
+        "rule_retrieval_index_cache_path": str(retrieval_index_cache_path),
         "experiment_profile": profile.name if profile else "custom",
         "experiment_ablation_label": profile.display_label if profile else "custom",
-        "insight_stage": profile.insight_stage if profile else ("off" if not insights_enabled else "custom"),
-        "insight_mining": profile.insight_mining if profile else insights_enabled,
-        "single_insight_adversarial_learning": (
-            profile.single_insight_adversarial_learning if profile else False
+        "rule_stage": profile.rule_stage if profile else ("off" if not rules_enabled else "custom"),
+        "rule_mining": profile.rule_mining if profile else rules_enabled,
+        "single_rule_adversarial_learning": (
+            profile.single_rule_adversarial_learning if profile else False
         ),
-        "compositional_insight_adversarial_learning": (
-            profile.compositional_insight_adversarial_learning if profile else False
+        "compositional_rule_adversarial_learning": (
+            profile.compositional_rule_adversarial_learning if profile else False
         ),
         "adversarial_rounds": adversarial_rounds,
-        "online_adversarial_insights": online_adversarial_insights_enabled(args),
-        "adversarial_insight_bank_path": str(adversarial_bank) if adversarial_bank else "",
-        "adversarial_insight_output_bank_path": (
+        "online_adversarial_rules": online_adversarial_rules_enabled(args),
+        "adversarial_rule_bank_path": str(adversarial_bank) if adversarial_bank else "",
+        "adversarial_rule_output_bank_path": (
             str(adversarial_output_bank) if adversarial_output_bank else ""
         ),
-        "adversarial_insight_report_path": str(adversarial_report) if adversarial_report else "",
+        "adversarial_rule_report_path": str(adversarial_report) if adversarial_report else "",
         "adversarial_learning_options": adversarial_learning_option_metadata(args),
         "model_display_name": model_display_name(getattr(args, "model", "")),
     }
 
 
-def insight_retrieval_index_cache_path(
+def rule_retrieval_index_cache_path(
     root_dir: Path,
     run_root: Path,
     *,
     raw_cache_path: str,
-    insights_json_bank_path: str,
+    rules_json_bank_path: str,
     backend_preference: str,
 ) -> Path | str:
-    if not insights_json_bank_path:
+    if not rules_json_bank_path:
         return ""
     if raw_cache_path:
-        return _resolve_insights_path(root_dir, raw_cache_path)
+        return _resolve_rules_path(root_dir, raw_cache_path)
     if backend_preference == "keyword":
         return ""
-    return run_root / "insight_retrieval.faiss"
+    return run_root / "rule_retrieval.faiss"
 
 
 def adversarial_learning_options(args: argparse.Namespace) -> dict:
@@ -1286,7 +1286,7 @@ def adversarial_learning_options(args: argparse.Namespace) -> dict:
             else None
         ),
         "trace_synthesizer": (
-            LLMTraceInsightSynthesizer(agent())
+            LLMTraceRuleSynthesizer(agent())
             if flags["live_trace_synthesis"]
             else None
         ),
@@ -1304,26 +1304,26 @@ def adversarial_learning_options(args: argparse.Namespace) -> dict:
     }
 
 
-def run_adversarial_insight_update(
+def run_adversarial_rule_update(
     root_dir: Path,
     run_root: Path,
     args: argparse.Namespace,
 ) -> dict | None:
-    insights_json_bank_path = (
-        active_json_insight_bank_path(root_dir, run_root, args)
-        if online_adversarial_insights_enabled(args)
+    rules_json_bank_path = (
+        active_json_rule_bank_path(root_dir, run_root, args)
+        if online_adversarial_rules_enabled(args)
         else ""
     )
-    bank_path, output_bank_path, report_path = adversarial_insight_update_paths(
+    bank_path, output_bank_path, report_path = adversarial_rule_update_paths(
         root_dir,
         run_root,
         args,
-        insights_json_bank_path=insights_json_bank_path,
+        rules_json_bank_path=rules_json_bank_path,
     )
     if bank_path is None or output_bank_path is None or report_path is None:
         return None
 
-    print("Running post-run adversarial insight learning...")
+    print("Running post-run adversarial rule learning...")
     print(f"Input bank: {bank_path}")
     print(f"Output bank: {output_bank_path}")
     print(f"Report: {report_path}")
@@ -1335,7 +1335,7 @@ def run_adversarial_insight_update(
         **adversarial_learning_options(args),
     )
     print(
-        "Adversarial insight learning done: "
+        "Adversarial rule learning done: "
         f"challenges={result.get('challenges', 0)} "
         f"accepted_updates={result.get('accepted_updates', 0)}"
     )
@@ -1384,14 +1384,14 @@ def run_project_batch(
                 args=args,
                 translator_cls=translator_cls,
             )
-            if online_adversarial_insights_enabled(args):
-                run_adversarial_insight_update(root_dir, run_root, args)
+            if online_adversarial_rules_enabled(args):
+                run_adversarial_rule_update(root_dir, run_root, args)
         return
 
-    if online_adversarial_insights_enabled(args) and not parallel_online_adversarial_updates_supported(args):
+    if online_adversarial_rules_enabled(args) and not parallel_online_adversarial_updates_supported(args):
         raise ValueError(
-            "--online-adversarial-insights with --jobs > 1 requires a project-local "
-            "active bank, --insights-json-bank, or --adversarial-insight-bank"
+            "--online-adversarial-rules with --jobs > 1 requires a project-local "
+            "active bank, --rules-json-bank, or --adversarial-rule-bank"
         )
 
     errors: list[str] = []
@@ -1472,8 +1472,8 @@ def main(translator_cls: Optional[Type] = None) -> None:
         args=args,
         translator_cls=translator_cls,
     )
-    if not online_adversarial_insights_enabled(args):
-        run_adversarial_insight_update(root_dir, run_root, args)
+    if not online_adversarial_rules_enabled(args):
+        run_adversarial_rule_update(root_dir, run_root, args)
 
 
 if __name__ == "__main__":

@@ -8,13 +8,13 @@ import sys
 from pathlib import Path
 from typing import Callable, Sequence
 
-from c2rust_translator.adversarial_insights import (
-    InsightBank,
+from c2rust_translator.adversarial_rules import (
+    RuleBank,
     RetrievalEngine,
     _bank_fingerprint,
     _embedding_index_metadata_path,
 )
-from c2rust_translator.insights import DEFAULT_INSIGHTS, load_insight_library
+from c2rust_translator.rules import DEFAULT_RULES, load_rule_library
 
 EMBEDDING_DEPENDENCY_MODULES = ("faiss", "sentence_transformers")
 
@@ -44,7 +44,7 @@ def embedding_dependency_status(
 
 
 def build_index_manifest(
-    bank: InsightBank,
+    bank: RuleBank,
     index_cache_path: str | Path,
     *,
     manifest_path: str | Path | None = None,
@@ -85,37 +85,37 @@ def build_index_manifest(
 def load_bank(
     path: str | Path | None,
     *,
-    insights_path: str | Path | None = None,
-) -> InsightBank:
+    rules_path: str | Path | None = None,
+) -> RuleBank:
     if path:
-        return InsightBank.load(path)
-    if insights_path:
-        library = load_insight_library(insights_path)
-        return InsightBank.from_legacy(library.insights)
-    return InsightBank.from_legacy(DEFAULT_INSIGHTS)
+        return RuleBank.load(path)
+    if rules_path:
+        library = load_rule_library(rules_path)
+        return RuleBank.from_legacy(library.rules)
+    return RuleBank.from_legacy(DEFAULT_RULES)
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Build a FAISS/BGE retrieval index cache for a JSON bank or local Python insight snapshot.",
+        description="Build a FAISS/BGE retrieval index cache for a JSON bank or local Python rule snapshot.",
     )
     parser.add_argument(
         "--bank",
         default="",
-        help="JSON insight bank to index. Defaults to the built-in insight records.",
+        help="JSON rule bank to index. Defaults to the built-in rule records.",
     )
     parser.add_argument(
-        "--insights-path",
+        "--rules-path",
         default="",
         help=(
-            "Local Python insight snapshot exporting DEFAULT_INSIGHTS to index. "
+            "Local Python rule snapshot exporting DEFAULT_RULES to index. "
             "Use this for local snapshot-based indexes; mutually exclusive with --bank."
         ),
     )
     parser.add_argument(
         "--output-index",
         required=True,
-        help="Path to write the FAISS index cache, for example snapshots/insights/retrieval.faiss.",
+        help="Path to write the FAISS index cache, for example snapshots/rules/retrieval.faiss.",
     )
     parser.add_argument(
         "--manifest",
@@ -133,9 +133,9 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    if args.bank and args.insights_path:
-        parser.error("--bank and --insights-path are mutually exclusive")
-    bank = load_bank(args.bank or None, insights_path=args.insights_path or None)
+    if args.bank and args.rules_path:
+        parser.error("--bank and --rules-path are mutually exclusive")
+    bank = load_bank(args.bank or None, rules_path=args.rules_path or None)
     index_path = Path(args.output_index)
     manifest_path = Path(args.manifest) if args.manifest else Path(str(index_path) + ".manifest.json")
     manifest = build_index_manifest(bank, index_path, manifest_path=manifest_path)

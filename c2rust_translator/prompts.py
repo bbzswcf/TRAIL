@@ -1,9 +1,9 @@
 import json
 
 try:
-    from .insights import format_insight_context
+    from .rules import format_rule_context
 except ImportError:
-    from insights import format_insight_context
+    from rules import format_rule_context
 
 
 SYSTEM_PROMPT = """You are an expert in translating C code to idiomatic Rust code.
@@ -18,7 +18,7 @@ Repository constraints:
 - Use only the C code, Rust contract, shared items, translated dependencies, imports, fixtures, and project context provided in the prompt.
 - Do not invent Rust helpers, traits, modules, fixtures, files, feature flags, or public APIs that are not present in the provided context or requested by the prompt.
 - Do not add new extern declarations, FFI bindings, unsafe shims, path aliases, or placeholder stubs for missing C helpers unless the prompt explicitly declares that interface.
-- Treat provided translation insights as constraints. Apply them when they match the current callable, and do not ignore them in favor of a superficially simpler rewrite.
+- Treat provided translation rules as constraints. Apply them when they match the current callable, and do not ignore them in favor of a superficially simpler rewrite.
 - Prefer existing translated dependency paths and signatures exactly as provided; pass owned values, shared references, and mutable references according to those signatures.
 - Do not assume Clone, Copy, Default, From, Into, serde, iterator traits, or other helper impls exist unless the provided Rust context shows them.
 """
@@ -166,7 +166,7 @@ def build_translate_prompt(
     file_context: list[dict] | None = None,
     shared_item_context: list[dict] | None = None,
     allow_shared_item_fixes: bool = False,
-    insight_context: list[dict] | None = None,
+    rule_context: list[dict] | None = None,
 ) -> str:
     shared_rules = ""
     return_shape = "Return only the Rust callable code."
@@ -228,8 +228,8 @@ Other callables in the same call cycle:
 Relevant C file context:
 {format_file_context(file_context or [])}
 
-Translation insights:
-{format_insight_context(insight_context or [])}
+Translation rules:
+{format_rule_context(rule_context or [])}
 
 Candidate Rust shared items:
 ```json
@@ -252,7 +252,7 @@ def build_fix_prompt(
     callable_category: str = "direct_function",
     file_context: list[dict] | None = None,
     shared_item_context: list[dict] | None = None,
-    insight_context: list[dict] | None = None,
+    rule_context: list[dict] | None = None,
 ) -> str:
     alignment_text = format_alignment_block(alignment) if alignment is not None else "No C alignment context."
     return f"""Fix this Rust callable so it compiles.
@@ -292,8 +292,8 @@ Other callables in the same call cycle:
 Relevant C file context:
 {format_file_context(file_context or [])}
 
-Translation insights:
-{format_insight_context(insight_context or [])}
+Translation rules:
+{format_rule_context(rule_context or [])}
 
 Candidate Rust shared items:
 ```json
@@ -327,7 +327,7 @@ def build_shared_compile_fix_prompt(
     callable_category: str = "direct_function",
     file_context: list[dict] | None = None,
     shared_item_context: list[dict] | None = None,
-    insight_context: list[dict] | None = None,
+    rule_context: list[dict] | None = None,
 ) -> str:
     return f"""Fix this Rust callable and, only if required, related shared Rust items so the project compiles.
 
@@ -368,8 +368,8 @@ Other callables in the same call cycle:
 Relevant C file context:
 {format_file_context(file_context or [])}
 
-Translation insights:
-{format_insight_context(insight_context or [])}
+Translation rules:
+{format_rule_context(rule_context or [])}
 
 Candidate Rust shared items:
 ```json
@@ -411,7 +411,7 @@ def build_test_fix_prompt(
     test_context: list[dict],
     callable_context: list[dict],
     shared_item_context: list[dict] | None = None,
-    insight_context: list[dict] | None = None,
+    rule_context: list[dict] | None = None,
 ) -> str:
     return f"""Fix this translated Rust project so its tests pass.
 
@@ -442,8 +442,8 @@ Candidate Rust shared items:
 {json.dumps(shared_item_context or [], indent=2, ensure_ascii=False)}
 ```
 
-Translation insights:
-{format_insight_context(insight_context or [])}
+Translation rules:
+{format_rule_context(rule_context or [])}
 
 Return strict JSON only with this shape:
 ```json

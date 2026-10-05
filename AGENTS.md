@@ -25,7 +25,7 @@
   - `scripts/`: runnable preprocessing, experiment, metrics, and repair scripts.
   - `tests/`: unit tests for package modules and scripts.
   - `data/`: benchmark inputs and derived metadata.
-  - `snapshots/`: versioned insight/config snapshots.
+  - `snapshots/`: versioned rule/config snapshots.
   - `output/`: generated translation artifacts; keep ignored and do not commit run outputs.
   - `logs/`: local run logs and audits; keep ignored and do not commit generated logs.
   - `docs/`: design notes and execution plans.

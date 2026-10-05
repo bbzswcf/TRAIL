@@ -16,17 +16,17 @@ from c2rust_translator.artifacts import default_run_root, resolve_full_dataset_l
 from c2rust_translator.experiment_profiles import profile_choices, resolve_experiment_profile
 from c2rust_translator.translation_runner import (
     DEFAULT_CHAT_BASE_URL,
-    DEFAULT_ADVERSARIAL_INSIGHT_OUTPUT_BANK,
-    DEFAULT_ADVERSARIAL_INSIGHT_REPORT,
+    DEFAULT_ADVERSARIAL_RULE_OUTPUT_BANK,
+    DEFAULT_ADVERSARIAL_RULE_REPORT,
     _env_float,
     _env_int,
     _optional_env_int,
     discover_available_projects,
     load_env_file,
-    online_adversarial_insights_enabled,
+    online_adversarial_rules_enabled,
     parallel_online_adversarial_updates_supported,
     project_config,
-    run_adversarial_insight_update,
+    run_adversarial_rule_update,
     resolve_run_id,
 )
 from c2rust_translator.translator import Translator
@@ -200,58 +200,58 @@ def build_parser() -> argparse.ArgumentParser:
         help="Minimum LLM alignment confidence accepted as a safe binding.",
     )
     parser.add_argument(
-        "--insights-mode",
+        "--rules-mode",
         choices=["default", "off"],
-        default=os.getenv("INSIGHTS_MODE", "default"),
-        help="Use structured translation insights in LLM prompts, or disable them for ablation (env: INSIGHTS_MODE).",
+        default=os.getenv("RULES_MODE", "default"),
+        help="Use structured translation rules in LLM prompts, or disable them for ablation (env: RULES_MODE).",
     )
     parser.add_argument(
-        "--insight-limit",
+        "--rule-limit",
         type=int,
-        default=_env_int("INSIGHT_LIMIT", 5),
-        help="Maximum selected translation insights to include per prompt (env: INSIGHT_LIMIT).",
+        default=_env_int("RULE_LIMIT", 5),
+        help="Maximum selected translation rules to include per prompt (env: RULE_LIMIT).",
     )
     parser.add_argument(
-        "--insights-path",
-        default=os.getenv("INSIGHTS_PATH", ""),
-        help="Optional Python file exporting DEFAULT_INSIGHTS and select_insights for this run (env: INSIGHTS_PATH).",
+        "--rules-path",
+        default=os.getenv("RULES_PATH", ""),
+        help="Optional Python file exporting DEFAULT_RULES and select_rules for this run (env: RULES_PATH).",
     )
     parser.add_argument(
-        "--insights-json-bank",
-        default=os.getenv("INSIGHTS_JSON_BANK", ""),
+        "--rules-json-bank",
+        default=os.getenv("RULES_JSON_BANK", ""),
         help=(
-            "Optional JSON insight bank for prompt-time insight retrieval "
-            "(env: INSIGHTS_JSON_BANK). When set, it overrides profile-selected final banks "
-            "and Python insight snapshots for prompt injection."
+            "Optional JSON rule bank for prompt-time rule retrieval "
+            "(env: RULES_JSON_BANK). When set, it overrides profile-selected final banks "
+            "and Python rule snapshots for prompt injection."
         ),
     )
     parser.add_argument(
-        "--insight-retrieval-backend",
+        "--rule-retrieval-backend",
         choices=["auto", "keyword", "embedding"],
-        default=os.getenv("INSIGHT_RETRIEVAL_BACKEND", "auto"),
+        default=os.getenv("RULE_RETRIEVAL_BACKEND", "auto"),
         help=(
-            "Retrieval backend preference for --insights-json-bank. "
+            "Retrieval backend preference for --rules-json-bank. "
             "'auto' and 'embedding' try FAISS/BGE with keyword fallback; 'keyword' disables embeddings "
-            "(env: INSIGHT_RETRIEVAL_BACKEND)."
+            "(env: RULE_RETRIEVAL_BACKEND)."
         ),
     )
     parser.add_argument(
-        "--insight-retrieval-index-cache",
-        default=os.getenv("INSIGHT_RETRIEVAL_INDEX_CACHE", ""),
+        "--rule-retrieval-index-cache",
+        default=os.getenv("RULE_RETRIEVAL_INDEX_CACHE", ""),
         help=(
             "Optional FAISS index cache path for JSON bank retrieval. "
-            "Defaults to <run_root>/insight_retrieval.faiss when JSON bank retrieval uses auto/embedding "
-            "(env: INSIGHT_RETRIEVAL_INDEX_CACHE)."
+            "Defaults to <run_root>/rule_retrieval.faiss when JSON bank retrieval uses auto/embedding "
+            "(env: RULE_RETRIEVAL_INDEX_CACHE)."
         ),
     )
     parser.add_argument(
-        "--insight-interaction-scorer",
+        "--rule-interaction-scorer",
         choices=["heuristic", "live"],
-        default=os.getenv("INSIGHT_INTERACTION_SCORER", "heuristic"),
+        default=os.getenv("RULE_INTERACTION_SCORER", "heuristic"),
         help=(
-            "Support/conflict scorer for multi-insight selection. "
+            "Support/conflict scorer for multi-rule selection. "
             "'heuristic' uses local scores; 'live' asks the configured LLM for structured JSON scores "
-            "(env: INSIGHT_INTERACTION_SCORER)."
+            "(env: RULE_INTERACTION_SCORER)."
         ),
     )
     parser.add_argument(
@@ -259,7 +259,7 @@ def build_parser() -> argparse.ArgumentParser:
         choices=profile_choices(),
         default=os.getenv("EXPERIMENT_PROFILE", ""),
         help=(
-            "Named experiment profile. When set, applies the model-matched final JSON insight bank and "
+            "Named experiment profile. When set, applies the model-matched final JSON rule bank and "
             "structured ablation metadata (env: EXPERIMENT_PROFILE)."
         ),
     )
@@ -273,52 +273,52 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
-        "--adversarial-insight-bank",
-        default=os.getenv("ADVERSARIAL_INSIGHT_BANK", ""),
+        "--adversarial-rule-bank",
+        default=os.getenv("ADVERSARIAL_RULE_BANK", ""),
         help=(
-            "Optional JSON insight bank for adversarial insight learning. When insights/profile "
+            "Optional JSON rule bank for adversarial rule learning. When rules/profile "
             "mining are enabled, this bank is also the prompt retrieval bank and default mutable "
-            "online update bank (env: ADVERSARIAL_INSIGHT_BANK)."
+            "online update bank (env: ADVERSARIAL_RULE_BANK)."
         ),
     )
     parser.add_argument(
-        "--adversarial-insight-output-bank",
-        default=os.getenv("ADVERSARIAL_INSIGHT_OUTPUT_BANK", ""),
+        "--adversarial-rule-output-bank",
+        default=os.getenv("ADVERSARIAL_RULE_OUTPUT_BANK", ""),
         help=(
-            "Output JSON insight bank for post-run adversarial insight learning. "
+            "Output JSON rule bank for post-run adversarial rule learning. "
             "Defaults to the active prompt bank for online same-bank updates, otherwise "
-            f"<run_root>/{DEFAULT_ADVERSARIAL_INSIGHT_OUTPUT_BANK}."
+            f"<run_root>/{DEFAULT_ADVERSARIAL_RULE_OUTPUT_BANK}."
         ),
     )
     parser.add_argument(
-        "--adversarial-insight-report",
-        default=os.getenv("ADVERSARIAL_INSIGHT_REPORT", ""),
+        "--adversarial-rule-report",
+        default=os.getenv("ADVERSARIAL_RULE_REPORT", ""),
         help=(
-            "Output JSON report for post-run adversarial insight learning. "
-            f"Defaults to <run_root>/{DEFAULT_ADVERSARIAL_INSIGHT_REPORT}."
+            "Output JSON report for post-run adversarial rule learning. "
+            f"Defaults to <run_root>/{DEFAULT_ADVERSARIAL_RULE_REPORT}."
         ),
     )
     parser.add_argument(
-        "--online-adversarial-insights",
+        "--online-adversarial-rules",
         action="store_true",
-        default=os.getenv("ONLINE_ADVERSARIAL_INSIGHTS", "").lower() in {"1", "true", "yes"},
+        default=os.getenv("ONLINE_ADVERSARIAL_RULES", "").lower() in {"1", "true", "yes"},
         help=(
-            "Run adversarial insight learning after each sequential project. "
-            "When --adversarial-insight-bank is omitted, this uses --insights-json-bank as the mutable bank "
-            "(env: ONLINE_ADVERSARIAL_INSIGHTS)."
+            "Run adversarial rule learning after each sequential project. "
+            "When --adversarial-rule-bank is omitted, this uses --rules-json-bank as the mutable bank "
+            "(env: ONLINE_ADVERSARIAL_RULES)."
         ),
     )
     parser.add_argument(
         "--adversarial-admit-trace-candidates",
         action="store_true",
         default=os.getenv("ADVERSARIAL_ADMIT_TRACE_CANDIDATES", "").lower() in {"1", "true", "yes"},
-        help="Validate trace-mined candidate insights during adversarial bank updates.",
+        help="Validate trace-mined candidate rules during adversarial bank updates.",
     )
     parser.add_argument(
         "--adversarial-run-synthetic-challenges",
         action="store_true",
         default=os.getenv("ADVERSARIAL_RUN_SYNTHETIC_CHALLENGES", "").lower() in {"1", "true", "yes"},
-        help="Execute deterministic single-insight synthetic challenges during adversarial bank updates.",
+        help="Execute deterministic single-rule synthetic challenges during adversarial bank updates.",
     )
     parser.add_argument(
         "--adversarial-run-compositional-challenges",
@@ -331,7 +331,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         default=os.getenv("ADVERSARIAL_ADMIT_COMPOSITION_FAILURE_CANDIDATES", "").lower()
         in {"1", "true", "yes"},
-        help="Turn compiling but test-failing compositional challenge evidence into validated candidate insights.",
+        help="Turn compiling but test-failing compositional challenge evidence into validated candidate rules.",
     )
     parser.add_argument(
         "--adversarial-live-structured-agents",
@@ -343,7 +343,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--adversarial-live-trace-synthesis",
         action="store_true",
         default=os.getenv("ADVERSARIAL_LIVE_TRACE_SYNTHESIS", "").lower() in {"1", "true", "yes"},
-        help="Use the configured LLM provider to synthesize trace-mined candidate insights.",
+        help="Use the configured LLM provider to synthesize trace-mined candidate rules.",
     )
     parser.add_argument(
         "--adversarial-live-trace-contradiction-review",
@@ -370,7 +370,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--adversarial-live-activation-validation",
         action="store_true",
         default=os.getenv("ADVERSARIAL_LIVE_ACTIVATION_VALIDATION", "").lower() in {"1", "true", "yes"},
-        help="Use the configured LLM provider to validate whether challenges activate their target insights.",
+        help="Use the configured LLM provider to validate whether challenges activate their target rules.",
     )
     parser.add_argument(
         "--adversarial-live-translator-replay",
@@ -384,7 +384,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=os.getenv("ADVERSARIAL_PRE_TRANSLATION_CHALLENGES", "").lower()
         in {"1", "true", "yes"},
         help=(
-            "Attach pre-translation adversarial challenge metadata to selected prompt insights without "
+            "Attach pre-translation adversarial challenge metadata to selected prompt rules without "
             "requiring callable-level online adversarial updates."
         ),
     )
@@ -393,8 +393,8 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         default=os.getenv("ADVERSARIAL_PRE_TRANSLATION_REFINEMENT", "").lower() in {"1", "true", "yes"},
         help=(
-            "Use evidence-gated challenge replay to refine selected insights locally before building "
-            "translation/fix prompts. By default this only updates the prompt-local insight; combine with "
+            "Use evidence-gated challenge replay to refine selected rules locally before building "
+            "translation/fix prompts. By default this only updates the prompt-local rule; combine with "
             "--adversarial-pre-translation-refinement-writeback to persist accepted updates."
         ),
     )
@@ -413,7 +413,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=_optional_env_int("ADVERSARIAL_PRE_TRANSLATION_REFINEMENT_ROUNDS"),
         help=(
-            "Maximum accepted prompt-local pre-translation refinement rounds per selected insight. "
+            "Maximum accepted prompt-local pre-translation refinement rounds per selected rule. "
             "Defaults to 1 for custom runs and to the profile K for profiles that enable "
             "pre-translation refinement "
             "(env: ADVERSARIAL_PRE_TRANSLATION_REFINEMENT_ROUNDS)."
@@ -428,7 +428,7 @@ def experiment_log_metadata(args: argparse.Namespace) -> dict[str, object]:
         return {
             "experiment_profile": "custom",
             "experiment_ablation_label": "custom",
-            "insight_stage": "custom" if getattr(args, "insights_mode", "default") != "off" else "off",
+            "rule_stage": "custom" if getattr(args, "rules_mode", "default") != "off" else "off",
             "adversarial_rounds": max(getattr(args, "adversarial_rounds", 0) or 0, 0),
         }
 
@@ -437,7 +437,7 @@ def experiment_log_metadata(args: argparse.Namespace) -> dict[str, object]:
     return {
         "experiment_profile": profile.name,
         "experiment_ablation_label": profile.display_label,
-        "insight_stage": profile.insight_stage,
+        "rule_stage": profile.rule_stage,
         "adversarial_rounds": (
             profile.default_adversarial_rounds if raw_rounds is None else max(raw_rounds, 0)
         ),
@@ -573,7 +573,7 @@ def main() -> None:
             print(f"EXPERIMENT_PROFILE {profile_metadata['experiment_profile']}", flush=True)
             print(f"EXPERIMENT_ABLATION_LABEL {profile_metadata['experiment_ablation_label']}", flush=True)
             print(f"ADVERSARIAL_ROUNDS {profile_metadata['adversarial_rounds']}", flush=True)
-            print(f"INSIGHT_STAGE {profile_metadata['insight_stage']}", flush=True)
+            print(f"RULE_STAGE {profile_metadata['rule_stage']}", flush=True)
             if args.resume_from_log:
                 print("RESUME_FROM_LOG True", flush=True)
             if args.rerun_project:
@@ -596,14 +596,14 @@ def main() -> None:
             if jobs == 1 or len(projects) <= 1:
                 for index, project_name in enumerate(projects, 1):
                     run_one(index, project_name)
-                    if online_adversarial_insights_enabled(args):
-                        run_adversarial_insight_update(root, run_root, args)
+                    if online_adversarial_rules_enabled(args):
+                        run_adversarial_rule_update(root, run_root, args)
             else:
-                if online_adversarial_insights_enabled(args) and not parallel_online_adversarial_updates_supported(args):
+                if online_adversarial_rules_enabled(args) and not parallel_online_adversarial_updates_supported(args):
                     raise SystemExit(
-                        "--online-adversarial-insights with --jobs > 1 requires a "
-                        "project-local active bank, --insights-json-bank, or "
-                        "--adversarial-insight-bank"
+                        "--online-adversarial-rules with --jobs > 1 requires a "
+                        "project-local active bank, --rules-json-bank, or "
+                        "--adversarial-rule-bank"
                     )
                 with ThreadPoolExecutor(max_workers=min(jobs, len(projects))) as executor:
                     futures = [
@@ -612,8 +612,8 @@ def main() -> None:
                     ]
                     for future in as_completed(futures):
                         future.result()
-            if not online_adversarial_insights_enabled(args):
-                run_adversarial_insight_update(root, run_root, args)
+            if not online_adversarial_rules_enabled(args):
+                run_adversarial_rule_update(root, run_root, args)
             print(f"ALL_DONE elapsed={time.time() - started:.2f}", flush=True)
 
 

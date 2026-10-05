@@ -15,8 +15,8 @@ translation with single-rule and compositional rule adversarial learning.
 │   ├── translator.py                   # Translation and repair orchestration
 │   ├── translation_runner.py           # Single-project and multi-project CLI
 │   ├── alignment_planner.py            # C/Rust callable binding planner
-│   ├── insights.py                     # Built-in structured translation rules
-│   ├── adversarial_insights.py         # JSON rule banks and adversarial updates
+│   ├── rules.py                     # Built-in structured translation rules
+│   ├── adversarial_rules.py         # JSON rule banks and adversarial updates
 │   ├── rbench_interface.py             # Rust interface scanning
 │   ├── rust_skeleton_generator.py      # Output crate generation
 │   ├── compilation_validator.py        # cargo check wrapper
@@ -26,7 +26,7 @@ translation with single-rule and compositional rule adversarial learning.
 ├── scripts/                            # Preprocessing, experiment, metrics, and repair tools
 ├── tests/                              # Unit and regression tests
 ├── data/                               # Benchmark inputs and extracted C metadata
-└── snapshots/insights/                 # Final JSON rule banks for GPT, DeepSeek, and Kimi
+└── snapshots/rules/                 # Final JSON rule banks for GPT, DeepSeek, and Kimi
 ```
 
 ## Introduction
@@ -121,7 +121,7 @@ Generated outputs are written under `output/runs/<run_id>/<project>/`. Pass
 Run the adversarial rule update workflow over an existing output tree:
 
 ```bash
-uv run python scripts/adversarial_insight_run.py output/runs/<run_id> \
+uv run python scripts/adversarial_rule_run.py output/runs/<run_id> \
   --bank path/to/rule_bank.json \
   --output-bank output/runs/<run_id>/adversarial_rules.updated.json \
   --report output/runs/<run_id>/adversarial_rule_report.json
@@ -134,22 +134,22 @@ the experiment workflow:
 
 | Model | Bank |
 | --- | --- |
-| GPT | `snapshots/insights/gpt_final_insight_bank.json` |
-| DeepSeek | `snapshots/insights/deepseek_final_insight_bank.json` |
-| Kimi | `snapshots/insights/kimi_final_insight_bank.json` |
+| GPT | `snapshots/rules/gpt_final_rule_bank.json` |
+| DeepSeek | `snapshots/rules/deepseek_final_rule_bank.json` |
+| Kimi | `snapshots/rules/kimi_final_rule_bank.json` |
 
 Named experiment profiles copy the matching model bank into the run directory
-as `insights.active.json` before prompt retrieval or online adversarial updates.
-Use `--insights-json-bank` to run from a specific bank:
+as `rules.active.json` before prompt retrieval or online adversarial updates.
+Use `--rules-json-bank` to run from a specific bank:
 
 ```bash
 uv run -m c2rust_translator.translation_runner leftpad \
-  --insights-json-bank snapshots/insights/gpt_final_insight_bank.json
+  --rules-json-bank snapshots/rules/gpt_final_rule_bank.json
 ```
 
 If no profile or JSON bank is selected, the runner falls back to the built-in
-structured records in `c2rust_translator/insights.py`. Local Python snapshot
-files can still be used with `--insights-path`, but they are ignored by git.
+structured records in `c2rust_translator/rules.py`. Local Python snapshot
+files can still be used with `--rules-path`, but they are ignored by git.
 
 ### 5. Full Experiments
 
@@ -162,9 +162,9 @@ uv run python scripts/full_dataset_run.py --jobs 15 --experiment-profile full
 Useful options:
 
 - `--experiment-profile full|no-compositional|no-single|no-mining`
-- `--insights-mode default|off`
-- `--insight-limit N`
-- `--insight-retrieval-backend auto|keyword|embedding`
+- `--rules-mode default|off`
+- `--rule-limit N`
+- `--rule-retrieval-backend auto|keyword|embedding`
 - `--max-fix-attempts N`
 - `--max-test-fix-attempts N`
 - `--continue-on-failure`

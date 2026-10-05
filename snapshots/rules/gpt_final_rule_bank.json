@@ -1,5 +1,5 @@
 {
-  "insights": [
+  "rules": [
     {
       "id": "parser-collection-state-composition",
       "title": "Preserve parser and collection state together",
@@ -1233,7 +1233,7 @@
       "goal": "Avoid broadening a focused repair into a different domain that already has passing behavior.",
       "constraint": "Do not apply parser/collection/state shortcuts outside the domain whose C evidence supports them.",
       "risk": "A full run can lose previous passes when a focused fix changes unrelated traversal, bit storage, byte ordering, hash bytes, tree ordering, or parser state.",
-      "guidance": "Before applying a focused insight, confirm the current C context contains the same failure pattern, not merely a similar project-level label. Preserve existing traversal order, raw bit-vector fields, cryptographic byte order, tree node ordering, and language parser cursor state unless the local evidence shows the same bug.",
+      "guidance": "Before applying a focused rule, confirm the current C context contains the same failure pattern, not merely a similar project-level label. Preserve existing traversal order, raw bit-vector fields, cryptographic byte order, tree node ordering, and language parser cursor state unless the local evidence shows the same bug.",
       "tags": [
         "regression-guard",
         "domain-boundary"

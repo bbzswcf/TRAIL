@@ -1,7 +1,7 @@
 import unittest
 
 from c2rust_translator.experiment_profiles import (
-    model_default_insight_bank_path,
+    model_default_rule_bank_path,
     model_display_name,
     profile_choices,
     resolve_experiment_profile,
@@ -14,24 +14,24 @@ class ExperimentProfilesTest(unittest.TestCase):
 
         self.assertEqual(profile.name, "full")
         self.assertEqual(profile.display_label, "TRAIL")
-        self.assertTrue(profile.insights_enabled)
-        self.assertEqual(profile.default_insights_path, "")
+        self.assertTrue(profile.rules_enabled)
+        self.assertEqual(profile.default_rules_path, "")
         self.assertEqual(
-            model_default_insight_bank_path("gpt-5.4-mini-2026-03-17"),
-            "snapshots/insights/gpt_final_insight_bank.json",
+            model_default_rule_bank_path("gpt-5.4-mini-2026-03-17"),
+            "snapshots/rules/gpt_final_rule_bank.json",
         )
         self.assertEqual(
-            model_default_insight_bank_path("ali-deepseek-v4-flash"),
-            "snapshots/insights/deepseek_final_insight_bank.json",
+            model_default_rule_bank_path("ali-deepseek-v4-flash"),
+            "snapshots/rules/deepseek_final_rule_bank.json",
         )
         self.assertEqual(
-            model_default_insight_bank_path("kimi-k2.5"),
-            "snapshots/insights/kimi_final_insight_bank.json",
+            model_default_rule_bank_path("kimi-k2.5"),
+            "snapshots/rules/kimi_final_rule_bank.json",
         )
-        self.assertEqual(profile.insight_stage, "multi")
-        self.assertTrue(profile.insight_mining)
-        self.assertTrue(profile.single_insight_adversarial_learning)
-        self.assertTrue(profile.compositional_insight_adversarial_learning)
+        self.assertEqual(profile.rule_stage, "multi")
+        self.assertTrue(profile.rule_mining)
+        self.assertTrue(profile.single_rule_adversarial_learning)
+        self.assertTrue(profile.compositional_rule_adversarial_learning)
         self.assertEqual(profile.default_adversarial_rounds, 5)
 
     def test_profile_aliases_match_profile_ablation_rows(self):
@@ -43,10 +43,10 @@ class ExperimentProfilesTest(unittest.TestCase):
             "no-single": "without_single",
             "default": "without_single",
             "without-single": "without_single",
-            "no-mining": "without_insight_mining",
-            "baseline": "without_insight_mining",
-            "off": "without_insight_mining",
-            "without-insight-mining": "without_insight_mining",
+            "no-mining": "without_rule_mining",
+            "baseline": "without_rule_mining",
+            "off": "without_rule_mining",
+            "without-rule-mining": "without_rule_mining",
         }
 
         for alias, canonical in expected.items():
@@ -56,24 +56,24 @@ class ExperimentProfilesTest(unittest.TestCase):
     def test_without_single_profile_uses_default_mined_snapshot(self):
         profile = resolve_experiment_profile("no-single")
 
-        self.assertEqual(profile.display_label, "w/o Single Insight Adversarial Learning")
-        self.assertEqual(profile.default_insights_path, "")
-        self.assertEqual(profile.insight_stage, "default")
-        self.assertTrue(profile.insight_mining)
-        self.assertFalse(profile.single_insight_adversarial_learning)
-        self.assertFalse(profile.compositional_insight_adversarial_learning)
+        self.assertEqual(profile.display_label, "w/o Single Rule Adversarial Learning")
+        self.assertEqual(profile.default_rules_path, "")
+        self.assertEqual(profile.rule_stage, "default")
+        self.assertTrue(profile.rule_mining)
+        self.assertFalse(profile.single_rule_adversarial_learning)
+        self.assertFalse(profile.compositional_rule_adversarial_learning)
         self.assertEqual(profile.default_adversarial_rounds, 0)
 
-    def test_without_mining_profile_disables_insights(self):
+    def test_without_mining_profile_disables_rules(self):
         profile = resolve_experiment_profile("baseline")
 
-        self.assertEqual(profile.display_label, "w/o Insight Mining")
-        self.assertFalse(profile.insights_enabled)
-        self.assertEqual(profile.default_insights_path, "")
-        self.assertEqual(profile.insight_stage, "off")
-        self.assertFalse(profile.insight_mining)
-        self.assertFalse(profile.single_insight_adversarial_learning)
-        self.assertFalse(profile.compositional_insight_adversarial_learning)
+        self.assertEqual(profile.display_label, "w/o Rule Mining")
+        self.assertFalse(profile.rules_enabled)
+        self.assertEqual(profile.default_rules_path, "")
+        self.assertEqual(profile.rule_stage, "off")
+        self.assertFalse(profile.rule_mining)
+        self.assertFalse(profile.single_rule_adversarial_learning)
+        self.assertFalse(profile.compositional_rule_adversarial_learning)
 
     def test_profile_choices_include_aliases_for_argparse(self):
         choices = profile_choices()

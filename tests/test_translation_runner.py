@@ -105,19 +105,19 @@ class ProjectParallelismTest(unittest.TestCase):
             jobs=2,
             alignment_mode="llm",
             alignment_confidence_threshold=0.65,
-            insights_mode="default",
-            insight_limit=5,
-            insights_path="",
-            insights_json_bank="",
-            insight_retrieval_backend="keyword",
-            insight_retrieval_index_cache="",
-            insight_interaction_scorer="heuristic",
+            rules_mode="default",
+            rule_limit=5,
+            rules_path="",
+            rules_json_bank="",
+            rule_retrieval_backend="keyword",
+            rule_retrieval_index_cache="",
+            rule_interaction_scorer="heuristic",
             experiment_profile="full",
             adversarial_rounds=None,
-            adversarial_insight_bank="",
-            adversarial_insight_output_bank="",
-            adversarial_insight_report="",
-            online_adversarial_insights=False,
+            adversarial_rule_bank="",
+            adversarial_rule_output_bank="",
+            adversarial_rule_report="",
+            online_adversarial_rules=False,
             adversarial_admit_trace_candidates=False,
             adversarial_run_synthetic_challenges=False,
             adversarial_run_compositional_challenges=False,
@@ -147,18 +147,18 @@ class ProjectParallelismTest(unittest.TestCase):
             )
 
         self.assertEqual(len(FakeTranslator.configs), 2)
-        bank_paths = {config["insights_json_bank_path"] for config in FakeTranslator.configs}
+        bank_paths = {config["rules_json_bank_path"] for config in FakeTranslator.configs}
         self.assertEqual(
             bank_paths,
             {
-                str(run_root / "leftpad" / "insights.active.json"),
-                str(run_root / "morton" / "insights.active.json"),
+                str(run_root / "leftpad" / "rules.active.json"),
+                str(run_root / "morton" / "rules.active.json"),
             },
         )
-        self.assertTrue(all(config["online_adversarial_insights"] for config in FakeTranslator.configs))
+        self.assertTrue(all(config["online_adversarial_rules"] for config in FakeTranslator.configs))
 
 
-class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
+class AdversarialRuleRunnerIntegrationTest(unittest.TestCase):
     def _all_adversarial_options_args(self, *, experiment_profile=""):
         return argparse.Namespace(
             experiment_profile=experiment_profile,
@@ -189,41 +189,41 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
             logid="log-456",
         )
 
-    def test_parser_accepts_json_insight_bank_for_prompt_retrieval(self):
+    def test_parser_accepts_json_rule_bank_for_prompt_retrieval(self):
         parser = translation_runner.build_arg_parser()
 
         args = parser.parse_args(
             [
                 "leftpad",
-                "--insights-json-bank",
+                "--rules-json-bank",
                 "banks/prompt_bank.json",
-                "--insight-retrieval-backend",
+                "--rule-retrieval-backend",
                 "embedding",
-                "--insight-retrieval-index-cache",
+                "--rule-retrieval-index-cache",
                 "cache/prompt_bank.faiss",
-                "--insight-interaction-scorer",
+                "--rule-interaction-scorer",
                 "live",
             ]
         )
 
-        self.assertEqual(args.insights_json_bank, "banks/prompt_bank.json")
-        self.assertEqual(args.insight_retrieval_backend, "embedding")
-        self.assertEqual(args.insight_retrieval_index_cache, "cache/prompt_bank.faiss")
-        self.assertEqual(args.insight_interaction_scorer, "live")
+        self.assertEqual(args.rules_json_bank, "banks/prompt_bank.json")
+        self.assertEqual(args.rule_retrieval_backend, "embedding")
+        self.assertEqual(args.rule_retrieval_index_cache, "cache/prompt_bank.faiss")
+        self.assertEqual(args.rule_interaction_scorer, "live")
 
-    def test_parser_accepts_adversarial_insight_update_options(self):
+    def test_parser_accepts_adversarial_rule_update_options(self):
         parser = translation_runner.build_arg_parser()
 
         args = parser.parse_args(
             [
                 "leftpad",
-                "--adversarial-insight-bank",
+                "--adversarial-rule-bank",
                 "banks/input.json",
-                "--adversarial-insight-output-bank",
+                "--adversarial-rule-output-bank",
                 "banks/output.json",
-                "--adversarial-insight-report",
+                "--adversarial-rule-report",
                 "reports/learning.json",
-                "--online-adversarial-insights",
+                "--online-adversarial-rules",
                 "--adversarial-admit-trace-candidates",
                 "--adversarial-run-synthetic-challenges",
                 "--adversarial-run-compositional-challenges",
@@ -241,10 +241,10 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
             ]
         )
 
-        self.assertEqual(args.adversarial_insight_bank, "banks/input.json")
-        self.assertEqual(args.adversarial_insight_output_bank, "banks/output.json")
-        self.assertEqual(args.adversarial_insight_report, "reports/learning.json")
-        self.assertTrue(args.online_adversarial_insights)
+        self.assertEqual(args.adversarial_rule_bank, "banks/input.json")
+        self.assertEqual(args.adversarial_rule_output_bank, "banks/output.json")
+        self.assertEqual(args.adversarial_rule_report, "reports/learning.json")
+        self.assertTrue(args.online_adversarial_rules)
         self.assertTrue(args.adversarial_admit_trace_candidates)
         self.assertTrue(args.adversarial_run_synthetic_challenges)
         self.assertTrue(args.adversarial_run_compositional_challenges)
@@ -262,14 +262,14 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
 
     def test_online_adversarial_update_defaults_to_active_json_bank(self):
         args = argparse.Namespace(
-            insights_json_bank="banks/prompt_bank.json",
-            adversarial_insight_bank="",
-            adversarial_insight_output_bank="",
-            adversarial_insight_report="",
-            online_adversarial_insights=True,
+            rules_json_bank="banks/prompt_bank.json",
+            adversarial_rule_bank="",
+            adversarial_rule_output_bank="",
+            adversarial_rule_report="",
+            online_adversarial_rules=True,
         )
 
-        bank_path, output_bank_path, report_path = translation_runner.adversarial_insight_update_paths(
+        bank_path, output_bank_path, report_path = translation_runner.adversarial_rule_update_paths(
             Path("/repo"),
             Path("/repo/output/runs/run1"),
             args,
@@ -277,7 +277,7 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
 
         self.assertEqual(bank_path, Path("/repo/banks/prompt_bank.json"))
         self.assertEqual(output_bank_path, Path("/repo/banks/prompt_bank.json"))
-        self.assertEqual(report_path, Path("/repo/output/runs/run1/adversarial_insight_report.json"))
+        self.assertEqual(report_path, Path("/repo/output/runs/run1/adversarial_rule_report.json"))
 
     def test_online_adversarial_project_config_bootstraps_active_json_bank(self):
         args = argparse.Namespace(
@@ -294,19 +294,19 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
             jobs=1,
             alignment_mode="llm",
             alignment_confidence_threshold=0.65,
-            insights_mode="default",
-            insight_limit=5,
-            insights_path="",
-            insights_json_bank="",
-            insight_retrieval_backend="keyword",
-            insight_retrieval_index_cache="",
-            insight_interaction_scorer="heuristic",
+            rules_mode="default",
+            rule_limit=5,
+            rules_path="",
+            rules_json_bank="",
+            rule_retrieval_backend="keyword",
+            rule_retrieval_index_cache="",
+            rule_interaction_scorer="heuristic",
             experiment_profile="",
             adversarial_rounds=None,
-            adversarial_insight_bank="",
-            adversarial_insight_output_bank="",
-            adversarial_insight_report="",
-            online_adversarial_insights=True,
+            adversarial_rule_bank="",
+            adversarial_rule_output_bank="",
+            adversarial_rule_report="",
+            online_adversarial_rules=True,
             adversarial_admit_trace_candidates=False,
             adversarial_run_synthetic_challenges=False,
             adversarial_run_compositional_challenges=False,
@@ -325,13 +325,13 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
             run_root = root / "output" / "runs" / "run1"
             config = translation_runner.project_config(root, run_root, "amp", args)
 
-            bank_path = run_root / "insights.active.json"
+            bank_path = run_root / "rules.active.json"
             self.assertTrue(bank_path.exists())
             raw_bank = bank_path.read_text(encoding="utf-8")
 
-        self.assertEqual(config["insights_json_bank_path"], str(bank_path))
-        self.assertEqual(config["adversarial_insight_bank_path"], str(bank_path))
-        self.assertEqual(config["adversarial_insight_output_bank_path"], str(bank_path))
+        self.assertEqual(config["rules_json_bank_path"], str(bank_path))
+        self.assertEqual(config["adversarial_rule_bank_path"], str(bank_path))
+        self.assertEqual(config["adversarial_rule_output_bank_path"], str(bank_path))
         self.assertIn("interface-contract-first", raw_bank)
 
     def test_project_config_bootstraps_active_json_bank_for_default_prompt_retrieval(self):
@@ -349,19 +349,19 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
             jobs=1,
             alignment_mode="llm",
             alignment_confidence_threshold=0.65,
-            insights_mode="default",
-            insight_limit=5,
-            insights_path="",
-            insights_json_bank="",
-            insight_retrieval_backend="keyword",
-            insight_retrieval_index_cache="",
-            insight_interaction_scorer="heuristic",
+            rules_mode="default",
+            rule_limit=5,
+            rules_path="",
+            rules_json_bank="",
+            rule_retrieval_backend="keyword",
+            rule_retrieval_index_cache="",
+            rule_interaction_scorer="heuristic",
             experiment_profile="",
             adversarial_rounds=None,
-            adversarial_insight_bank="",
-            adversarial_insight_output_bank="",
-            adversarial_insight_report="",
-            online_adversarial_insights=False,
+            adversarial_rule_bank="",
+            adversarial_rule_output_bank="",
+            adversarial_rule_report="",
+            online_adversarial_rules=False,
             adversarial_admit_trace_candidates=False,
             adversarial_run_synthetic_challenges=False,
             adversarial_run_compositional_challenges=False,
@@ -380,17 +380,17 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
             run_root = root / "output" / "runs" / "run1"
             config = translation_runner.project_config(root, run_root, "amp", args)
 
-            bank_path = run_root / "insights.active.json"
+            bank_path = run_root / "rules.active.json"
             self.assertTrue(bank_path.exists())
             raw_bank = bank_path.read_text(encoding="utf-8")
 
-        self.assertEqual(config["insights_json_bank_path"], str(bank_path))
-        self.assertTrue(config["online_adversarial_insights"])
-        self.assertEqual(config["adversarial_insight_bank_path"], str(bank_path))
-        self.assertEqual(config["adversarial_insight_output_bank_path"], str(bank_path))
+        self.assertEqual(config["rules_json_bank_path"], str(bank_path))
+        self.assertTrue(config["online_adversarial_rules"])
+        self.assertEqual(config["adversarial_rule_bank_path"], str(bank_path))
+        self.assertEqual(config["adversarial_rule_output_bank_path"], str(bank_path))
         self.assertEqual(
-            config["adversarial_insight_report_path"],
-            str(run_root / "adversarial_insight_report.json"),
+            config["adversarial_rule_report_path"],
+            str(run_root / "adversarial_rule_report.json"),
         )
         self.assertIn("interface-contract-first", raw_bank)
 
@@ -403,15 +403,15 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
             run_root = root / "output" / "runs" / "run1"
             config = translation_runner.project_config(root, run_root, "amp", args)
 
-            bank_path = run_root / "amp" / "insights.active.json"
+            bank_path = run_root / "amp" / "rules.active.json"
 
-        self.assertEqual(config["insights_json_bank_path"], str(bank_path))
-        self.assertTrue(config["online_adversarial_insights"])
-        self.assertEqual(config["adversarial_insight_bank_path"], str(bank_path))
-        self.assertEqual(config["adversarial_insight_output_bank_path"], str(bank_path))
+        self.assertEqual(config["rules_json_bank_path"], str(bank_path))
+        self.assertTrue(config["online_adversarial_rules"])
+        self.assertEqual(config["adversarial_rule_bank_path"], str(bank_path))
+        self.assertEqual(config["adversarial_rule_output_bank_path"], str(bank_path))
         self.assertEqual(
-            config["adversarial_insight_report_path"],
-            str(run_root / "amp" / "adversarial_insight_report.json"),
+            config["adversarial_rule_report_path"],
+            str(run_root / "amp" / "adversarial_rule_report.json"),
         )
 
     def test_active_json_bank_bootstrap_is_shared_across_parallel_project_configs(self):
@@ -419,11 +419,11 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
             def save(self, path):
                 time.sleep(0.05)
                 path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text('{"insights": []}', encoding="utf-8")
+                path.write_text('{"rules": []}', encoding="utf-8")
 
         from_legacy_calls = 0
 
-        def fake_from_legacy(_insights):
+        def fake_from_legacy(_rules):
             nonlocal from_legacy_calls
             from_legacy_calls += 1
             return FakeBank()
@@ -432,26 +432,26 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
             root = Path(tmpdir)
             run_root = root / "output" / "runs" / "run1"
             with mock.patch.object(
-                translation_runner.InsightBank,
+                translation_runner.RuleBank,
                 "from_legacy",
                 side_effect=fake_from_legacy,
             ):
                 with ThreadPoolExecutor(max_workers=5) as executor:
                     results = list(
                         executor.map(
-                            lambda _: translation_runner.ensure_active_json_insight_bank(
+                            lambda _: translation_runner.ensure_active_json_rule_bank(
                                 root,
                                 run_root,
-                                insights_path="",
+                                rules_path="",
                             ),
                             range(5),
                         )
                     )
 
-        self.assertEqual(results, [str(run_root / "insights.active.json")] * 5)
+        self.assertEqual(results, [str(run_root / "rules.active.json")] * 5)
         self.assertEqual(from_legacy_calls, 1)
 
-    def test_project_config_records_adversarial_insight_paths(self):
+    def test_project_config_records_adversarial_rule_paths(self):
         args = argparse.Namespace(
             model="gpt-5.4-mini-2026-03-17",
             api_key="secret",
@@ -466,19 +466,19 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
             jobs=1,
             alignment_mode="llm",
             alignment_confidence_threshold=0.65,
-            insights_mode="default",
-            insight_limit=5,
-            insights_path="",
-            insights_json_bank="banks/prompt_bank.json",
-            insight_retrieval_backend="auto",
-            insight_retrieval_index_cache="",
-            insight_interaction_scorer="live",
+            rules_mode="default",
+            rule_limit=5,
+            rules_path="",
+            rules_json_bank="banks/prompt_bank.json",
+            rule_retrieval_backend="auto",
+            rule_retrieval_index_cache="",
+            rule_interaction_scorer="live",
             experiment_profile="",
             adversarial_rounds=None,
-            adversarial_insight_bank="banks/input.json",
-            adversarial_insight_output_bank="",
-            adversarial_insight_report="reports/learning.json",
-            online_adversarial_insights=True,
+            adversarial_rule_bank="banks/input.json",
+            adversarial_rule_output_bank="",
+            adversarial_rule_report="reports/learning.json",
+            online_adversarial_rules=True,
             adversarial_admit_trace_candidates=True,
             adversarial_run_synthetic_challenges=True,
             adversarial_run_compositional_challenges=True,
@@ -499,20 +499,20 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
         run_root = root / "output" / "runs" / "run"
         config = translation_runner.project_config(root, run_root, "amp", args)
 
-        self.assertEqual(config["insights_json_bank_path"], "/repo/banks/prompt_bank.json")
-        self.assertEqual(config["insight_retrieval_backend_preference"], "auto")
+        self.assertEqual(config["rules_json_bank_path"], "/repo/banks/prompt_bank.json")
+        self.assertEqual(config["rule_retrieval_backend_preference"], "auto")
         self.assertEqual(
-            config["insight_retrieval_index_cache_path"],
-            "/repo/output/runs/run/insight_retrieval.faiss",
+            config["rule_retrieval_index_cache_path"],
+            "/repo/output/runs/run/rule_retrieval.faiss",
         )
-        self.assertEqual(config["insight_interaction_scorer"], "live")
-        self.assertTrue(config["online_adversarial_insights"])
-        self.assertEqual(config["adversarial_insight_bank_path"], "/repo/banks/input.json")
+        self.assertEqual(config["rule_interaction_scorer"], "live")
+        self.assertTrue(config["online_adversarial_rules"])
+        self.assertEqual(config["adversarial_rule_bank_path"], "/repo/banks/input.json")
         self.assertEqual(
-            config["adversarial_insight_output_bank_path"],
-            "/repo/output/runs/run/adversarial_insights.updated.json",
+            config["adversarial_rule_output_bank_path"],
+            "/repo/output/runs/run/adversarial_rules.updated.json",
         )
-        self.assertEqual(config["adversarial_insight_report_path"], "/repo/reports/learning.json")
+        self.assertEqual(config["adversarial_rule_report_path"], "/repo/reports/learning.json")
         self.assertEqual(
             config["adversarial_learning_options"],
             {
@@ -596,7 +596,7 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
                 "full",
                 "--jobs",
                 "2",
-                "--insights-json-bank",
+                "--rules-json-bank",
                 "banks/shared.json",
             ]
         )
@@ -637,19 +637,19 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
         parser = translation_runner.build_arg_parser()
         args = parser.parse_args(["leftpad", "--experiment-profile", "full", "--jobs", "1"])
 
-        self.assertTrue(translation_runner.online_adversarial_insights_enabled(args))
+        self.assertTrue(translation_runner.online_adversarial_rules_enabled(args))
 
     def test_custom_profile_defaults_online_updates_for_sequential_active_bank(self):
         parser = translation_runner.build_arg_parser()
         args = parser.parse_args(["leftpad", "--jobs", "1"])
 
-        self.assertTrue(translation_runner.online_adversarial_insights_enabled(args))
+        self.assertTrue(translation_runner.online_adversarial_rules_enabled(args))
 
     def test_custom_profile_defaults_online_updates_for_parallel_project_local_bank(self):
         parser = translation_runner.build_arg_parser()
         args = parser.parse_args(["leftpad", "--jobs", "2"])
 
-        self.assertTrue(translation_runner.online_adversarial_insights_enabled(args))
+        self.assertTrue(translation_runner.online_adversarial_rules_enabled(args))
 
     def test_custom_profile_defaults_online_updates_for_parallel_shared_bank(self):
         parser = translation_runner.build_arg_parser()
@@ -658,12 +658,12 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
                 "leftpad",
                 "--jobs",
                 "2",
-                "--insights-json-bank",
+                "--rules-json-bank",
                 "banks/shared.json",
             ]
         )
 
-        self.assertTrue(translation_runner.online_adversarial_insights_enabled(args))
+        self.assertTrue(translation_runner.online_adversarial_rules_enabled(args))
         self.assertTrue(translation_runner.parallel_online_adversarial_updates_supported(args))
 
     def test_custom_parallel_shared_prompt_bank_online_update_uses_project_report_path(self):
@@ -673,7 +673,7 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
                 "leftpad",
                 "--jobs",
                 "2",
-                "--insights-json-bank",
+                "--rules-json-bank",
                 "banks/shared.json",
             ]
         )
@@ -682,11 +682,11 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
         run_root = root / "output" / "runs" / "run1"
         config = translation_runner.project_config(root, run_root, "amp", args)
 
-        self.assertEqual(config["adversarial_insight_bank_path"], "/repo/banks/shared.json")
-        self.assertEqual(config["adversarial_insight_output_bank_path"], "/repo/banks/shared.json")
+        self.assertEqual(config["adversarial_rule_bank_path"], "/repo/banks/shared.json")
+        self.assertEqual(config["adversarial_rule_output_bank_path"], "/repo/banks/shared.json")
         self.assertEqual(
-            config["adversarial_insight_report_path"],
-            "/repo/output/runs/run1/amp/adversarial_insight_report.json",
+            config["adversarial_rule_report_path"],
+            "/repo/output/runs/run1/amp/adversarial_rule_report.json",
         )
 
     def test_explicit_online_updates_are_supported_for_parallel_shared_prompt_bank(self):
@@ -696,13 +696,13 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
                 "leftpad",
                 "--jobs",
                 "2",
-                "--insights-json-bank",
+                "--rules-json-bank",
                 "banks/shared.json",
-                "--online-adversarial-insights",
+                "--online-adversarial-rules",
             ]
         )
 
-        self.assertTrue(translation_runner.online_adversarial_insights_enabled(args))
+        self.assertTrue(translation_runner.online_adversarial_rules_enabled(args))
         self.assertTrue(translation_runner.parallel_online_adversarial_updates_supported(args))
 
     def test_parallel_shared_prompt_bank_online_update_uses_project_report_path(self):
@@ -712,9 +712,9 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
                 "leftpad",
                 "--jobs",
                 "2",
-                "--insights-json-bank",
+                "--rules-json-bank",
                 "banks/shared.json",
-                "--online-adversarial-insights",
+                "--online-adversarial-rules",
             ]
         )
 
@@ -722,11 +722,11 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
         run_root = root / "output" / "runs" / "run1"
         config = translation_runner.project_config(root, run_root, "amp", args)
 
-        self.assertEqual(config["adversarial_insight_bank_path"], "/repo/banks/shared.json")
-        self.assertEqual(config["adversarial_insight_output_bank_path"], "/repo/banks/shared.json")
+        self.assertEqual(config["adversarial_rule_bank_path"], "/repo/banks/shared.json")
+        self.assertEqual(config["adversarial_rule_output_bank_path"], "/repo/banks/shared.json")
         self.assertEqual(
-            config["adversarial_insight_report_path"],
-            "/repo/output/runs/run1/amp/adversarial_insight_report.json",
+            config["adversarial_rule_report_path"],
+            "/repo/output/runs/run1/amp/adversarial_rule_report.json",
         )
 
     def test_explicit_online_updates_are_supported_for_parallel_adversarial_bank(self):
@@ -736,13 +736,13 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
                 "leftpad",
                 "--jobs",
                 "2",
-                "--adversarial-insight-bank",
+                "--adversarial-rule-bank",
                 "banks/input.json",
-                "--online-adversarial-insights",
+                "--online-adversarial-rules",
             ]
         )
 
-        self.assertTrue(translation_runner.online_adversarial_insights_enabled(args))
+        self.assertTrue(translation_runner.online_adversarial_rules_enabled(args))
         self.assertTrue(translation_runner.parallel_online_adversarial_updates_supported(args))
 
     def test_parallel_adversarial_bank_online_update_uses_same_bank_with_project_report(self):
@@ -752,9 +752,9 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
                 "leftpad",
                 "--jobs",
                 "2",
-                "--adversarial-insight-bank",
+                "--adversarial-rule-bank",
                 "banks/input.json",
-                "--online-adversarial-insights",
+                "--online-adversarial-rules",
             ]
         )
 
@@ -764,16 +764,16 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
             config = translation_runner.project_config(root, run_root, "amp", args)
 
             self.assertEqual(
-                config["adversarial_insight_bank_path"],
+                config["adversarial_rule_bank_path"],
                 str(root / "banks" / "input.json"),
             )
             self.assertEqual(
-                config["adversarial_insight_output_bank_path"],
+                config["adversarial_rule_output_bank_path"],
                 str(root / "banks" / "input.json"),
             )
             self.assertEqual(
-                config["adversarial_insight_report_path"],
-                str(run_root / "amp" / "adversarial_insight_report.json"),
+                config["adversarial_rule_report_path"],
+                str(run_root / "amp" / "adversarial_rule_report.json"),
             )
 
     def test_explicit_adversarial_bank_defaults_to_primary_online_prompt_bank(self):
@@ -783,7 +783,7 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
                 "leftpad",
                 "--jobs",
                 "1",
-                "--adversarial-insight-bank",
+                "--adversarial-rule-bank",
                 "banks/input.json",
             ]
         )
@@ -794,10 +794,10 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
             config = translation_runner.project_config(root, run_root, "amp", args)
 
         expected_bank = str(root / "banks" / "input.json")
-        self.assertTrue(translation_runner.online_adversarial_insights_enabled(args))
-        self.assertEqual(config["insights_json_bank_path"], expected_bank)
-        self.assertEqual(config["adversarial_insight_bank_path"], expected_bank)
-        self.assertEqual(config["adversarial_insight_output_bank_path"], expected_bank)
+        self.assertTrue(translation_runner.online_adversarial_rules_enabled(args))
+        self.assertEqual(config["rules_json_bank_path"], expected_bank)
+        self.assertEqual(config["adversarial_rule_bank_path"], expected_bank)
+        self.assertEqual(config["adversarial_rule_output_bank_path"], expected_bank)
 
     def test_parallel_explicit_adversarial_bank_defaults_to_locked_shared_online_bank(self):
         parser = translation_runner.build_arg_parser()
@@ -806,7 +806,7 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
                 "leftpad",
                 "--jobs",
                 "2",
-                "--adversarial-insight-bank",
+                "--adversarial-rule-bank",
                 "banks/shared.json",
             ]
         )
@@ -817,21 +817,21 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
             config = translation_runner.project_config(root, run_root, "amp", args)
 
         expected_bank = str(root / "banks" / "shared.json")
-        self.assertTrue(translation_runner.online_adversarial_insights_enabled(args))
+        self.assertTrue(translation_runner.online_adversarial_rules_enabled(args))
         self.assertTrue(translation_runner.parallel_online_adversarial_updates_supported(args))
-        self.assertEqual(config["insights_json_bank_path"], expected_bank)
-        self.assertEqual(config["adversarial_insight_bank_path"], expected_bank)
-        self.assertEqual(config["adversarial_insight_output_bank_path"], expected_bank)
+        self.assertEqual(config["rules_json_bank_path"], expected_bank)
+        self.assertEqual(config["adversarial_rule_bank_path"], expected_bank)
+        self.assertEqual(config["adversarial_rule_output_bank_path"], expected_bank)
         self.assertEqual(
-            config["adversarial_insight_report_path"],
-            str(root / "output" / "runs" / "run1" / "amp" / "adversarial_insight_report.json"),
+            config["adversarial_rule_report_path"],
+            str(root / "output" / "runs" / "run1" / "amp" / "adversarial_rule_report.json"),
         )
 
     def test_full_profile_defaults_online_updates_for_parallel_runs_with_project_local_bank(self):
         parser = translation_runner.build_arg_parser()
         args = parser.parse_args(["leftpad", "--experiment-profile", "full", "--jobs", "2"])
 
-        self.assertTrue(translation_runner.online_adversarial_insights_enabled(args))
+        self.assertTrue(translation_runner.online_adversarial_rules_enabled(args))
 
     def test_full_profile_defaults_online_updates_for_parallel_shared_prompt_bank(self):
         parser = translation_runner.build_arg_parser()
@@ -842,12 +842,12 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
                 "full",
                 "--jobs",
                 "2",
-                "--insights-json-bank",
+                "--rules-json-bank",
                 "banks/shared.json",
             ]
         )
 
-        self.assertTrue(translation_runner.online_adversarial_insights_enabled(args))
+        self.assertTrue(translation_runner.online_adversarial_rules_enabled(args))
         self.assertTrue(translation_runner.parallel_online_adversarial_updates_supported(args))
 
     def test_full_profile_parallel_shared_prompt_bank_online_update_uses_project_report_path(self):
@@ -859,7 +859,7 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
                 "full",
                 "--jobs",
                 "2",
-                "--insights-json-bank",
+                "--rules-json-bank",
                 "banks/shared.json",
             ]
         )
@@ -868,11 +868,11 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
         run_root = root / "output" / "runs" / "run1"
         config = translation_runner.project_config(root, run_root, "amp", args)
 
-        self.assertEqual(config["adversarial_insight_bank_path"], "/repo/banks/shared.json")
-        self.assertEqual(config["adversarial_insight_output_bank_path"], "/repo/banks/shared.json")
+        self.assertEqual(config["adversarial_rule_bank_path"], "/repo/banks/shared.json")
+        self.assertEqual(config["adversarial_rule_output_bank_path"], "/repo/banks/shared.json")
         self.assertEqual(
-            config["adversarial_insight_report_path"],
-            "/repo/output/runs/run1/amp/adversarial_insight_report.json",
+            config["adversarial_rule_report_path"],
+            "/repo/output/runs/run1/amp/adversarial_rule_report.json",
         )
 
     def test_custom_pre_translation_refinement_defaults_writeback_to_mutable_bank(self):
@@ -931,9 +931,9 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
 
     def test_baseline_profile_gates_all_adversarial_learning_runtime_options(self):
         args = self._all_adversarial_options_args(experiment_profile="baseline")
-        args.adversarial_insight_bank = "banks/input.json"
-        args.adversarial_insight_output_bank = ""
-        args.adversarial_insight_report = ""
+        args.adversarial_rule_bank = "banks/input.json"
+        args.adversarial_rule_output_bank = ""
+        args.adversarial_rule_report = ""
 
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -948,7 +948,7 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
                 return_value=object(),
                 create=True,
             ) as create_agent:
-                translation_runner.run_adversarial_insight_update(root, run_root, args)
+                translation_runner.run_adversarial_rule_update(root, run_root, args)
 
         kwargs = offline.call_args.kwargs
         self.assertFalse(kwargs["admit_trace_candidates"])
@@ -970,9 +970,9 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
             root = Path(tmpdir)
             run_root = root / "output" / "runs" / "run1"
             args = argparse.Namespace(
-                adversarial_insight_bank="banks/input.json",
-                adversarial_insight_output_bank="",
-                adversarial_insight_report="",
+                adversarial_rule_bank="banks/input.json",
+                adversarial_rule_output_bank="",
+                adversarial_rule_report="",
                 adversarial_admit_trace_candidates=True,
                 adversarial_run_synthetic_challenges=True,
                 adversarial_run_compositional_challenges=True,
@@ -1001,7 +1001,7 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
                 "run_offline_adversarial_learning",
                 return_value={"challenges": 2, "accepted_updates": 1},
             ) as offline, mock.patch.object(translation_runner, "create_agent", return_value=object(), create=True):
-                result = translation_runner.run_adversarial_insight_update(root, run_root, args)
+                result = translation_runner.run_adversarial_rule_update(root, run_root, args)
 
         self.assertEqual(result, {"challenges": 2, "accepted_updates": 1})
         offline.assert_called_once()
@@ -1010,8 +1010,8 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
             (
                 run_root,
                 root / "banks" / "input.json",
-                run_root / "adversarial_insights.updated.json",
-                run_root / "adversarial_insight_report.json",
+                run_root / "adversarial_rules.updated.json",
+                run_root / "adversarial_rule_report.json",
             ),
         )
         kwargs = offline.call_args.kwargs
@@ -1030,29 +1030,29 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
 
     def test_post_batch_adversarial_update_skips_when_bank_is_absent(self):
         args = argparse.Namespace(
-            insights_json_bank="",
-            adversarial_insight_bank="",
-            adversarial_insight_output_bank="",
-            adversarial_insight_report="",
-            online_adversarial_insights=False,
+            rules_json_bank="",
+            adversarial_rule_bank="",
+            adversarial_rule_output_bank="",
+            adversarial_rule_report="",
+            online_adversarial_rules=False,
         )
 
         with mock.patch.object(translation_runner, "run_offline_adversarial_learning") as offline:
-            result = translation_runner.run_adversarial_insight_update(Path("/repo"), Path("/repo/output/runs/run1"), args)
+            result = translation_runner.run_adversarial_rule_update(Path("/repo"), Path("/repo/output/runs/run1"), args)
 
         self.assertIsNone(result)
         offline.assert_not_called()
 
     def test_online_adversarial_update_uses_bootstrapped_active_bank_without_explicit_bank(self):
         args = argparse.Namespace(
-            insights_mode="default",
-            insights_path="",
-            insights_json_bank="",
+            rules_mode="default",
+            rules_path="",
+            rules_json_bank="",
             experiment_profile="",
-            adversarial_insight_bank="",
-            adversarial_insight_output_bank="",
-            adversarial_insight_report="",
-            online_adversarial_insights=True,
+            adversarial_rule_bank="",
+            adversarial_rule_output_bank="",
+            adversarial_rule_report="",
+            online_adversarial_rules=True,
             adversarial_admit_trace_candidates=False,
             adversarial_run_synthetic_challenges=False,
             adversarial_run_compositional_challenges=False,
@@ -1074,9 +1074,9 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
                 "run_offline_adversarial_learning",
                 return_value={"challenges": 0, "accepted_updates": 0},
             ) as offline:
-                result = translation_runner.run_adversarial_insight_update(root, run_root, args)
+                result = translation_runner.run_adversarial_rule_update(root, run_root, args)
 
-            bank_path = run_root / "insights.active.json"
+            bank_path = run_root / "rules.active.json"
             bank_exists = bank_path.exists()
 
         self.assertEqual(result, {"challenges": 0, "accepted_updates": 0})
@@ -1087,7 +1087,7 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
                 run_root,
                 bank_path,
                 bank_path,
-                run_root / "adversarial_insight_report.json",
+                run_root / "adversarial_rule_report.json",
             ),
         )
 
@@ -1120,29 +1120,29 @@ class AdversarialInsightRunnerIntegrationTest(unittest.TestCase):
             jobs=1,
             alignment_mode="llm",
             alignment_confidence_threshold=0.65,
-            insights_mode="default",
-            insight_limit=5,
-            insights_path="",
-            insights_json_bank="banks/prompt_bank.json",
-            insight_retrieval_backend="keyword",
-            insight_retrieval_index_cache="",
-            insight_interaction_scorer="heuristic",
+            rules_mode="default",
+            rule_limit=5,
+            rules_path="",
+            rules_json_bank="banks/prompt_bank.json",
+            rule_retrieval_backend="keyword",
+            rule_retrieval_index_cache="",
+            rule_interaction_scorer="heuristic",
             experiment_profile="",
             adversarial_rounds=None,
-            adversarial_insight_bank="",
-            adversarial_insight_output_bank="",
-            adversarial_insight_report="",
-            online_adversarial_insights=True,
+            adversarial_rule_bank="",
+            adversarial_rule_output_bank="",
+            adversarial_rule_report="",
+            online_adversarial_rules=True,
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             (root / "banks").mkdir()
-            (root / "banks" / "prompt_bank.json").write_text('{"insights": []}', encoding="utf-8")
+            (root / "banks" / "prompt_bank.json").write_text('{"rules": []}', encoding="utf-8")
             run_root = root / "output" / "runs" / "run1"
             with mock.patch.object(
                 translation_runner,
-                "run_adversarial_insight_update",
+                "run_adversarial_rule_update",
                 return_value={"accepted_updates": 0},
             ) as update:
                 translation_runner.run_project_batch(
@@ -1173,9 +1173,9 @@ class AlignmentConfigTest(unittest.TestCase):
             jobs=1,
             alignment_mode="llm",
             alignment_confidence_threshold=0.72,
-            insights_mode="default",
-            insight_limit=5,
-            insights_json_bank="banks/prompt_bank.json",
+            rules_mode="default",
+            rule_limit=5,
+            rules_json_bank="banks/prompt_bank.json",
         )
 
         config = translation_runner.project_config(Path("/repo"), Path("/repo/output/runs/run"), "amp", args)
@@ -1183,7 +1183,7 @@ class AlignmentConfigTest(unittest.TestCase):
         self.assertEqual(config["alignment_mode"], "llm")
         self.assertEqual(config["alignment_confidence_threshold"], 0.72)
 
-    def test_project_config_passes_insight_options(self):
+    def test_project_config_passes_rule_options(self):
         args = argparse.Namespace(
             model="gpt-5.4-mini-2026-03-17",
             api_key="secret",
@@ -1198,18 +1198,18 @@ class AlignmentConfigTest(unittest.TestCase):
             jobs=1,
             alignment_mode="llm",
             alignment_confidence_threshold=0.65,
-            insights_mode="off",
-            insight_limit=0,
-            insights_path="snapshots/insights/model_variant.py",
+            rules_mode="off",
+            rule_limit=0,
+            rules_path="snapshots/rules/model_variant.py",
         )
 
         config = translation_runner.project_config(Path("/repo"), Path("/repo/output/runs/run"), "amp", args)
 
-        self.assertFalse(config["insights_enabled"])
-        self.assertEqual(config["insight_limit"], 0)
-        self.assertEqual(config["insights_path"], "/repo/snapshots/insights/model_variant.py")
+        self.assertFalse(config["rules_enabled"])
+        self.assertEqual(config["rule_limit"], 0)
+        self.assertEqual(config["rules_path"], "/repo/snapshots/rules/model_variant.py")
 
-    def test_project_config_passes_json_insight_bank_path(self):
+    def test_project_config_passes_json_rule_bank_path(self):
         args = argparse.Namespace(
             model="gpt-5.4-mini-2026-03-17",
             api_key="secret",
@@ -1224,15 +1224,15 @@ class AlignmentConfigTest(unittest.TestCase):
             jobs=1,
             alignment_mode="llm",
             alignment_confidence_threshold=0.65,
-            insights_mode="default",
-            insight_limit=5,
-            insights_path="",
-            insights_json_bank="banks/prompt_bank.json",
+            rules_mode="default",
+            rule_limit=5,
+            rules_path="",
+            rules_json_bank="banks/prompt_bank.json",
         )
 
         config = translation_runner.project_config(Path("/repo"), Path("/repo/output/runs/run"), "amp", args)
 
-        self.assertEqual(config["insights_json_bank_path"], "/repo/banks/prompt_bank.json")
+        self.assertEqual(config["rules_json_bank_path"], "/repo/banks/prompt_bank.json")
 
     def test_project_config_applies_full_experiment_profile_defaults(self):
         args = argparse.Namespace(
@@ -1249,12 +1249,12 @@ class AlignmentConfigTest(unittest.TestCase):
             jobs=1,
             alignment_mode="llm",
             alignment_confidence_threshold=0.65,
-            insights_mode="default",
-            insight_limit=5,
-            insights_path="",
-            insights_json_bank="",
-            insight_retrieval_backend="keyword",
-            insight_retrieval_index_cache="",
+            rules_mode="default",
+            rule_limit=5,
+            rules_path="",
+            rules_json_bank="",
+            rule_retrieval_backend="keyword",
+            rule_retrieval_index_cache="",
             experiment_profile="full",
             adversarial_rounds=None,
         )
@@ -1263,23 +1263,23 @@ class AlignmentConfigTest(unittest.TestCase):
             root = Path.cwd()
             run_root = Path(tmpdir) / "run"
             config = translation_runner.project_config(root, run_root, "amp", args)
-            bank_path = run_root / "insights.active.json"
+            bank_path = run_root / "rules.active.json"
             self.assertTrue(bank_path.exists())
-            bank_record_count = len(translation_runner.InsightBank.load(bank_path).records)
+            bank_record_count = len(translation_runner.RuleBank.load(bank_path).records)
 
-        self.assertTrue(config["insights_enabled"])
-        self.assertEqual(config["insights_path"], "")
-        self.assertEqual(config["insights_json_bank_path"], str(bank_path))
+        self.assertTrue(config["rules_enabled"])
+        self.assertEqual(config["rules_path"], "")
+        self.assertEqual(config["rules_json_bank_path"], str(bank_path))
         self.assertEqual(bank_record_count, 49)
         self.assertEqual(config["experiment_profile"], "full")
         self.assertEqual(config["experiment_ablation_label"], "TRAIL")
-        self.assertEqual(config["insight_stage"], "multi")
-        self.assertTrue(config["insight_mining"])
-        self.assertTrue(config["single_insight_adversarial_learning"])
-        self.assertTrue(config["compositional_insight_adversarial_learning"])
-        self.assertEqual(config["insight_interaction_scorer"], "live")
+        self.assertEqual(config["rule_stage"], "multi")
+        self.assertTrue(config["rule_mining"])
+        self.assertTrue(config["single_rule_adversarial_learning"])
+        self.assertTrue(config["compositional_rule_adversarial_learning"])
+        self.assertEqual(config["rule_interaction_scorer"], "live")
         self.assertEqual(config["adversarial_rounds"], 5)
-        self.assertTrue(config["online_adversarial_insights"])
+        self.assertTrue(config["online_adversarial_rules"])
         self.assertTrue(config["adversarial_learning_options"]["run_synthetic_challenges"])
         self.assertTrue(config["adversarial_learning_options"]["run_compositional_challenges"])
         self.assertTrue(config["adversarial_learning_options"]["pre_translation_challenges"])
@@ -1298,9 +1298,9 @@ class AlignmentConfigTest(unittest.TestCase):
             config = translation_runner.project_config(root, run_root, "amp", args)
 
         self.assertEqual(config["experiment_profile"], "without_compositional")
-        self.assertTrue(config["single_insight_adversarial_learning"])
-        self.assertFalse(config["compositional_insight_adversarial_learning"])
-        self.assertEqual(config["insight_interaction_scorer"], "heuristic")
+        self.assertTrue(config["single_rule_adversarial_learning"])
+        self.assertFalse(config["compositional_rule_adversarial_learning"])
+        self.assertEqual(config["rule_interaction_scorer"], "heuristic")
 
     def test_parallel_full_profile_uses_project_local_active_bank_for_online_updates(self):
         args = argparse.Namespace(
@@ -1317,12 +1317,12 @@ class AlignmentConfigTest(unittest.TestCase):
             jobs=2,
             alignment_mode="llm",
             alignment_confidence_threshold=0.65,
-            insights_mode="default",
-            insight_limit=5,
-            insights_path="",
-            insights_json_bank="",
-            insight_retrieval_backend="keyword",
-            insight_retrieval_index_cache="",
+            rules_mode="default",
+            rule_limit=5,
+            rules_path="",
+            rules_json_bank="",
+            rule_retrieval_backend="keyword",
+            rule_retrieval_index_cache="",
             experiment_profile="full",
             adversarial_rounds=None,
         )
@@ -1331,19 +1331,19 @@ class AlignmentConfigTest(unittest.TestCase):
             root = Path.cwd()
             run_root = Path(tmpdir) / "run"
             config = translation_runner.project_config(root, run_root, "amp", args)
-            bank_path = run_root / "amp" / "insights.active.json"
+            bank_path = run_root / "amp" / "rules.active.json"
             self.assertTrue(bank_path.exists())
 
-        self.assertTrue(config["online_adversarial_insights"])
-        self.assertEqual(config["insights_json_bank_path"], str(bank_path))
-        self.assertEqual(config["adversarial_insight_bank_path"], str(bank_path))
-        self.assertEqual(config["adversarial_insight_output_bank_path"], str(bank_path))
+        self.assertTrue(config["online_adversarial_rules"])
+        self.assertEqual(config["rules_json_bank_path"], str(bank_path))
+        self.assertEqual(config["adversarial_rule_bank_path"], str(bank_path))
+        self.assertEqual(config["adversarial_rule_output_bank_path"], str(bank_path))
         self.assertEqual(
-            config["adversarial_insight_report_path"],
-            str(run_root / "amp" / "adversarial_insight_report.json"),
+            config["adversarial_rule_report_path"],
+            str(run_root / "amp" / "adversarial_rule_report.json"),
         )
 
-    def test_project_config_keeps_explicit_insight_path_over_profile_default(self):
+    def test_project_config_keeps_explicit_rule_path_over_profile_default(self):
         args = argparse.Namespace(
             model="gpt-5.4-mini-2026-03-17",
             api_key="secret",
@@ -1358,22 +1358,22 @@ class AlignmentConfigTest(unittest.TestCase):
             jobs=1,
             alignment_mode="llm",
             alignment_confidence_threshold=0.65,
-            insights_mode="default",
-            insight_limit=5,
-            insights_path="snapshots/insights/custom.py",
-            insights_json_bank="banks/prompt_bank.json",
+            rules_mode="default",
+            rule_limit=5,
+            rules_path="snapshots/rules/custom.py",
+            rules_json_bank="banks/prompt_bank.json",
             experiment_profile="full",
             adversarial_rounds=3,
         )
 
         config = translation_runner.project_config(Path("/repo"), Path("/repo/output/runs/run"), "amp", args)
 
-        self.assertEqual(config["insights_path"], "/repo/snapshots/insights/custom.py")
+        self.assertEqual(config["rules_path"], "/repo/snapshots/rules/custom.py")
         self.assertEqual(config["experiment_profile"], "full")
         self.assertEqual(config["adversarial_rounds"], 3)
         self.assertEqual(config["model_display_name"], "GPT-5.4-mini")
 
-    def test_project_config_baseline_profile_disables_insights(self):
+    def test_project_config_baseline_profile_disables_rules(self):
         args = argparse.Namespace(
             model="kimi-k2.5",
             api_key="secret",
@@ -1388,21 +1388,21 @@ class AlignmentConfigTest(unittest.TestCase):
             jobs=1,
             alignment_mode="llm",
             alignment_confidence_threshold=0.65,
-            insights_mode="default",
-            insight_limit=5,
-            insights_path="",
+            rules_mode="default",
+            rule_limit=5,
+            rules_path="",
             experiment_profile="baseline",
             adversarial_rounds=None,
         )
 
         config = translation_runner.project_config(Path("/repo"), Path("/repo/output/runs/run"), "amp", args)
 
-        self.assertFalse(config["insights_enabled"])
-        self.assertEqual(config["insights_path"], "")
-        self.assertEqual(config["experiment_profile"], "without_insight_mining")
-        self.assertEqual(config["experiment_ablation_label"], "w/o Insight Mining")
-        self.assertEqual(config["insight_stage"], "off")
-        self.assertFalse(config["insight_mining"])
+        self.assertFalse(config["rules_enabled"])
+        self.assertEqual(config["rules_path"], "")
+        self.assertEqual(config["experiment_profile"], "without_rule_mining")
+        self.assertEqual(config["experiment_ablation_label"], "w/o Rule Mining")
+        self.assertEqual(config["rule_stage"], "off")
+        self.assertFalse(config["rule_mining"])
         self.assertEqual(config["model_display_name"], "Kimi-K2.5")
 
     def test_llm_config_defaults_to_twenty_retries_with_bounded_backoff(self):

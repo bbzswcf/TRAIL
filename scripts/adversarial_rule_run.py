@@ -5,12 +5,12 @@ import json
 import os
 from pathlib import Path
 
-from c2rust_translator.adversarial_insights import (
+from c2rust_translator.adversarial_rules import (
     LLMActivationValidator,
     LLMCompositionRelationReviewer,
     LLMSemanticOracleValidator,
     LLMTraceContradictionReviewer,
-    LLMTraceInsightSynthesizer,
+    LLMTraceRuleSynthesizer,
     LLMStructuredChallengerAgent,
     LLMStructuredRefinerAgent,
     StructuredChallengerAgent,
@@ -28,7 +28,7 @@ from c2rust_translator.translator import Translator
 
 DEFAULT_CHAT_BASE_URL = "https://api.openai.com/v1"
 
-SINGLE_INSIGHT_PROFILE_FLAG_KEYS = {
+SINGLE_RULE_PROFILE_FLAG_KEYS = {
     "admit_trace_candidates",
     "run_synthetic_challenges",
     "live_structured_agents",
@@ -45,7 +45,7 @@ COMPOSITIONAL_PROFILE_FLAG_KEYS = {
     "live_composition_relation_review",
 }
 
-ADVERSARIAL_FLAG_KEYS = SINGLE_INSIGHT_PROFILE_FLAG_KEYS | COMPOSITIONAL_PROFILE_FLAG_KEYS
+ADVERSARIAL_FLAG_KEYS = SINGLE_RULE_PROFILE_FLAG_KEYS | COMPOSITIONAL_PROFILE_FLAG_KEYS
 
 
 def _api_key_default() -> str:
@@ -74,11 +74,11 @@ def _env_int(name: str, default: int) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Run opt-in offline adversarial insight learning over existing translation artifacts."
+        description="Run opt-in offline adversarial rule learning over existing translation artifacts."
     )
     parser.add_argument("run_root", help="Run root containing per-project translation artifacts.")
-    parser.add_argument("--bank", required=True, help="Input JSON insight bank path.")
-    parser.add_argument("--output-bank", required=True, help="Output JSON insight bank path.")
+    parser.add_argument("--bank", required=True, help="Input JSON rule bank path.")
+    parser.add_argument("--output-bank", required=True, help="Output JSON rule bank path.")
     parser.add_argument("--report", required=True, help="Output evolution report JSON path.")
     parser.add_argument(
         "--experiment-profile",
@@ -92,24 +92,24 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--admit-trace-candidates",
         action="store_true",
-        help="Validate trace-mined candidate insights and append admitted candidates to the output bank.",
+        help="Validate trace-mined candidate rules and append admitted candidates to the output bank.",
     )
     parser.add_argument(
         "--run-synthetic-challenges",
         action="store_true",
-        help="Execute deterministic single-insight synthetic challenges and record tool/sanity evidence.",
+        help="Execute deterministic single-rule synthetic challenges and record tool/sanity evidence.",
     )
     parser.add_argument(
         "--run-compositional-challenges",
         action="store_true",
-        help="Execute deterministic compositional insight challenges and record tool/sanity evidence.",
+        help="Execute deterministic compositional rule challenges and record tool/sanity evidence.",
     )
     parser.add_argument(
         "--admit-composition-failure-candidates",
         action="store_true",
         help=(
             "When a compositional challenge compiles, passes sanity, and fails its tests, "
-            "turn that failure into a candidate insight and validate it through the single-insight gate."
+            "turn that failure into a candidate rule and validate it through the single-rule gate."
         ),
     )
     parser.add_argument(
@@ -136,7 +136,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=os.getenv("LIVE_ACTIVATION_VALIDATION", "").lower() in {"1", "true", "yes"},
         help=(
             "Use the configured LLM provider to validate whether generated challenges activate "
-            "their target insights during sanity checks (env: LIVE_ACTIVATION_VALIDATION)."
+            "their target rules during sanity checks (env: LIVE_ACTIVATION_VALIDATION)."
         ),
     )
     parser.add_argument(
@@ -151,14 +151,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--structured-challenger-responses",
         help=(
-            "JSON/JSONL file containing structured Challenger schema responses keyed by insight_id. "
+            "JSON/JSONL file containing structured Challenger schema responses keyed by rule_id. "
             "When set, synthetic and trace-candidate challenge generation use these responses."
         ),
     )
     parser.add_argument(
         "--structured-refiner-responses",
         help=(
-            "JSON/JSONL file containing structured Refiner schema responses keyed by insight_id. "
+            "JSON/JSONL file containing structured Refiner schema responses keyed by rule_id. "
             "When set, trace challenge refinement uses these responses before evidence gating."
         ),
     )
@@ -176,7 +176,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         default=os.getenv("LIVE_TRACE_SYNTHESIS", "").lower() in {"1", "true", "yes"},
         help=(
-            "Use the configured LLM provider to synthesize trace-mined candidate insights "
+            "Use the configured LLM provider to synthesize trace-mined candidate rules "
             "when --admit-trace-candidates is enabled (env: LIVE_TRACE_SYNTHESIS)."
         ),
     )
@@ -255,28 +255,28 @@ def adversarial_learning_flags(args) -> dict[str, bool]:
 
     profile = resolve_experiment_profile(raw_profile)
     profile_defaults = {key: False for key in ADVERSARIAL_FLAG_KEYS}
-    if profile.insights_enabled and profile.insight_mining:
-        if profile.single_insight_adversarial_learning:
-            for key in SINGLE_INSIGHT_PROFILE_FLAG_KEYS:
+    if profile.rules_enabled and profile.rule_mining:
+        if profile.single_rule_adversarial_learning:
+            for key in SINGLE_RULE_PROFILE_FLAG_KEYS:
                 profile_defaults[key] = True
-        if profile.compositional_insight_adversarial_learning:
+        if profile.compositional_rule_adversarial_learning:
             for key in COMPOSITIONAL_PROFILE_FLAG_KEYS:
                 profile_defaults[key] = True
 
     for key, enabled in profile_defaults.items():
         flags[key] = flags[key] or enabled
 
-    if not profile.insights_enabled or not profile.insight_mining:
+    if not profile.rules_enabled or not profile.rule_mining:
         for key in flags:
             flags[key] = False
         return flags
 
-    if not profile.single_insight_adversarial_learning:
+    if not profile.single_rule_adversarial_learning:
         for key in ADVERSARIAL_FLAG_KEYS:
             flags[key] = False
         return flags
 
-    if not profile.compositional_insight_adversarial_learning:
+    if not profile.compositional_rule_adversarial_learning:
         for key in COMPOSITIONAL_PROFILE_FLAG_KEYS:
             flags[key] = False
 
@@ -303,7 +303,7 @@ def _structured_agents_from_args(args) -> tuple[StructuredChallengerAgent | None
 def _trace_synthesizer_from_args(args):
     if not getattr(args, "live_trace_synthesis", False):
         return None
-    return LLMTraceInsightSynthesizer(create_agent(_llm_config_from_args(args)))
+    return LLMTraceRuleSynthesizer(create_agent(_llm_config_from_args(args)))
 
 
 def _trace_contradiction_reviewer_from_args(args):
@@ -383,11 +383,11 @@ def _structured_response_lookup(path: str):
     responses_by_id = _load_structured_responses(path)
 
     def lookup(payload: dict[str, object]) -> dict[str, object]:
-        insight = payload.get("insight")
-        insight_id = str(insight.get("id", "") if isinstance(insight, dict) else "")
-        responses = responses_by_id.get(insight_id, [])
+        rule = payload.get("rule")
+        rule_id = str(rule.get("id", "") if isinstance(rule, dict) else "")
+        responses = responses_by_id.get(rule_id, [])
         if not responses:
-            raise ValueError(f"No structured response available for insight id: {insight_id}")
+            raise ValueError(f"No structured response available for rule id: {rule_id}")
         return responses.pop(0)
 
     return lookup
@@ -405,7 +405,7 @@ def _load_structured_responses(path: str) -> dict[str, list[dict[str, object]]]:
         raw = json.loads(response_path.read_text(encoding="utf-8"))
         if isinstance(raw, dict) and "responses" in raw:
             raw_items = raw["responses"]
-        elif isinstance(raw, dict) and "insight_id" in raw:
+        elif isinstance(raw, dict) and "rule_id" in raw:
             raw_items = [raw]
         elif isinstance(raw, list):
             raw_items = raw
@@ -415,10 +415,10 @@ def _load_structured_responses(path: str) -> dict[str, list[dict[str, object]]]:
     for item in raw_items:
         if not isinstance(item, dict):
             raise ValueError("Structured responses must be JSON objects")
-        insight_id = str(item.get("insight_id", ""))
-        if not insight_id:
-            raise ValueError("Structured responses must include insight_id")
-        responses_by_id.setdefault(insight_id, []).append(item)
+        rule_id = str(item.get("rule_id", ""))
+        if not rule_id:
+            raise ValueError("Structured responses must include rule_id")
+        responses_by_id.setdefault(rule_id, []).append(item)
     return responses_by_id
 
 

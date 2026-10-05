@@ -1,5 +1,5 @@
 {
-  "insights": [
+  "rules": [
     {
       "id": "deepseek-clhash-u128-limb-guard",
       "title": "Keep clhash 128-bit polynomial math within Rust u128 limits",

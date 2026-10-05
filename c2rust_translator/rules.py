@@ -10,7 +10,7 @@ from typing import Callable, Iterable, Sequence
 
 
 @dataclass(frozen=True)
-class TranslationInsight:
+class TranslationRule:
     id: str
     title: str
     trigger: str
@@ -35,7 +35,7 @@ class TranslationInsight:
 
 
 @dataclass(frozen=True)
-class InsightInteraction:
+class RuleInteraction:
     first_id: str
     second_id: str
     support: int
@@ -64,16 +64,16 @@ class InsightInteraction:
 
 
 @dataclass(frozen=True)
-class InsightSelection:
-    insights: tuple[TranslationInsight, ...]
-    interactions: tuple[InsightInteraction, ...] = ()
+class RuleSelection:
+    rules: tuple[TranslationRule, ...]
+    interactions: tuple[RuleInteraction, ...] = ()
 
 
 class StructuredInteractionScorer:
     def __init__(self, score_fn: Callable[[dict[str, object]], dict[str, object] | str]):
         self.score_fn = score_fn
 
-    def score(self, first: TranslationInsight, second: TranslationInsight) -> InsightInteraction:
+    def score(self, first: TranslationRule, second: TranslationRule) -> RuleInteraction:
         raw = self.score_fn(_interaction_payload(first, second))
         data = _parse_interaction_score(raw)
         support = _normalized_score_to_int(_score_field(data, "support"), "support")
@@ -82,7 +82,7 @@ class StructuredInteractionScorer:
             independent = _normalized_score_to_int(_score_field(data, "independent"), "independent")
         else:
             independent = max(0, 10 - support - conflict)
-        return InsightInteraction(
+        return RuleInteraction(
             first_id=first.id,
             second_id=second.id,
             support=support,
@@ -93,9 +93,9 @@ class StructuredInteractionScorer:
 
 
 LLM_INTERACTION_SCORER_SYSTEM = (
-    "You score whether two Rust translation insights support, conflict with, "
+    "You score whether two Rust translation rules support, conflict with, "
     "or are independent of each other for prompt-time selection. support means "
-    "the two insights reinforce each other or should be retrieved together; "
+    "the two rules reinforce each other or should be retrieved together; "
     "conflict means following one likely violates the other; independent means "
     "ordinary overlap, shared vocabulary, or unrelated coverage without a clear "
     "dependency. Do not infer conflict from ordinary overlap. Do not infer "
@@ -106,13 +106,13 @@ LLM_INTERACTION_SCORER_SYSTEM = (
 )
 
 
-class LLMInsightInteractionScorer:
+class LLMRuleInteractionScorer:
     def __init__(self, agent):
         self.agent = agent
         self.calls: list[dict[str, object]] = []
         self.structured = StructuredInteractionScorer(self._score_payload)
 
-    def score(self, first: TranslationInsight, second: TranslationInsight) -> InsightInteraction:
+    def score(self, first: TranslationRule, second: TranslationRule) -> RuleInteraction:
         return self.structured.score(first, second)
 
     def _score_payload(self, payload: dict[str, object]) -> str:
@@ -152,7 +152,7 @@ class RelationBackedInteractionScorer:
         self,
         relations: Iterable[object],
         *,
-        fallback: Callable[[TranslationInsight, TranslationInsight], InsightInteraction] | None = None,
+        fallback: Callable[[TranslationRule, TranslationRule], RuleInteraction] | None = None,
     ):
         self.fallback = fallback
         self.relations = {}
@@ -170,20 +170,20 @@ class RelationBackedInteractionScorer:
     def has_actionable_relations(self) -> bool:
         return bool(self.relations)
 
-    def score(self, first: TranslationInsight, second: TranslationInsight) -> InsightInteraction:
+    def score(self, first: TranslationRule, second: TranslationRule) -> RuleInteraction:
         relation = self.relations.get((first.id, second.id))
         direction = "forward"
         if relation is None:
             relation = self.relations.get((second.id, first.id))
             direction = "reverse"
         if relation is None:
-            fallback = self.fallback or score_insight_interaction
+            fallback = self.fallback or score_rule_interaction
             return fallback(first, second)
 
         relation_name = _relation_value(relation, "relation").strip().lower()
         explanation = _relation_explanation(relation, relation_name, direction)
         if relation_name in {"conflicts", "conflict"}:
-            return InsightInteraction(
+            return RuleInteraction(
                 first_id=first.id,
                 second_id=second.id,
                 support=0,
@@ -191,7 +191,7 @@ class RelationBackedInteractionScorer:
                 conflict=10,
                 explanation=explanation,
             )
-        return InsightInteraction(
+        return RuleInteraction(
             first_id=first.id,
             second_id=second.id,
             support=10,
@@ -219,7 +219,7 @@ def _relation_explanation(relation: object, relation_name: str, direction: str) 
     return f"{prefix}: {detail}" if detail else prefix
 
 
-def _interaction_payload(first: TranslationInsight, second: TranslationInsight) -> dict[str, object]:
+def _interaction_payload(first: TranslationRule, second: TranslationRule) -> dict[str, object]:
     return {
         "first": first.to_prompt_dict(),
         "second": second.to_prompt_dict(),
@@ -281,8 +281,8 @@ def _normalized_score_to_int(raw: object, field: str) -> int:
 
 
 @dataclass(frozen=True)
-class InsightLibrary:
-    insights: Sequence[object]
+class RuleLibrary:
+    rules: Sequence[object]
     select: Callable[..., Sequence[object]]
     path: Path | None = None
 
@@ -306,8 +306,8 @@ def empirical_weak_pair_penalty(first_id: str, second_id: str) -> int:
     return _EMPIRICAL_WEAK_PAIR_PENALTIES.get(pair, 0)
 
 
-DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
-    TranslationInsight(
+DEFAULT_RULES: tuple[TranslationRule, ...] = (
+    TranslationRule(
         id="interface-contract-first",
         title="Honor the Rust interface before mirroring C shape",
         trigger="Rust interface uses a safe or higher-level contract, or the C binding is weak/no_safe_binding.",
@@ -318,7 +318,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
         tags=("contract", "interface", "no_safe_binding"),
         keywords=("no_safe_binding", "safe binding", "higher-level contract", "public abi", "signature mismatch"),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="multi-helper-composition",
         title="Compose all bound C helpers for one Rust callable",
         trigger="Alignment binds one Rust callable to multiple C functions, or the C implementation delegates through helper calls.",
@@ -329,7 +329,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
         tags=("alignment", "helpers", "composition"),
         keywords=("composed_from_multiple", "c_calls_present", "helper call", "delegates through", "bound c functions"),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="mutating-output-parameters",
         title="Preserve C output parameter mutations",
         trigger="C passes pointers to scalar slots, struct fields, array elements, or helper output parameters that are written through during the call.",
@@ -368,7 +368,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "&mut [data::vector]",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="output-struct-capacity-fields",
         title="Preserve caller-owned output struct capacity fields",
         trigger="C fills a caller-provided output struct that has both count/length and capacity/limit fields, while the Rust API returns that struct by value.",
@@ -391,7 +391,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "TEST_CAPACITY",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="config-parser-colon-format",
         title="Keep C config parser delimiters and print format exact",
         trigger="A small C config parser fills a Cfg/CfgEntry output, consumes keys through consume_colon(), and tests cfg_parse, cfg_parse_file, cfg_fprint, Display, or to_string output.",
@@ -430,7 +430,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "key: value",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="sentinel-state-transitions",
         title="Preserve sentinel state transitions explicitly",
         trigger="C uses sentinel values such as -1, NULL, 0, usize::MAX, empty head/tail markers, or reset/init transitions.",
@@ -441,7 +441,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
         tags=("state", "sentinel", "constructor", "reset"),
         keywords=("-1", "usize::max", "sentinel", "null", "tail_offset", "head_offset", "reset", "init", "empty"),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="safe-constructor-initialization",
         title="Construct safe Rust values explicitly",
         trigger="A constructor, init function, memset/zeroing pattern, or failed Default fallback initializes a Rust struct.",
@@ -452,7 +452,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
         tags=("constructor", "initialization", "safety"),
         keywords=("mapped_constructor", "std::mem::zeroed", "zeroed", "default::default", "memset"),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="signed-unsigned-boundaries",
         title="Audit signed/unsigned conversions at boundaries",
         trigger="C mixes int/size_t, uses negative error codes, or Rust errors mention usize/isize/i32/u32 mismatches.",
@@ -463,7 +463,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
         tags=("casts", "bounds", "sentinel"),
         keywords=("size_t", "ssize_t", "negative", "as usize", "expected usize"),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="pointer-buffer-length-coupling",
         title="Keep pointer buffers coupled with their length and ownership",
         trigger="C passes raw pointers, arrays, malloc/free buffers, string lengths, capacity, or null terminators.",
@@ -484,7 +484,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "\\0",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="fixed-c-string-visible-length",
         title="Expose fixed char arrays at their C string length",
         trigger="C stores textual data in fixed-size char arrays and reads or prints them with C string APIs such as strcmp, printf %s, strncpy, fscanf %[^...], or char[N] fields.",
@@ -511,7 +511,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "vcd_signal_size",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="shared-layout-before-methods",
         title="Check shared Rust layout before changing methods",
         trigger="Compile/test failures mention missing fields, constants, static state, constructors, or type layout mismatches.",
@@ -530,7 +530,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "missing static",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="test-visible-struct-layout",
         title="Preserve struct fields that tests or public callers observe",
         trigger="Compiler or test output mentions E0616, a private struct field, or relevant Rust tests directly read `value.field` from a public type.",
@@ -551,7 +551,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "candidate rust shared items",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="global-state-is-project-state",
         title="Translate C globals as coherent project state",
         trigger="C uses globals/statics, parser positions, lookup tables, caches, or mutable singleton state.",
@@ -562,7 +562,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
         tags=("globals", "state", "multi-call"),
         keywords=("global", "lookup", "cache", "tokens", "singleton"),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="parser-cursor-state",
         title="Keep parser token cursors shared across helpers",
         trigger="A C parser stores the token array and cursor in file-static globals, with helpers such as lookahead(), consume(), parse_statement(), or parse_expression().",
@@ -587,7 +587,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "parser cursor",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="parser-token-emission-state",
         title="Preserve parser token and bytecode emission state",
         trigger="C parser code scans text into a token, opcode, bytecode, or instruction array using counters, current token state, line-local flags, or sentinel opcodes.",
@@ -618,7 +618,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "sentinel opcode",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="parser-marker-cursor-boundaries",
         title="Preserve parser marker characters and consumed cursors",
         trigger="C parser or scanner code uses marker characters, control-byte terminators, or a consumed/cursor output parameter to delimit alternatives, annotations, goals, or optional suffixes.",
@@ -653,7 +653,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "byte length",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="vcd-vector-assignment-payload",
         title="Keep VCD value syntax out of public payloads",
         trigger="A VCD parser reads value-change assignment lines such as `b10010 !`, scalar lines such as `1#`, or tests compare signal values at timestamps.",
@@ -680,7 +680,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "NUL",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="callback-user-data-state",
         title="Preserve callback user_data state across invocations",
         trigger="C callbacks receive a user_data pointer, context pointer, baton, visitor state, or a mutable counter that is updated across multiple callback invocations.",
@@ -706,7 +706,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "read_test_vector_checker",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="test-failure-entrypoint-first",
         title="Repair from the failing test entrypoint backward",
         trigger="cargo test fails after compilation succeeds.",
@@ -717,7 +717,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
         tags=("test-repair", "debugging"),
         keywords=("test failed", "assertion", "panicked at", "assertion `left == right` failed", "cargo test"),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="generated-test-mutating-clone",
         title="Do not mutate an observed temporary clone in generated tests",
         trigger="A generated Rust test calls a mutating API through `&mut value.clone()` and later assertions observe `value`.",
@@ -737,7 +737,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "mutating clone",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="generated-test-raw-field-observation",
         title="Keep generated tests that observe C struct fields on raw fields",
         trigger="The original C test observes struct fields directly, but the generated Rust test uses logical accessors after state-changing operations such as flip/set.",
@@ -759,7 +759,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "struct field",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="generated-test-callback-prefix",
         title="Keep sibling callback handlers under the same state prefix",
         trigger="A generated Rust test translates C state-machine or visitor callbacks such as State_A_onEnter / State_B_onEnter and asserts handler identity after transition.",
@@ -781,7 +781,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "cfsm_transition",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="generated-test-callback-counters",
         title="Keep callback counters incrementing their own fields",
         trigger="A generated Rust test translates C callback helpers that increment operation counters such as enterCalls, leaveCalls, processCalls, or eventCalls.",
@@ -804,7 +804,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "cfsm_transition",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="bit-exact-encoding",
         title="Preserve bit-exact packing and reinterpretation",
         trigger="C uses bit masks, shifts, packed byte streams, endian-sensitive encodings, or float/double bit reinterpretation.",
@@ -845,7 +845,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "write_bits(sigbits",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="dbc-motorola-bit-numbering",
         title="Preserve DBC Motorola signal bit numbering",
         trigger="C encodes or extracts CAN/DBC signals with MOTOROLA/big-endian startbit semantics, compute_indexes, byte_idx_msb/byte_idx_lsb, offset_lsb, or frame_to_local helpers.",
@@ -872,7 +872,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "libwecan",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="standard-math-wrapper-precision",
         title="Preserve standard math wrapper precision",
         trigger="C callables wrap libm-style functions such as pow, sqrt, sin, cos, tan, exp, log, floor, ceil, trunc, fmod, fabs, asin, acos, or atan, or tests fail by a tiny approximate-equality delta.",
@@ -904,7 +904,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "infinity",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="file-handle-capabilities",
         title="Open persistent file handles with all later capabilities",
         trigger="A Rust struct stores File handles opened by create/open and later methods seek, read, write, or flush those same handles.",
@@ -924,7 +924,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "file handle",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="resource-wrapper-constructor-safety",
         title="Do not forge private resource wrapper layout",
         trigger="A callable needs to construct or use a Rust wrapper around File, fd, PathBuf, or another owned resource, especially when compiler errors mention private fields, missing Read/Write/Seek trait bounds, or tests abort with an IO Safety violation.",
@@ -956,7 +956,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "PathBuf",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="sandboxed-fixture-paths",
         title="Map stale absolute fixture paths to the current test sandbox",
         trigger="Tests or failures contain hard-coded source-machine absolute paths, missing fixture files, No such file, or Permission denied for paths outside the translated project.",
@@ -979,7 +979,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "build/mypr",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="observable-output-format",
         title="Preserve exact observable output format and ordering",
         trigger="Tests compare stdout, result files, expected files, printed lines, headers, offsets, or newline-sensitive output.",
@@ -1003,7 +1003,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "headers",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="observable-sequence-order",
         title="Match observable sequence construction order",
         trigger="Tests compare a full Vec, array, deck, list, serialized sequence, or ordered output against an expected sequence built with explicit nested loops.",
@@ -1029,7 +1029,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "column",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="poker-hand-rank-pattern-compare",
         title="Compare poker hands by rank pattern before normalized suits",
         trigger="Poker hand tests compare full hands, hand_classify, hand_compare, quads, trips, two pair, pair, straight, flush, or straight flush cases, especially when test builders normalize every card to one suit.",
@@ -1056,7 +1056,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "7s 6s 5s 4s 3s",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="interval-set-observable-semantics",
         title="Preserve observable interval and range-set semantics",
         trigger="Tests compare range strings, interval lists, set membership, support counts, complements, intersections, or constructors for range-like collections.",
@@ -1088,7 +1088,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "valueoutofrange",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="generated-test-range-section-reset",
         title="Keep generated range tests' section resets",
         trigger="A generated Rust range/interval test compares list_to_string output and the observed left string contains a previous section's range before the expected current range.",
@@ -1109,7 +1109,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "rangeListToString",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="generated-test-missing-type-import",
         title="Import public types used unqualified in generated tests",
         trigger="A generated Rust test imports a module path but then uses a public struct/enum/type from that module unqualified, causing cannot find type or undeclared type errors.",
@@ -1129,7 +1129,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "src/bin/test.rs",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="generated-test-child-arg-harness",
         title="Use env vars for generated child-process test modes",
         trigger="A generated Rust test respawns `env::current_exe()` with a private flag such as `--child`, but cargo test/libtest rejects the flag with `Unrecognized option: 'child'`.",
@@ -1149,7 +1149,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "child process",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="generated-test-nearest-float-rounding",
         title="Round generated nearest-hundredth helpers",
         trigger="A generated Rust test helper named nearest/nearest_hundredth uses floor-based truncation but assertions expect conventional nearest rounding, usually with a one-cent mismatch such as left 5.85 right 5.86.",
@@ -1170,7 +1170,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "satc",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="generated-test-c-octal-literal",
         title="Convert C-style octal literals in generated tests",
         trigger="A generated Rust test preserves a C integer literal with a leading zero, commonly a file mode such as `00755`, and later file operations fail with FileNotFound or Permission denied.",
@@ -1190,7 +1190,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "mvptree",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="available-rust-api-only",
         title="Do not invent Rust helpers during translation or repair",
         trigger="Compiler errors mention unresolved helpers, missing methods, cannot find function, or a C helper has no translated Rust counterpart.",
@@ -1212,7 +1212,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "lrand48",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="c-prng-sequence-state",
         title="Preserve C PRNG sequence state",
         trigger="C code uses rand, srand, drand48, lrand48, srand48, random, or time-seeded PRNG calls that affect tested observable order.",
@@ -1238,7 +1238,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "random",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="private-reexport-defining-module",
         title="Use the defining module when a re-exported item is private",
         trigger="Compiler errors mention E0603, a struct/enum/function is private, or compiler help says to import an item directly from another module.",
@@ -1261,7 +1261,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "jccc::token::Token",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="enum-variant-return-values",
         title="Return actual Rust enum variants instead of C integer codes",
         trigger="The callable returns a Rust enum and compiler errors mention expected enum found integer, invalid enum casts, failed transmute sizes, or missing C-style variant names.",
@@ -1282,7 +1282,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "RC_WRITE_FAILED",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="enum-tuple-payload-shape",
         title="Match enum tuple variant payload types exactly",
         trigger="Compiler errors mention an enum tuple variant constructor, expected payload type found Box<T>, expected Box<T> found T, or arguments to this enum variant are incorrect.",
@@ -1304,7 +1304,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "Variable(Variable)",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="struct-literal-field-shape",
         title="Build struct literals from the displayed field names and types",
         trigger="Compiler errors mention a struct has no field named X, available fields are listed, or a struct literal field has a mismatched Option/String/PathBuf/File wrapper type.",
@@ -1329,7 +1329,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "ClonableFile",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="dependency-signature-call-shape",
         title="Call translated dependencies with their exact Rust signature shape",
         trigger="Compiler errors mention mismatched argument types, expected reference found owned value, expected mutable reference, or arguments to this function are incorrect.",
@@ -1351,7 +1351,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "borrowing",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="lifetime-parameterized-constructor-fields",
         title="Satisfy lifetime-carrying fields without changing the public signature",
         trigger="Compiler errors mention E0621, explicit lifetime required, or lifetime `'a` required while implementing a constructor inside `impl<'a>` for a struct storing fields such as `T<'a>`.",
@@ -1371,7 +1371,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "PacketSlabNeighbour<'a>",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="collection-helper-return-shape",
         title="Respect collection helper return shape before iterating",
         trigger="Compiler errors say a collection reference is not an iterator, cannot be indexed, or has no iter method after calling a helper such as iterate_collection.",
@@ -1389,7 +1389,7 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
             "CardCollection",
         ),
     ),
-    TranslationInsight(
+    TranslationRule(
         id="balanced-callable-output",
         title="Return one complete balanced callable",
         trigger="Compiler errors mention unclosed delimiter, unexpected closing delimiter, mismatched braces, or a repair response wraps the target in an impl/module.",
@@ -1410,41 +1410,41 @@ DEFAULT_INSIGHTS: tuple[TranslationInsight, ...] = (
 )
 
 
-def select_insights(
+def select_rules(
     text: str,
     *,
-    insights: Sequence[TranslationInsight] = DEFAULT_INSIGHTS,
+    rules: Sequence[TranslationRule] = DEFAULT_RULES,
     limit: int = 5,
-    interaction_scorer: Callable[[TranslationInsight, TranslationInsight], InsightInteraction] | None = None,
-) -> list[TranslationInsight]:
+    interaction_scorer: Callable[[TranslationRule, TranslationRule], RuleInteraction] | None = None,
+) -> list[TranslationRule]:
     return list(
-        select_insights_with_metadata(
+        select_rules_with_metadata(
             text,
-            insights=insights,
+            rules=rules,
             limit=limit,
             interaction_scorer=interaction_scorer,
-        ).insights
+        ).rules
     )
 
 
-def select_insights_with_metadata(
+def select_rules_with_metadata(
     text: str,
     *,
-    insights: Sequence[TranslationInsight] = DEFAULT_INSIGHTS,
+    rules: Sequence[TranslationRule] = DEFAULT_RULES,
     limit: int = 5,
-    interaction_scorer: Callable[[TranslationInsight, TranslationInsight], InsightInteraction] | None = None,
-) -> InsightSelection:
+    interaction_scorer: Callable[[TranslationRule, TranslationRule], RuleInteraction] | None = None,
+) -> RuleSelection:
     haystack = _normalize_text(text)
-    scored: list[tuple[int, int, TranslationInsight]] = []
-    for order, insight in enumerate(insights):
-        score = _score_insight(haystack, insight)
+    scored: list[tuple[int, int, TranslationRule]] = []
+    for order, rule in enumerate(rules):
+        score = _score_rule(haystack, rule)
         if score > 0:
-            scored.append((score, -order, insight))
+            scored.append((score, -order, rule))
 
     scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
     if limit <= 1 or len(scored) <= limit:
-        selected = tuple(insight for _score, _order, insight in scored[: max(limit, 0)])
-        return InsightSelection(
+        selected = tuple(rule for _score, _order, rule in scored[: max(limit, 0)])
+        return RuleSelection(
             selected,
             _score_selected_interactions(selected, interaction_scorer)
             if interaction_scorer is not None
@@ -1457,7 +1457,7 @@ def select_insights_with_metadata(
     )
 
 
-def score_insight_interaction(first: TranslationInsight, second: TranslationInsight) -> InsightInteraction:
+def score_rule_interaction(first: TranslationRule, second: TranslationRule) -> RuleInteraction:
     first_tags = set(first.tags)
     second_tags = set(second.tags)
     shared_tags = first_tags & second_tags
@@ -1497,7 +1497,7 @@ def score_insight_interaction(first: TranslationInsight, second: TranslationInsi
         conflict += 1
 
     independent = max(0, 6 - min(support, 6) - conflict)
-    return InsightInteraction(
+    return RuleInteraction(
         first_id=first.id,
         second_id=second.id,
         support=support,
@@ -1507,49 +1507,49 @@ def score_insight_interaction(first: TranslationInsight, second: TranslationInsi
 
 
 def _score_selected_interactions(
-    selected: Sequence[TranslationInsight],
-    interaction_scorer: Callable[[TranslationInsight, TranslationInsight], InsightInteraction],
-) -> tuple[InsightInteraction, ...]:
-    interactions: list[InsightInteraction] = []
-    for index, insight in enumerate(selected):
-        for selected_insight in selected[:index]:
-            interactions.append(interaction_scorer(insight, selected_insight))
+    selected: Sequence[TranslationRule],
+    interaction_scorer: Callable[[TranslationRule, TranslationRule], RuleInteraction],
+) -> tuple[RuleInteraction, ...]:
+    interactions: list[RuleInteraction] = []
+    for index, rule in enumerate(selected):
+        for selected_rule in selected[:index]:
+            interactions.append(interaction_scorer(rule, selected_rule))
     return tuple(interactions)
 
 
 def _select_interaction_aware_subset(
-    scored: Sequence[tuple[int, int, TranslationInsight]],
+    scored: Sequence[tuple[int, int, TranslationRule]],
     *,
     limit: int,
-    interaction_scorer: Callable[[TranslationInsight, TranslationInsight], InsightInteraction] | None = None,
-) -> InsightSelection:
+    interaction_scorer: Callable[[TranslationRule, TranslationRule], RuleInteraction] | None = None,
+) -> RuleSelection:
     pool = list(scored[: max(limit * 3, limit)])
-    selected_items: list[tuple[int, int, TranslationInsight]] = [pool.pop(0)]
-    selected_interactions: list[InsightInteraction] = []
+    selected_items: list[tuple[int, int, TranslationRule]] = [pool.pop(0)]
+    selected_interactions: list[RuleInteraction] = []
 
     while pool and len(selected_items) < limit:
         selected = [item[2] for item in selected_items]
-        selected_tags = {tag for insight in selected for tag in insight.tags}
+        selected_tags = {tag for rule in selected for tag in rule.tags}
         best_index = 0
         best_key: tuple[int, int, int] | None = None
-        best_interactions: list[InsightInteraction] = []
+        best_interactions: list[RuleInteraction] = []
 
         for index, item in enumerate(pool):
-            relevance, order, insight = item
-            tags = set(insight.tags)
+            relevance, order, rule = item
+            tags = set(rule.tags)
             coverage = len(tags - selected_tags) * 3
             duplicate_penalty = len(tags & selected_tags)
             interaction_score = 0
-            candidate_interactions: list[InsightInteraction] = []
-            for selected_insight in selected:
+            candidate_interactions: list[RuleInteraction] = []
+            for selected_rule in selected:
                 interaction = (
-                    interaction_scorer(insight, selected_insight)
+                    interaction_scorer(rule, selected_rule)
                     if interaction_scorer is not None
-                    else score_insight_interaction(insight, selected_insight)
+                    else score_rule_interaction(rule, selected_rule)
                 )
                 candidate_interactions.append(interaction)
                 interaction_score += interaction.support - interaction.conflict * 4
-                interaction_score -= empirical_weak_pair_penalty(insight.id, selected_insight.id)
+                interaction_score -= empirical_weak_pair_penalty(rule.id, selected_rule.id)
             key = (
                 relevance * 10 + coverage + interaction_score - duplicate_penalty,
                 relevance,
@@ -1563,41 +1563,41 @@ def _select_interaction_aware_subset(
         selected_items.append(pool.pop(best_index))
         selected_interactions.extend(best_interactions)
 
-    return InsightSelection(
-        tuple(insight for _score, _order, insight in selected_items),
+    return RuleSelection(
+        tuple(rule for _score, _order, rule in selected_items),
         tuple(selected_interactions),
     )
 
 
-def load_insight_library(path: str | Path) -> InsightLibrary:
+def load_rule_library(path: str | Path) -> RuleLibrary:
     library_path = Path(path).expanduser().resolve()
     if not library_path.is_file():
-        raise FileNotFoundError(f"Insight library not found: {library_path}")
+        raise FileNotFoundError(f"Rule library not found: {library_path}")
 
-    module_name = f"_trail_insights_{abs(hash(library_path))}"
+    module_name = f"_trail_rules_{abs(hash(library_path))}"
     spec = importlib.util.spec_from_file_location(module_name, library_path)
     if spec is None or spec.loader is None:
-        raise ImportError(f"Cannot import insight library: {library_path}")
+        raise ImportError(f"Cannot import rule library: {library_path}")
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
     spec.loader.exec_module(module)
 
-    insights = getattr(module, "DEFAULT_INSIGHTS", None)
-    if insights is None:
-        raise ValueError(f"Insight library {library_path} does not define DEFAULT_INSIGHTS")
-    selector = getattr(module, "select_insights", select_insights)
-    return InsightLibrary(insights=tuple(insights), select=selector, path=library_path)
+    rules = getattr(module, "DEFAULT_RULES", None)
+    if rules is None:
+        raise ValueError(f"Rule library {library_path} does not define DEFAULT_RULES")
+    selector = getattr(module, "select_rules", select_rules)
+    return RuleLibrary(rules=tuple(rules), select=selector, path=library_path)
 
 
-def format_insight_context(insights: Iterable[TranslationInsight | dict]) -> str:
+def format_rule_context(rules: Iterable[TranslationRule | dict]) -> str:
     rendered: list[str] = []
-    for raw in insights:
+    for raw in rules:
         item = raw.to_prompt_dict() if hasattr(raw, "to_prompt_dict") else raw
-        insight_id = str(item.get("id", ""))
-        if not insight_id:
+        rule_id = str(item.get("id", ""))
+        if not rule_id:
             continue
         lines = [
-            f"- {insight_id}: {item.get('title', '')}",
+            f"- {rule_id}: {item.get('title', '')}",
             f"  Trigger: {item.get('trigger', '')}",
             f"  Goal: {item.get('goal', '')}",
             f"  Constraint: {item.get('constraint', '')}",
@@ -1622,14 +1622,14 @@ def format_insight_context(insights: Iterable[TranslationInsight | dict]) -> str
             "\n".join(lines)
         )
     if not rendered:
-        return "No selected translation insights."
+        return "No selected translation rules."
     return "\n".join(rendered)
 
 
-def _score_insight(haystack: str, insight: TranslationInsight) -> int:
+def _score_rule(haystack: str, rule: TranslationRule) -> int:
     keyword_score = 0
     haystack_tokens = set(_tokens(haystack))
-    for keyword in insight.keywords:
+    for keyword in rule.keywords:
         needle = _normalize_text(keyword)
         if not needle:
             continue
@@ -1646,7 +1646,7 @@ def _score_insight(haystack: str, insight: TranslationInsight) -> int:
         return 0
 
     support_score = 0
-    for field in (insight.trigger, insight.goal, insight.constraint, insight.risk, insight.guidance):
+    for field in (rule.trigger, rule.goal, rule.constraint, rule.risk, rule.guidance):
         for token in _tokens(field):
             if len(token) >= 5 and token in haystack_tokens:
                 support_score += 1

@@ -56,27 +56,27 @@ def generate_translation_report(
     success: bool,
     alignment_stats: Optional[Dict[str, Any]] = None,
     max_test_fix_attempts: int = 3,
-    insights_enabled: bool = True,
-    insight_limit: int = 5,
-    insights_path: str = "",
-    insights_json_bank_path: str = "",
-    insight_interaction_scorer: str = "",
-    insight_retrieval_backend_preference: str = "",
-    insight_retrieval_index_cache_path: str = "",
-    insight_retrieval_backend: str = "",
-    insight_retrieval_status: str = "",
-    insight_retrieval_cache_status: str = "",
+    rules_enabled: bool = True,
+    rule_limit: int = 5,
+    rules_path: str = "",
+    rules_json_bank_path: str = "",
+    rule_interaction_scorer: str = "",
+    rule_retrieval_backend_preference: str = "",
+    rule_retrieval_index_cache_path: str = "",
+    rule_retrieval_backend: str = "",
+    rule_retrieval_status: str = "",
+    rule_retrieval_cache_status: str = "",
     experiment_profile: str = "custom",
     experiment_ablation_label: str = "custom",
-    insight_stage: str = "custom",
-    insight_mining: bool = True,
-    single_insight_adversarial_learning: bool = False,
-    compositional_insight_adversarial_learning: bool = False,
+    rule_stage: str = "custom",
+    rule_mining: bool = True,
+    single_rule_adversarial_learning: bool = False,
+    compositional_rule_adversarial_learning: bool = False,
     adversarial_rounds: int = 0,
-    online_adversarial_insights: bool = False,
-    adversarial_insight_bank_path: str = "",
-    adversarial_insight_output_bank_path: str = "",
-    adversarial_insight_report_path: str = "",
+    online_adversarial_rules: bool = False,
+    adversarial_rule_bank_path: str = "",
+    adversarial_rule_output_bank_path: str = "",
+    adversarial_rule_report_path: str = "",
     adversarial_learning_options: Optional[Dict[str, Any]] = None,
     model_display_name: str = "",
     test_fix_history: Optional[list] = None,
@@ -94,27 +94,27 @@ def generate_translation_report(
             "output_dir": str(output_dir),
             "max_fix_attempts": max_fix_attempts,
             "max_test_fix_attempts": max_test_fix_attempts,
-            "insights_enabled": insights_enabled,
-            "insight_limit": insight_limit,
-            "insights_path": insights_path,
-            "insights_json_bank_path": insights_json_bank_path,
-            "insight_interaction_scorer": insight_interaction_scorer,
-            "insight_retrieval_backend_preference": insight_retrieval_backend_preference,
-            "insight_retrieval_index_cache_path": insight_retrieval_index_cache_path,
-            "insight_retrieval_backend": insight_retrieval_backend,
-            "insight_retrieval_status": insight_retrieval_status,
-            "insight_retrieval_cache_status": insight_retrieval_cache_status,
+            "rules_enabled": rules_enabled,
+            "rule_limit": rule_limit,
+            "rules_path": rules_path,
+            "rules_json_bank_path": rules_json_bank_path,
+            "rule_interaction_scorer": rule_interaction_scorer,
+            "rule_retrieval_backend_preference": rule_retrieval_backend_preference,
+            "rule_retrieval_index_cache_path": rule_retrieval_index_cache_path,
+            "rule_retrieval_backend": rule_retrieval_backend,
+            "rule_retrieval_status": rule_retrieval_status,
+            "rule_retrieval_cache_status": rule_retrieval_cache_status,
             "experiment_profile": experiment_profile,
             "experiment_ablation_label": experiment_ablation_label,
-            "insight_stage": insight_stage,
-            "insight_mining": insight_mining,
-            "single_insight_adversarial_learning": single_insight_adversarial_learning,
-            "compositional_insight_adversarial_learning": compositional_insight_adversarial_learning,
+            "rule_stage": rule_stage,
+            "rule_mining": rule_mining,
+            "single_rule_adversarial_learning": single_rule_adversarial_learning,
+            "compositional_rule_adversarial_learning": compositional_rule_adversarial_learning,
             "adversarial_rounds": adversarial_rounds,
-            "online_adversarial_insights": online_adversarial_insights,
-            "adversarial_insight_bank_path": adversarial_insight_bank_path,
-            "adversarial_insight_output_bank_path": adversarial_insight_output_bank_path,
-            "adversarial_insight_report_path": adversarial_insight_report_path,
+            "online_adversarial_rules": online_adversarial_rules,
+            "adversarial_rule_bank_path": adversarial_rule_bank_path,
+            "adversarial_rule_output_bank_path": adversarial_rule_output_bank_path,
+            "adversarial_rule_report_path": adversarial_rule_report_path,
             "adversarial_learning_options": _normalize_adversarial_learning_options(
                 adversarial_learning_options
             ),
@@ -223,7 +223,7 @@ def _adversarial_refinement_totals(
     writeback_errors = 0
     writeback_paths: set[str] = set()
 
-    for item in _iter_selected_insights(translation_history, test_fix_history):
+    for item in _iter_selected_rules(translation_history, test_fix_history):
         refinement = item.get("pre_translation_refinement") if isinstance(item, dict) else None
         if not isinstance(refinement, dict):
             continue
@@ -248,19 +248,19 @@ def _adversarial_refinement_totals(
     }
 
 
-def _iter_selected_insights(
+def _iter_selected_rules(
     translation_history: Dict[Tuple[str, str, str], Dict[str, Any]],
     test_fix_history: Optional[list] = None,
 ):
     for history in translation_history.values():
-        for item in history.get("selected_insights") or []:
+        for item in history.get("selected_rules") or []:
             yield item
         for attempt in history.get("compilation_attempts", []) or []:
-            for item in attempt.get("selected_insights") or []:
+            for item in attempt.get("selected_rules") or []:
                 yield item
 
     for attempt in test_fix_history or []:
-        for item in attempt.get("selected_insights") or []:
+        for item in attempt.get("selected_rules") or []:
             yield item
 
 

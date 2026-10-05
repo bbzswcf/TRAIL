@@ -12,14 +12,14 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Callable, Iterable, Sequence
 
-COMPOSITION_MAX_INSIGHTS = 3
+COMPOSITION_MAX_RULES = 3
 COMPOSITION_SUPPORT_WEIGHT = 1.0
 COMPOSITION_CONFLICT_WEIGHT = 1.0
 COMPOSITION_CONFLICT_THRESHOLD = 0.7
 
 
 @dataclass(frozen=True)
-class InsightRecord:
+class RuleRecord:
     id: str
     title: str
     trigger: str
@@ -65,7 +65,7 @@ class InsightRecord:
         }
 
     @classmethod
-    def from_dict(cls, raw: dict) -> "InsightRecord":
+    def from_dict(cls, raw: dict) -> "RuleRecord":
         return cls(
             id=str(raw.get("id", "")),
             title=str(raw.get("title", "")),
@@ -83,7 +83,7 @@ class InsightRecord:
 
 
 @dataclass(frozen=True)
-class InsightRelationRecord:
+class RuleRelationRecord:
     first_id: str
     second_id: str
     relation: str
@@ -102,7 +102,7 @@ class InsightRelationRecord:
         }
 
     @classmethod
-    def from_dict(cls, raw: dict) -> "InsightRelationRecord":
+    def from_dict(cls, raw: dict) -> "RuleRelationRecord":
         return cls(
             first_id=str(raw.get("first_id", "")),
             second_id=str(raw.get("second_id", "")),
@@ -114,9 +114,9 @@ class InsightRelationRecord:
 
 
 @dataclass
-class InsightBank:
-    records: list[InsightRecord] = field(default_factory=list)
-    relations: list[InsightRelationRecord] = field(default_factory=list)
+class RuleBank:
+    records: list[RuleRecord] = field(default_factory=list)
+    relations: list[RuleRelationRecord] = field(default_factory=list)
 
     def save(self, path: str | Path) -> Path:
         bank_path = Path(path)
@@ -124,7 +124,7 @@ class InsightBank:
         bank_path.write_text(
             json.dumps(
                 {
-                    "insights": [record.to_dict() for record in self.records],
+                    "rules": [record.to_dict() for record in self.records],
                     "relations": [relation.to_dict() for relation in self.relations],
                 },
                 indent=2,
@@ -134,20 +134,20 @@ class InsightBank:
         return bank_path
 
     @classmethod
-    def load(cls, path: str | Path) -> "InsightBank":
+    def load(cls, path: str | Path) -> "RuleBank":
         raw = json.loads(Path(path).read_text(encoding="utf-8"))
         return cls(
-            [InsightRecord.from_dict(item) for item in raw.get("insights", [])],
-            [InsightRelationRecord.from_dict(item) for item in raw.get("relations", [])],
+            [RuleRecord.from_dict(item) for item in raw.get("rules", [])],
+            [RuleRelationRecord.from_dict(item) for item in raw.get("relations", [])],
         )
 
     @classmethod
-    def from_legacy(cls, insights: Iterable[object]) -> "InsightBank":
-        records: list[InsightRecord] = []
-        for insight in insights:
-            item = insight.to_prompt_dict() if hasattr(insight, "to_prompt_dict") else dict(insight)
+    def from_legacy(cls, rules: Iterable[object]) -> "RuleBank":
+        records: list[RuleRecord] = []
+        for rule in rules:
+            item = rule.to_prompt_dict() if hasattr(rule, "to_prompt_dict") else dict(rule)
             records.append(
-                InsightRecord(
+                RuleRecord(
                     id=str(item.get("id", "")),
                     title=str(item.get("title", "")),
                     trigger=str(item.get("trigger", "")),
@@ -156,7 +156,7 @@ class InsightBank:
                     risk=str(item.get("risk", "")),
                     guidance=str(item.get("guidance", "")),
                     tags=tuple(str(tag) for tag in item.get("tags", ())),
-                    keywords=tuple(str(keyword) for keyword in getattr(insight, "keywords", ())),
+                    keywords=tuple(str(keyword) for keyword in getattr(rule, "keywords", ())),
                     source="legacy",
                 )
             )
@@ -172,7 +172,7 @@ class RetrievalStatus:
 class RetrievalEngine:
     def __init__(
         self,
-        bank: InsightBank,
+        bank: RuleBank,
         *,
         prefer_embeddings: bool = False,
         index_cache_path: str | Path | None = None,
@@ -187,7 +187,7 @@ class RetrievalEngine:
         self.faiss_module = faiss_module
         self.find_spec = find_spec or importlib.util.find_spec
         self.embedding_index = None
-        self.embedding_records: list[InsightRecord] = []
+        self.embedding_records: list[RuleRecord] = []
         self.status = self._configure_backend(prefer_embeddings)
         if self.status.backend == "faiss-bge":
             self._build_embedding_index()
@@ -280,7 +280,7 @@ class RetrievalEngine:
             return
         self.cache_status = "written"
 
-    def select(self, query: str, *, limit: int = 5) -> list[InsightRecord]:
+    def select(self, query: str, *, limit: int = 5) -> list[RuleRecord]:
         if limit <= 0:
             return []
         if self.status.backend == "faiss-bge" and self.embedding_index is not None:
@@ -290,12 +290,12 @@ class RetrievalEngine:
                 return self._select_keyword(query, limit=limit)
         return self._select_keyword(query, limit=limit)
 
-    def _select_embedding(self, query: str, *, limit: int) -> list[InsightRecord]:
+    def _select_embedding(self, query: str, *, limit: int) -> list[RuleRecord]:
         query_vectors = self._encode([query])
         if not query_vectors:
             return []
         scores, indexes = self.embedding_index.search(_float_matrix(query_vectors), limit)
-        selected: list[InsightRecord] = []
+        selected: list[RuleRecord] = []
         for score, index in zip(list(scores[0]), list(indexes[0])):
             if index < 0 or index >= len(self.embedding_records) or float(score) <= 0.0:
                 continue
@@ -308,8 +308,8 @@ class RetrievalEngine:
             vectors = vectors.tolist()
         return [list(vector) for vector in vectors]
 
-    def _select_keyword(self, query: str, *, limit: int = 5) -> list[InsightRecord]:
-        scored: list[tuple[int, int, InsightRecord]] = []
+    def _select_keyword(self, query: str, *, limit: int = 5) -> list[RuleRecord]:
+        scored: list[tuple[int, int, RuleRecord]] = []
         normalized = _normalize(query)
         query_tokens = set(_tokens(normalized))
         for order, record in enumerate(self.bank.records):
@@ -329,7 +329,7 @@ class RetrievalEngine:
         return [record for _score, _order, record in scored[: max(limit, 0)]]
 
 
-def _record_retrieval_text(record: InsightRecord) -> str:
+def _record_retrieval_text(record: RuleRecord) -> str:
     return " ".join(
         [
             record.id,
@@ -345,7 +345,7 @@ def _record_retrieval_text(record: InsightRecord) -> str:
     )
 
 
-def _bank_fingerprint(bank: InsightBank) -> str:
+def _bank_fingerprint(bank: RuleBank) -> str:
     payload = json.dumps([record.to_dict() for record in bank.records], sort_keys=True)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
@@ -390,7 +390,7 @@ class ExecutionEvidence:
 
 @dataclass(frozen=True)
 class ChallengeRecord:
-    insight_id: str
+    rule_id: str
     c_program: str
     rust_interface: str
     harness: str
@@ -404,7 +404,7 @@ class ChallengeRecord:
     def fingerprint(self) -> str:
         payload = "\n".join(
             [
-                self.insight_id,
+                self.rule_id,
                 self.c_program,
                 self.rust_interface,
                 self.harness,
@@ -428,27 +428,27 @@ class ChallengeRecord:
 
 
 class SyntheticChallengeGenerator:
-    def generate(self, insight: InsightRecord) -> ChallengeRecord:
-        if _is_string_boundary_insight(insight):
-            return self._string_boundary_challenge(insight)
-        if _is_pointer_length_insight(insight):
-            return self._pointer_length_challenge(insight)
-        if _is_callback_user_data_state_insight(insight):
-            return self._callback_user_data_state_challenge(insight)
-        if _is_parser_cursor_state_insight(insight):
-            return self._parser_cursor_state_challenge(insight)
-        if _is_prng_state_insight(insight):
-            return self._prng_sequence_challenge(insight)
-        return self._default_challenge(insight)
+    def generate(self, rule: RuleRecord) -> ChallengeRecord:
+        if _is_string_boundary_rule(rule):
+            return self._string_boundary_challenge(rule)
+        if _is_pointer_length_rule(rule):
+            return self._pointer_length_challenge(rule)
+        if _is_callback_user_data_state_rule(rule):
+            return self._callback_user_data_state_challenge(rule)
+        if _is_parser_cursor_state_rule(rule):
+            return self._parser_cursor_state_challenge(rule)
+        if _is_prng_state_rule(rule):
+            return self._prng_sequence_challenge(rule)
+        return self._default_challenge(rule)
 
-    def _string_boundary_challenge(self, insight: InsightRecord) -> ChallengeRecord:
+    def _string_boundary_challenge(self, rule: RuleRecord) -> ChallengeRecord:
         c_program = "\n".join(
             [
                 "/*",
-                f"Insight: {insight.id}",
-                f"Trigger: {insight.trigger}",
-                f"Constraint: {insight.constraint}",
-                f"Risk: {insight.risk}",
+                f"Rule: {rule.id}",
+                f"Trigger: {rule.trigger}",
+                f"Constraint: {rule.constraint}",
+                f"Risk: {rule.risk}",
                 "*/",
                 "#include <stddef.h>",
                 "",
@@ -474,7 +474,7 @@ class SyntheticChallengeGenerator:
             "bytes after the first NUL are storage padding and must not affect equality."
         )
         return ChallengeRecord(
-            insight_id=insight.id,
+            rule_id=rule.id,
             c_program=c_program,
             rust_interface=rust_interface,
             harness=harness,
@@ -483,14 +483,14 @@ class SyntheticChallengeGenerator:
             trace_bundle={"reference_source": _synthetic_reference_source("string_boundary")},
         )
 
-    def _pointer_length_challenge(self, insight: InsightRecord) -> ChallengeRecord:
+    def _pointer_length_challenge(self, rule: RuleRecord) -> ChallengeRecord:
         c_program = "\n".join(
             [
                 "/*",
-                f"Insight: {insight.id}",
-                f"Trigger: {insight.trigger}",
-                f"Constraint: {insight.constraint}",
-                f"Risk: {insight.risk}",
+                f"Rule: {rule.id}",
+                f"Trigger: {rule.trigger}",
+                f"Constraint: {rule.constraint}",
+                f"Risk: {rule.risk}",
                 "*/",
                 "#include <stddef.h>",
                 "",
@@ -512,11 +512,11 @@ class SyntheticChallengeGenerator:
             ]
         )
         oracle = (
-            f"{insight.goal} The translated result must preserve the explicit buffer length, "
+            f"{rule.goal} The translated result must preserve the explicit buffer length, "
             "including interior zero bytes and trailing bytes."
         )
         return ChallengeRecord(
-            insight_id=insight.id,
+            rule_id=rule.id,
             c_program=c_program,
             rust_interface=rust_interface,
             harness=harness,
@@ -525,14 +525,14 @@ class SyntheticChallengeGenerator:
             trace_bundle={"reference_source": _synthetic_reference_source("pointer_length")},
         )
 
-    def _parser_cursor_state_challenge(self, insight: InsightRecord) -> ChallengeRecord:
+    def _parser_cursor_state_challenge(self, rule: RuleRecord) -> ChallengeRecord:
         c_program = "\n".join(
             [
                 "/*",
-                f"Insight: {insight.id}",
-                f"Trigger: {insight.trigger}",
-                f"Constraint: {insight.constraint}",
-                f"Risk: {insight.risk}",
+                f"Rule: {rule.id}",
+                f"Trigger: {rule.trigger}",
+                f"Constraint: {rule.constraint}",
+                f"Risk: {rule.risk}",
                 "*/",
                 "#include <stddef.h>",
                 "",
@@ -575,11 +575,11 @@ class SyntheticChallengeGenerator:
             ]
         )
         oracle = (
-            f"{insight.goal} The translated parser must keep one shared parser cursor "
+            f"{rule.goal} The translated parser must keep one shared parser cursor "
             "and consumed byte offset across parse and consume helper steps."
         )
         return ChallengeRecord(
-            insight_id=insight.id,
+            rule_id=rule.id,
             c_program=c_program,
             rust_interface=rust_interface,
             harness=harness,
@@ -588,14 +588,14 @@ class SyntheticChallengeGenerator:
             trace_bundle={"reference_source": _synthetic_reference_source("parser_cursor_state")},
         )
 
-    def _prng_sequence_challenge(self, insight: InsightRecord) -> ChallengeRecord:
+    def _prng_sequence_challenge(self, rule: RuleRecord) -> ChallengeRecord:
         c_program = "\n".join(
             [
                 "/*",
-                f"Insight: {insight.id}",
-                f"Trigger: {insight.trigger}",
-                f"Constraint: {insight.constraint}",
-                f"Risk: {insight.risk}",
+                f"Rule: {rule.id}",
+                f"Trigger: {rule.trigger}",
+                f"Constraint: {rule.constraint}",
+                f"Risk: {rule.risk}",
                 "*/",
                 "",
                 "typedef struct PrngPair {",
@@ -625,11 +625,11 @@ class SyntheticChallengeGenerator:
             ]
         )
         oracle = (
-            f"{insight.goal} The translated code must preserve deterministic PRNG state "
+            f"{rule.goal} The translated code must preserve deterministic PRNG state "
             "advancement across consecutive calls from the same seed."
         )
         return ChallengeRecord(
-            insight_id=insight.id,
+            rule_id=rule.id,
             c_program=c_program,
             rust_interface=rust_interface,
             harness=harness,
@@ -638,14 +638,14 @@ class SyntheticChallengeGenerator:
             trace_bundle={"reference_source": _synthetic_reference_source("prng_sequence")},
         )
 
-    def _callback_user_data_state_challenge(self, insight: InsightRecord) -> ChallengeRecord:
+    def _callback_user_data_state_challenge(self, rule: RuleRecord) -> ChallengeRecord:
         c_program = "\n".join(
             [
                 "/*",
-                f"Insight: {insight.id}",
-                f"Trigger: {insight.trigger}",
-                f"Constraint: {insight.constraint}",
-                f"Risk: {insight.risk}",
+                f"Rule: {rule.id}",
+                f"Trigger: {rule.trigger}",
+                f"Constraint: {rule.constraint}",
+                f"Risk: {rule.risk}",
                 "*/",
                 "#include <stddef.h>",
                 "",
@@ -691,12 +691,12 @@ class SyntheticChallengeGenerator:
             ]
         )
         oracle = (
-            f"{insight.goal} The translated traversal must preserve callback user_data state "
+            f"{rule.goal} The translated traversal must preserve callback user_data state "
             "across each invocation instead of reinitializing counters or accumulators inside "
             "the callback body."
         )
         return ChallengeRecord(
-            insight_id=insight.id,
+            rule_id=rule.id,
             c_program=c_program,
             rust_interface=rust_interface,
             harness=harness,
@@ -705,15 +705,15 @@ class SyntheticChallengeGenerator:
             trace_bundle={"reference_source": _synthetic_reference_source("callback_user_data_state")},
         )
 
-    def _default_challenge(self, insight: InsightRecord) -> ChallengeRecord:
+    def _default_challenge(self, rule: RuleRecord) -> ChallengeRecord:
         c_program = "\n".join(
             [
                 "/*",
-                f"Insight: {insight.id}",
-                f"Trigger: {insight.trigger}",
-                f"Goal: {insight.goal}",
-                f"Constraint: {insight.constraint}",
-                f"Risk: {insight.risk}",
+                f"Rule: {rule.id}",
+                f"Trigger: {rule.trigger}",
+                f"Goal: {rule.goal}",
+                f"Constraint: {rule.constraint}",
+                f"Risk: {rule.risk}",
                 "*/",
                 "typedef struct ChallengeState {",
                 "    int count;",
@@ -736,11 +736,11 @@ class SyntheticChallengeGenerator:
             ]
         )
         oracle = (
-            f"{insight.goal} The translated result must preserve the observable "
+            f"{rule.goal} The translated result must preserve the observable "
             "count/capacity pair from the C challenge state."
         )
         return ChallengeRecord(
-            insight_id=insight.id,
+            rule_id=rule.id,
             c_program=c_program,
             rust_interface=rust_interface,
             harness=harness,
@@ -810,61 +810,61 @@ def _synthetic_reference_source(kind: str) -> str:
     return sources[kind]
 
 
-def _is_string_boundary_insight(insight: InsightRecord) -> bool:
+def _is_string_boundary_rule(rule: RuleRecord) -> bool:
     text = _normalize(
         " ".join(
             [
-                insight.trigger,
-                insight.goal,
-                insight.constraint,
-                insight.risk,
-                insight.guidance,
-                " ".join(insight.tags),
-                " ".join(insight.keywords),
+                rule.trigger,
+                rule.goal,
+                rule.constraint,
+                rule.risk,
+                rule.guidance,
+                " ".join(rule.tags),
+                " ".join(rule.keywords),
             ]
         )
     )
     return any(marker in text for marker in ("nul", "string", "char array", "utf8 lossy"))
 
 
-def _is_pointer_length_insight(insight: InsightRecord) -> bool:
-    text = _normalize_record_text(insight)
+def _is_pointer_length_rule(rule: RuleRecord) -> bool:
+    text = _normalize_record_text(rule)
     return any(marker in text for marker in ("pointer", "buffer", "slice")) and "length" in text
 
 
-def _is_callback_user_data_state_insight(insight: InsightRecord) -> bool:
-    text = _normalize_record_text(insight)
+def _is_callback_user_data_state_rule(rule: RuleRecord) -> bool:
+    text = _normalize_record_text(rule)
     callback_terms = ("callback", "handler", "visitor")
     user_data_terms = ("user data", "user_data", "baton", "context pointer")
     return any(term in text for term in callback_terms) and any(term in text for term in user_data_terms)
 
 
-def _is_parser_cursor_state_insight(insight: InsightRecord) -> bool:
-    text = _normalize_record_text(insight)
+def _is_parser_cursor_state_rule(rule: RuleRecord) -> bool:
+    text = _normalize_record_text(rule)
     parser_terms = ("parser", "parse", "scanner", "token")
     state_terms = ("cursor", "consume", "consumed", "lookahead", "state")
     return any(term in text for term in parser_terms) and any(term in text for term in state_terms)
 
 
-def _is_prng_state_insight(insight: InsightRecord) -> bool:
-    text = _normalize_record_text(insight)
+def _is_prng_state_rule(rule: RuleRecord) -> bool:
+    text = _normalize_record_text(rule)
     prng_terms = ("prng", "rand", "random", "lrand48", "drand48", "srand", "seed")
     state_terms = ("state", "sequence", "seed", "deterministic")
     return any(term in text for term in prng_terms) and any(term in text for term in state_terms)
 
 
 class CompositionalChallengeGenerator:
-    def generate(self, insights: Sequence[InsightRecord]) -> ChallengeRecord:
-        if not insights:
-            raise ValueError("At least one insight is required for a compositional challenge")
-        insight_ids = [insight.id for insight in insights]
+    def generate(self, rules: Sequence[RuleRecord]) -> ChallengeRecord:
+        if not rules:
+            raise ValueError("At least one rule is required for a compositional challenge")
+        rule_ids = [rule.id for rule in rules]
         c_program = "\n".join(
             [
                 "/*",
-                "Compositional insight challenge",
+                "Compositional rule challenge",
                 *[
-                    f"- {insight.id}: trigger={insight.trigger}; constraint={insight.constraint}; risk={insight.risk}"
-                    for insight in insights
+                    f"- {rule.id}: trigger={rule.trigger}; constraint={rule.constraint}; risk={rule.risk}"
+                    for rule in rules
                 ],
                 "*/",
                 "#include <stddef.h>",
@@ -888,20 +888,20 @@ class CompositionalChallengeGenerator:
         harness = "\n".join(
             [
                 "#[test]",
-                "fn challenge_joint_insight_contract() {",
+                "fn challenge_joint_rule_contract() {",
                 "    let input = b\"abc\\0xyz\\0\";",
                 "    assert_eq!(challenge_composition(input, 2, 8), (\"abc\".to_string(), 2, 8));",
                 "}",
             ]
         )
         oracle = (
-            "The translation must jointly satisfy the selected insights: "
-            + ", ".join(insight_ids)
+            "The translation must jointly satisfy the selected rules: "
+            + ", ".join(rule_ids)
             + ". String-visible output stops at the first NUL while count and capacity remain observable."
         )
-        dependency_probes = _composition_dependency_probes(insights)
+        dependency_probes = _composition_dependency_probes(rules)
         return ChallengeRecord(
-            insight_id="composition:" + "+".join(insight_ids),
+            rule_id="composition:" + "+".join(rule_ids),
             c_program=c_program,
             rust_interface=rust_interface,
             harness=harness,
@@ -911,16 +911,16 @@ class CompositionalChallengeGenerator:
         )
 
 
-def _composition_dependency_probes(insights: Sequence[InsightRecord]) -> dict:
+def _composition_dependency_probes(rules: Sequence[RuleRecord]) -> dict:
     return {
         "reference_source": _composition_reference_source(),
         "mutants": [
             {
-                "insight_id": insight.id,
-                "kind": _composition_mutant_kind(insight),
-                "rust_source": _composition_mutant_source(_composition_mutant_kind(insight)),
+                "rule_id": rule.id,
+                "kind": _composition_mutant_kind(rule),
+                "rust_source": _composition_mutant_source(_composition_mutant_kind(rule)),
             }
-            for insight in insights
+            for rule in rules
         ],
     }
 
@@ -941,8 +941,8 @@ def _composition_reference_source() -> str:
     )
 
 
-def _composition_mutant_kind(insight: InsightRecord) -> str:
-    text = _normalize_record_text(insight)
+def _composition_mutant_kind(rule: RuleRecord) -> str:
+    text = _normalize_record_text(rule)
     if any(term in text for term in ("nul", "string", "char array", "utf8 lossy")):
         return "string_boundary"
     if any(term in text for term in ("capacity", "count", "layout")):
@@ -981,19 +981,19 @@ def _composition_mutant_source(kind: str) -> str:
 
 
 CHALLENGER_OUTPUT_SCHEMA = {
-    "insight_id": "string; must match the input insight id",
-    "c_program": "string; self-contained C snippet that activates the insight",
+    "rule_id": "string; must match the input rule id",
+    "c_program": "string; self-contained C snippet that activates the rule",
     "rust_interface": "string; Rust signature ending with semicolon",
     "harness": "string; Rust test harness with at least one assertion",
     "oracle": "string; expected semantic property checked by the harness",
-    "activation_predicate": "optional string; why the challenge activates the insight",
+    "activation_predicate": "optional string; why the challenge activates the rule",
     "rationale": "optional string; short generation rationale",
 }
 
 REFINER_OUTPUT_SCHEMA = {
-    "insight_id": "string; must match the input insight id",
+    "rule_id": "string; must match the input rule id",
     "field": "one of trigger, goal, constraint, risk",
-    "new_text": "string; replacement text for the selected insight field",
+    "new_text": "string; replacement text for the selected rule field",
     "rationale": "string; why the update addresses the failure",
     "failure_kind": "optional string; trigger_gap, goal_mismatch, constraint_violation, missing_risk, translator_noise, invalid_challenge, or non_actionable_success",
     "actionable": "optional boolean; false rejects the proposal",
@@ -1005,7 +1005,7 @@ ORACLE_VALIDATOR_OUTPUT_SCHEMA = {
 }
 
 ACTIVATION_VALIDATOR_OUTPUT_SCHEMA = {
-    "activates": "boolean; true only when the challenge exercises the input insight",
+    "activates": "boolean; true only when the challenge exercises the input rule",
     "reason": "string; short explanation of the validation decision",
 }
 
@@ -1021,15 +1021,15 @@ TRACE_SYNTHESIZER_OUTPUT_SCHEMA = {
 }
 
 TRACE_CONTRADICTION_REVIEW_OUTPUT_SCHEMA = {
-    "contradicts": "boolean; true only when the candidate semantically conflicts with existing insights",
+    "contradicts": "boolean; true only when the candidate semantically conflicts with existing rules",
     "reason": "string; short explanation for the decision",
-    "conflicting_insight_id": "optional string; existing insight id most directly involved in the conflict",
+    "conflicting_rule_id": "optional string; existing rule id most directly involved in the conflict",
 }
 
 COMPOSITION_RELATION_REVIEW_OUTPUT_SCHEMA = {
     "relation": "one of: supports, requires, precedes, none",
-    "first_id": "optional insight id for the directed relation source; defaults to the first insight",
-    "second_id": "optional insight id for the directed relation target; defaults to the second insight",
+    "first_id": "optional rule id for the directed relation source; defaults to the first rule",
+    "second_id": "optional rule id for the directed relation target; defaults to the second rule",
     "rationale": "string; why the gated composition evidence implies this relation",
 }
 
@@ -1040,11 +1040,11 @@ LLM_JSON_ONLY_CONTRACT = (
 )
 
 LLM_STRUCTURED_CHALLENGER_SYSTEM = (
-    "You are the Challenger in an adversarial Rust translation insight loop. "
-    "Generate one executable challenge that activates the input insight: a "
+    "You are the Challenger in an adversarial Rust translation rule loop. "
+    "Generate one executable challenge that activates the input rule: a "
     "self-contained C snippet, a Rust interface, an assertion harness, and an "
     "oracle that states the semantic property being checked. Preserve the exact "
-    "input insight_id and do not invent project-local paths or fixtures. Make "
+    "input rule_id and do not invent project-local paths or fixtures. Make "
     "the challenge a minimal counterexample, not a broad benchmark; the harness "
     "must call the declared Rust interface and assert observable behavior from "
     "the oracle. Do not rely on external files, randomness, wall clock time, "
@@ -1053,21 +1053,21 @@ LLM_STRUCTURED_CHALLENGER_SYSTEM = (
 )
 
 LLM_STRUCTURED_REFINER_SYSTEM = (
-    "You are the Refiner in an adversarial Rust translation insight loop. "
+    "You are the Refiner in an adversarial Rust translation rule loop. "
     "Propose the smallest evidence-backed update to trigger, goal, constraint, "
     "or risk; EvidenceGate replay must still be able to approve it before any "
     "bank write. Mark actionable=false for invalid challenges, translator noise, "
     "or non-actionable successes, and avoid project-specific patches. Preserve "
-    "the insight id, title, source, tags, and parent provenance unless the schema "
+    "the rule id, title, source, tags, and parent provenance unless the schema "
     "explicitly asks for an updated field; cite concrete challenge or trace "
-    "evidence in the rationale, and do not rewrite the whole insight when one "
+    "evidence in the rationale, and do not rewrite the whole rule when one "
     "field is enough. "
     + LLM_JSON_ONLY_CONTRACT
 )
 
 LLM_SEMANTIC_ORACLE_SYSTEM = (
     "You validate adversarial translation challenge oracles. Accept only when "
-    "the oracle is a semantic property implied by the insight and the harness "
+    "the oracle is a semantic property implied by the rule and the harness "
     "assertion checks that property through the declared Rust interface; reject "
     "tautological, unrelated, or under-specified assertions. The decision must "
     "be about observable behavior, not wording similarity, preferred style, or "
@@ -1077,16 +1077,16 @@ LLM_SEMANTIC_ORACLE_SYSTEM = (
 
 LLM_ACTIVATION_VALIDATOR_SYSTEM = (
     "You validate whether a generated adversarial challenge actually activates "
-    "a Rust translation insight. Decide from the insight trigger, constraint, "
+    "a Rust translation rule. Decide from the rule trigger, constraint, "
     "risk, C snippet, interface, oracle, and harness; reject challenges that "
-    "merely mention similar vocabulary without testing the insight behavior. "
+    "merely mention similar vocabulary without testing the rule behavior. "
     "Require at least one concrete input or state condition that makes the "
-    "insight relevant and is exercised by the harness. "
+    "rule relevant and is exercised by the harness. "
     + LLM_JSON_ONLY_CONTRACT
 )
 
 LLM_TRACE_SYNTHESIS_SYSTEM = (
-    "You synthesize reusable Rust translation insights from failed trace "
+    "You synthesize reusable Rust translation rules from failed trace "
     "evidence. Infer a general translation rule, not a project-specific patch; "
     "avoid filesystem paths, fixture names, and one-off test details. Mark "
     "actionable=false when the trace is too noisy or not generalizable. Anchor "
@@ -1096,10 +1096,10 @@ LLM_TRACE_SYNTHESIS_SYSTEM = (
 )
 
 LLM_TRACE_CONTRADICTION_SYSTEM = (
-    "You review candidate Rust translation insights for semantic contradictions "
-    "against an existing insight bank. Flag true semantic conflicts, not ordinary "
+    "You review candidate Rust translation rules for semantic contradictions "
+    "against an existing rule bank. Flag true semantic conflicts, not ordinary "
     "overlap, reinforcement, or different levels of specificity; include the "
-    "main conflicting insight id when applicable. A contradiction requires "
+    "main conflicting rule id when applicable. A contradiction requires "
     "mutually incompatible constraints, goals, or risk mitigations for the same "
     "translation situation. "
     + LLM_JSON_ONLY_CONTRACT
@@ -1107,7 +1107,7 @@ LLM_TRACE_CONTRADICTION_SYSTEM = (
 
 LLM_COMPOSITION_RELATION_SYSTEM = (
     "You infer evidence-gated semantic relations between two Rust translation "
-    "insights from a compositional challenge event. Infer supports, requires, "
+    "rules from a compositional challenge event. Infer supports, requires, "
     "or precedes only after the event has passed sanity, compile, and test "
     "replay gates; return none when the evidence does not justify a relation. "
     "Do not infer relations from id, title, or wording overlap; use dependency "
@@ -1120,12 +1120,12 @@ class StructuredChallengerAgent:
     def __init__(self, challenge_fn: Callable[[dict[str, object]], dict[str, object] | str]):
         self.challenge_fn = challenge_fn
 
-    def generate(self, insight: InsightRecord) -> ChallengeRecord:
-        raw = self.challenge_fn(_challenger_payload(insight))
+    def generate(self, rule: RuleRecord) -> ChallengeRecord:
+        raw = self.challenge_fn(_challenger_payload(rule))
         data = _parse_schema_object(raw, "challenger")
-        insight_id = _required_text_field(data, "insight_id")
-        if insight_id != insight.id:
-            raise ValueError("Challenger output insight_id must match the input insight")
+        rule_id = _required_text_field(data, "rule_id")
+        if rule_id != rule.id:
+            raise ValueError("Challenger output rule_id must match the input rule")
         c_program = _required_text_field(data, "c_program")
         rust_interface = _required_text_field(data, "rust_interface")
         harness = _required_text_field(data, "harness")
@@ -1133,7 +1133,7 @@ class StructuredChallengerAgent:
         if "assert" not in _normalize(harness):
             raise ValueError("Challenger harness must contain an assertion")
         return ChallengeRecord(
-            insight_id=insight_id,
+            rule_id=rule_id,
             c_program=c_program,
             rust_interface=rust_interface,
             harness=harness,
@@ -1200,17 +1200,17 @@ class StructuredRefinerAgent:
 
     def propose_update(
         self,
-        insight: InsightRecord,
+        rule: RuleRecord,
         challenge: ChallengeRecord,
         evidence: ExecutionEvidence,
-    ) -> InsightUpdateProposal:
-        raw = self.refine_fn(_refiner_payload(insight, challenge, evidence))
+    ) -> RuleUpdateProposal:
+        raw = self.refine_fn(_refiner_payload(rule, challenge, evidence))
         data = _parse_schema_object(raw, "refiner")
         if data.get("actionable") is False:
             raise ValueError("Refiner output marked the failure as non-actionable")
-        insight_id = _required_text_field(data, "insight_id")
-        if insight_id != insight.id:
-            raise ValueError("Refiner output insight_id must match the input insight")
+        rule_id = _required_text_field(data, "rule_id")
+        if rule_id != rule.id:
+            raise ValueError("Refiner output rule_id must match the input rule")
         field = _required_text_field(data, "field")
         if field not in {"trigger", "goal", "constraint", "risk"}:
             raise ValueError(f"Unsupported refiner update field: {field}")
@@ -1219,10 +1219,10 @@ class StructuredRefinerAgent:
         failure_kind = str(data.get("failure_kind") or "").strip()
         if failure_kind:
             rationale = f"{failure_kind}: {rationale}"
-        return InsightUpdateProposal(
-            insight_id=insight_id,
+        return RuleUpdateProposal(
+            rule_id=rule_id,
             field=field,
-            old_text=getattr(insight, field),
+            old_text=getattr(rule, field),
             new_text=new_text,
             rationale=rationale,
         )
@@ -1257,8 +1257,8 @@ class StructuredOracleValidator:
     def __init__(self, validate_fn: Callable[[dict[str, object]], dict[str, object] | str]):
         self.validate_fn = validate_fn
 
-    def validate(self, challenge: ChallengeRecord, insight: InsightRecord) -> SemanticOracleValidationResult:
-        raw = self.validate_fn(_oracle_validation_payload(challenge, insight))
+    def validate(self, challenge: ChallengeRecord, rule: RuleRecord) -> SemanticOracleValidationResult:
+        raw = self.validate_fn(_oracle_validation_payload(challenge, rule))
         data = _parse_schema_object(raw, "oracle validator")
         valid = data.get("valid")
         if not isinstance(valid, bool):
@@ -1299,11 +1299,11 @@ class StructuredActivationValidator:
     def validate(
         self,
         challenge: ChallengeRecord,
-        insight: InsightRecord,
+        rule: RuleRecord,
         *,
         local_activation_valid: bool,
     ) -> SemanticActivationValidationResult:
-        raw = self.validate_fn(_activation_validation_payload(challenge, insight, local_activation_valid))
+        raw = self.validate_fn(_activation_validation_payload(challenge, rule, local_activation_valid))
         data = _parse_schema_object(raw, "activation validator")
         activates = data.get("activates")
         if not isinstance(activates, bool):
@@ -1342,7 +1342,7 @@ class StructuredTraceSynthesizer:
         project_dir: Path,
         record: dict,
         trace_bundle: dict[str, object],
-    ) -> InsightRecord | None:
+    ) -> RuleRecord | None:
         payload = _trace_synthesis_payload(project_dir, record, trace_bundle)
         raw = self.synthesize_fn(payload)
         data = _parse_schema_object(raw, "trace synthesizer")
@@ -1370,7 +1370,7 @@ class StructuredTraceSynthesizer:
         keywords = tuple(_string_list_field(data, "keywords")) or tuple(
             _keyword_candidates(" ".join([trigger, goal, constraint, risk]))[:8]
         )
-        return InsightRecord(
+        return RuleRecord(
             id=candidate_id,
             title=f"Trace LLM candidate: {project_dir.name}/{callable_id}",
             trigger=trigger,
@@ -1384,7 +1384,7 @@ class StructuredTraceSynthesizer:
         )
 
 
-class LLMTraceInsightSynthesizer(StructuredTraceSynthesizer):
+class LLMTraceRuleSynthesizer(StructuredTraceSynthesizer):
     def __init__(self, agent, call_recorder: Callable[[dict[str, object]], None] | None = None):
         self.agent = agent
         self.call_recorder = call_recorder
@@ -1395,7 +1395,7 @@ class LLMTraceInsightSynthesizer(StructuredTraceSynthesizer):
         result = self.agent.translate(LLM_TRACE_SYNTHESIS_SYSTEM, prompt)
         _record_live_agent_call(
             self.call_recorder,
-            phase="trace_insight_synthesis",
+            phase="trace_rule_synthesis",
             system=LLM_TRACE_SYNTHESIS_SYSTEM,
             prompt=prompt,
             result=result,
@@ -1407,7 +1407,7 @@ class LLMTraceInsightSynthesizer(StructuredTraceSynthesizer):
 class TraceContradictionReviewResult:
     contradicts: bool
     reason: str = ""
-    conflicting_insight_id: str = ""
+    conflicting_rule_id: str = ""
 
 
 class StructuredTraceContradictionReviewer:
@@ -1416,8 +1416,8 @@ class StructuredTraceContradictionReviewer:
 
     def review(
         self,
-        candidate: InsightRecord,
-        existing_records: Sequence[InsightRecord],
+        candidate: RuleRecord,
+        existing_records: Sequence[RuleRecord],
     ) -> TraceContradictionReviewResult:
         raw = self.review_fn(_trace_contradiction_payload(candidate, existing_records))
         data = _parse_schema_object(raw, "trace contradiction reviewer")
@@ -1427,7 +1427,7 @@ class StructuredTraceContradictionReviewer:
         return TraceContradictionReviewResult(
             contradicts=contradicts,
             reason=str(data.get("reason") or "").strip(),
-            conflicting_insight_id=str(data.get("conflicting_insight_id") or "").strip(),
+            conflicting_rule_id=str(data.get("conflicting_rule_id") or "").strip(),
         )
 
 
@@ -1456,26 +1456,26 @@ class StructuredCompositionRelationReviewer:
 
     def review(
         self,
-        insights: Sequence[InsightRecord],
+        rules: Sequence[RuleRecord],
         event: dict,
-    ) -> InsightRelationRecord | None:
-        if len(insights) != 2:
+    ) -> RuleRelationRecord | None:
+        if len(rules) != 2:
             return None
-        raw = self.review_fn(_composition_relation_payload(insights, event))
+        raw = self.review_fn(_composition_relation_payload(rules, event))
         data = _parse_schema_object(raw, "composition relation reviewer")
         relation = _required_text_field(data, "relation").lower()
         if relation == "none":
             return None
         if relation not in {"supports", "requires", "precedes"}:
             raise ValueError(f"Unsupported composition relation: {relation}")
-        insight_ids = {insight.id for insight in insights}
-        first_id = str(data.get("first_id") or insights[0].id).strip()
-        second_id = str(data.get("second_id") or insights[1].id).strip()
-        if first_id not in insight_ids or second_id not in insight_ids:
-            raise ValueError("Composition relation ids must refer to the reviewed insights")
+        rule_ids = {rule.id for rule in rules}
+        first_id = str(data.get("first_id") or rules[0].id).strip()
+        second_id = str(data.get("second_id") or rules[1].id).strip()
+        if first_id not in rule_ids or second_id not in rule_ids:
+            raise ValueError("Composition relation ids must refer to the reviewed rules")
         rationale = _required_text_field(data, "rationale")
         fingerprint = str(event.get("fingerprint", ""))
-        return InsightRelationRecord(
+        return RuleRelationRecord(
             first_id=first_id,
             second_id=second_id,
             relation=relation,
@@ -1494,10 +1494,10 @@ class LLMCompositionRelationReviewer(StructuredCompositionRelationReviewer):
         prompt = json.dumps(payload, ensure_ascii=False, indent=2)
         result = self.agent.translate(LLM_COMPOSITION_RELATION_SYSTEM, prompt)
         call_metadata: dict[str, object] = {}
-        insights = payload.get("insights")
-        if isinstance(insights, Sequence) and len(insights) >= 2:
-            first = insights[0]
-            second = insights[1]
+        rules = payload.get("rules")
+        if isinstance(rules, Sequence) and len(rules) >= 2:
+            first = rules[0]
+            second = rules[1]
             if isinstance(first, dict) and isinstance(second, dict):
                 first_id = str(first.get("id") or "").strip()
                 second_id = str(second.get("id") or "").strip()
@@ -1515,13 +1515,13 @@ class LLMCompositionRelationReviewer(StructuredCompositionRelationReviewer):
         return _agent_result_text(result)
 
 
-def _challenger_payload(insight: InsightRecord) -> dict[str, object]:
+def _challenger_payload(rule: RuleRecord) -> dict[str, object]:
     return {
         "agent": "Challenger",
-        "insight": insight.to_dict(),
+        "rule": rule.to_dict(),
         "schema": CHALLENGER_OUTPUT_SCHEMA,
         "acceptance_criteria": [
-            "insight_id must match the input insight",
+            "rule_id must match the input rule",
             "c_program, rust_interface, harness, and oracle must be non-empty strings",
             "harness must contain an assertion that calls the declared Rust interface",
             "generated evidence starts unchecked and must pass ChallengeToolChecker before admission",
@@ -1530,13 +1530,13 @@ def _challenger_payload(insight: InsightRecord) -> dict[str, object]:
 
 
 def _refiner_payload(
-    insight: InsightRecord,
+    rule: RuleRecord,
     challenge: ChallengeRecord,
     evidence: ExecutionEvidence,
 ) -> dict[str, object]:
     return {
         "agent": "Refiner",
-        "insight": insight.to_dict(),
+        "rule": rule.to_dict(),
         "challenge": _challenge_to_dict(challenge),
         "trace_bundle": dict(challenge.trace_bundle),
         "evidence": {
@@ -1547,7 +1547,7 @@ def _refiner_payload(
         "schema": REFINER_OUTPUT_SCHEMA,
         "acceptance_criteria": [
             "actionable=false rejects the proposal",
-            "insight_id must match the input insight",
+            "rule_id must match the input rule",
             "field must be trigger, goal, constraint, or risk",
             "new_text and rationale must be non-empty",
             "EvidenceGate must still approve the update before persistence",
@@ -1555,14 +1555,14 @@ def _refiner_payload(
     }
 
 
-def _oracle_validation_payload(challenge: ChallengeRecord, insight: InsightRecord) -> dict[str, object]:
+def _oracle_validation_payload(challenge: ChallengeRecord, rule: RuleRecord) -> dict[str, object]:
     return {
         "agent": "SemanticOracleValidator",
-        "insight": insight.to_dict(),
+        "rule": rule.to_dict(),
         "challenge": _challenge_to_dict(challenge),
         "schema": ORACLE_VALIDATOR_OUTPUT_SCHEMA,
         "acceptance_criteria": [
-            "valid=true only when the oracle states a semantic property implied by the insight",
+            "valid=true only when the oracle states a semantic property implied by the rule",
             "valid=true only when the harness assertion checks that property through the declared Rust interface",
             "valid=false for tautological, unrelated, or under-specified assertions",
         ],
@@ -1571,20 +1571,20 @@ def _oracle_validation_payload(challenge: ChallengeRecord, insight: InsightRecor
 
 def _activation_validation_payload(
     challenge: ChallengeRecord,
-    insight: InsightRecord,
+    rule: RuleRecord,
     local_activation_valid: bool,
 ) -> dict[str, object]:
     return {
         "agent": "ActivationValidator",
-        "insight": insight.to_dict(),
+        "rule": rule.to_dict(),
         "challenge": _challenge_to_dict(challenge),
         "local_activation_valid": local_activation_valid,
         "schema": ACTIVATION_VALIDATOR_OUTPUT_SCHEMA,
         "acceptance_criteria": [
-            "activates=true only when the challenge exercises the trigger/constraint/risk of the insight",
-            "activates=true may override conservative local token checks for non-template insight types",
-            "activates=false when the challenge merely mentions similar vocabulary without testing the insight",
-            "reason must explain the activation decision in terms of the insight and challenge behavior",
+            "activates=true only when the challenge exercises the trigger/constraint/risk of the rule",
+            "activates=true may override conservative local token checks for non-template rule types",
+            "activates=false when the challenge merely mentions similar vocabulary without testing the rule",
+            "reason must explain the activation decision in terms of the rule and challenge behavior",
         ],
     }
 
@@ -1596,14 +1596,14 @@ def _trace_synthesis_payload(
 ) -> dict[str, object]:
     callable_id = str(record.get("callable_id") or record.get("project") or project_dir.name)
     return {
-        "agent": "TraceInsightSynthesizer",
+        "agent": "TraceRuleSynthesizer",
         "project": project_dir.name,
         "callable_id": callable_id,
         "record": dict(record),
         "trace_bundle": dict(trace_bundle),
         "schema": TRACE_SYNTHESIZER_OUTPUT_SCHEMA,
         "acceptance_criteria": [
-            "infer a reusable translation insight, not a project-specific patch",
+            "infer a reusable translation rule, not a project-specific patch",
             "do not include local filesystem paths, generated fixture names, or one-off test details",
             "set actionable=false when the failure is too noisy or not generalizable",
             "trigger, goal, constraint, and risk must be concrete enough for future prompts",
@@ -1612,35 +1612,35 @@ def _trace_synthesis_payload(
 
 
 def _trace_contradiction_payload(
-    candidate: InsightRecord,
-    existing_records: Sequence[InsightRecord],
+    candidate: RuleRecord,
+    existing_records: Sequence[RuleRecord],
 ) -> dict[str, object]:
     return {
         "agent": "TraceContradictionReviewer",
         "candidate": candidate.to_dict(),
-        "existing_insights": [record.to_dict() for record in existing_records],
+        "existing_rules": [record.to_dict() for record in existing_records],
         "schema": TRACE_CONTRADICTION_REVIEW_OUTPUT_SCHEMA,
         "acceptance_criteria": [
             "contradicts=true only for semantic conflicts, not ordinary overlap or reinforcement",
-            "ignore project-specific names unless they change the reusable insight meaning",
-            "prefer contradicts=false when the candidate can coexist with existing insight constraints",
-            "include conflicting_insight_id when one existing insight is the main conflict source",
+            "ignore project-specific names unless they change the reusable rule meaning",
+            "prefer contradicts=false when the candidate can coexist with existing rule constraints",
+            "include conflicting_rule_id when one existing rule is the main conflict source",
         ],
     }
 
 
 def _composition_relation_payload(
-    insights: Sequence[InsightRecord],
+    rules: Sequence[RuleRecord],
     event: dict,
 ) -> dict[str, object]:
     return {
         "agent": "CompositionRelationReviewer",
-        "insights": [insight.to_dict() for insight in insights],
+        "rules": [rule.to_dict() for rule in rules],
         "composition_event": dict(event),
         "schema": COMPOSITION_RELATION_REVIEW_OUTPUT_SCHEMA,
         "acceptance_criteria": [
             "Only infer a relation after the local runner has passed sanity, compile, and test replay gates",
-            "supports means the pair should be retrieved together but neither insight depends on the other",
+            "supports means the pair should be retrieved together but neither rule depends on the other",
             "requires means first_id has a precondition on second_id",
             "precedes means first_id should be applied or considered before second_id",
             "return relation=none when the evidence does not justify a semantic relation",
@@ -1650,7 +1650,7 @@ def _composition_relation_payload(
 
 def _challenge_to_dict(challenge: ChallengeRecord) -> dict[str, object]:
     return {
-        "insight_id": challenge.insight_id,
+        "rule_id": challenge.rule_id,
         "c_program": challenge.c_program,
         "rust_interface": challenge.rust_interface,
         "harness": challenge.harness,
@@ -1987,24 +1987,24 @@ class ChallengeSanityChecker:
         self.oracle_validator = oracle_validator
         self.activation_validator = activation_validator
 
-    def check(self, challenge: ChallengeRecord, insight: InsightRecord) -> SanityCheckResult:
+    def check(self, challenge: ChallengeRecord, rule: RuleRecord) -> SanityCheckResult:
         failed = []
         details: dict[str, object] = {}
         signature = _challenge_signature(challenge)
-        if challenge.fingerprint in self._seen or self._is_near_duplicate(challenge.insight_id, signature):
+        if challenge.fingerprint in self._seen or self._is_near_duplicate(challenge.rule_id, signature):
             failed.append("leak")
         else:
             self._seen.add(challenge.fingerprint)
-            self._seen_signatures.append((challenge.insight_id, signature))
+            self._seen_signatures.append((challenge.rule_id, signature))
         local_activation_valid = (
-            _activates(challenge.activation_text(), insight)
-            and _boundary_activates(challenge, insight)
-            and _activation_predicate_matches(challenge, insight)
+            _activates(challenge.activation_text(), rule)
+            and _boundary_activates(challenge, rule)
+            and _activation_predicate_matches(challenge, rule)
         )
         if self.activation_validator is not None:
             activation_result = self.activation_validator.validate(
                 challenge,
-                insight,
+                rule,
                 local_activation_valid=local_activation_valid,
             )
             details["activation"] = {
@@ -2019,7 +2019,7 @@ class ChallengeSanityChecker:
         if not _oracle_self_validates(challenge):
             failed.append("oracle")
         elif self.oracle_validator is not None:
-            oracle_result = self.oracle_validator.validate(challenge, insight)
+            oracle_result = self.oracle_validator.validate(challenge, rule)
             details["oracle"] = {
                 "valid": bool(oracle_result.valid),
                 "reason": str(oracle_result.reason),
@@ -2030,10 +2030,10 @@ class ChallengeSanityChecker:
             failed.append("toolcheck")
         return SanityCheckResult(valid=not failed, failed_checks=tuple(failed), details=details)
 
-    def _is_near_duplicate(self, insight_id: str, signature: set[str]) -> bool:
+    def _is_near_duplicate(self, rule_id: str, signature: set[str]) -> bool:
         return any(
-            seen_insight_id == insight_id and _signatures_are_near_duplicates(signature, seen_signature)
-            for seen_insight_id, seen_signature in self._seen_signatures
+            seen_rule_id == rule_id and _signatures_are_near_duplicates(signature, seen_signature)
+            for seen_rule_id, seen_signature in self._seen_signatures
         )
 
 
@@ -2051,9 +2051,9 @@ def _signatures_are_near_duplicates(left: set[str], right: set[str]) -> bool:
     return containment >= 0.85 and jaccard >= 0.65
 
 
-def _activates(text: str, insight: InsightRecord) -> bool:
+def _activates(text: str, rule: RuleRecord) -> bool:
     normalized = _normalize(text)
-    terms = [*insight.tags, *insight.keywords, insight.trigger]
+    terms = [*rule.tags, *rule.keywords, rule.trigger]
     for term in terms:
         tokens = [token for token in _tokens(_normalize(term)) if len(token) >= 3]
         if tokens and any(token in normalized for token in tokens):
@@ -2061,28 +2061,28 @@ def _activates(text: str, insight: InsightRecord) -> bool:
     return False
 
 
-def _boundary_activates(challenge: ChallengeRecord, insight: InsightRecord) -> bool:
-    insight_text = _normalize_record_text(insight)
+def _boundary_activates(challenge: ChallengeRecord, rule: RuleRecord) -> bool:
+    rule_text = _normalize_record_text(rule)
     payload = "\n".join([challenge.c_program, challenge.rust_interface, challenge.harness])
     normalized_payload = _normalize(payload)
     normalized_evidence = _normalize(challenge.evidence.output)
-    if "nul" in insight_text or "char array" in insight_text:
+    if "nul" in rule_text or "char array" in rule_text:
         return any(marker in payload for marker in ("\\0", "\\x00", "\x00")) or "nul" in normalized_evidence
-    if "count" in insight_text and "capacity" in insight_text:
+    if "count" in rule_text and "capacity" in rule_text:
         combined = " ".join([normalized_payload, normalized_evidence])
         return "count" in combined and "capacity" in combined
     return True
 
 
-def _activation_predicate_matches(challenge: ChallengeRecord, insight: InsightRecord) -> bool:
+def _activation_predicate_matches(challenge: ChallengeRecord, rule: RuleRecord) -> bool:
     predicate = challenge.activation_predicate.strip()
     if not predicate:
         return True
     predicate_tokens = _meaningful_tokens(predicate)
     if not predicate_tokens:
         return False
-    insight_tokens = _meaningful_tokens(_normalize_record_text(insight))
-    return bool(predicate_tokens & insight_tokens)
+    rule_tokens = _meaningful_tokens(_normalize_record_text(rule))
+    return bool(predicate_tokens & rule_tokens)
 
 
 def _oracle_self_validates(challenge: ChallengeRecord) -> bool:
@@ -2123,8 +2123,8 @@ def _meaningful_tokens(text: str) -> set[str]:
 
 
 @dataclass(frozen=True)
-class InsightUpdateProposal:
-    insight_id: str
+class RuleUpdateProposal:
+    rule_id: str
     field: str
     old_text: str
     new_text: str
@@ -2135,11 +2135,11 @@ class InsightUpdateProposal:
 class EvidenceGateResult:
     accepted: bool
     reason: str
-    updated_insight: InsightRecord
+    updated_rule: RuleRecord
 
 
 class FailureAttributor:
-    def propose_update(self, insight: InsightRecord, evidence: ExecutionEvidence) -> InsightUpdateProposal:
+    def propose_update(self, rule: RuleRecord, evidence: ExecutionEvidence) -> RuleUpdateProposal:
         output = evidence.output.strip()
         lowered = output.lower()
         if any(marker in lowered for marker in ("invalid challenge", "invalid oracle", "bad harness")):
@@ -2163,11 +2163,11 @@ class FailureAttributor:
         else:
             field = "trigger"
             failure_kind = "trigger_gap"
-        old_text = getattr(insight, field)
+        old_text = getattr(rule, field)
         evidence_text = output[:500] if output else "tool-observed failure"
         new_text = old_text if evidence_text in old_text else f"{old_text}; observed: {evidence_text}"
-        return InsightUpdateProposal(
-            insight_id=insight.id,
+        return RuleUpdateProposal(
+            rule_id=rule.id,
             field=field,
             old_text=old_text,
             new_text=new_text,
@@ -2178,26 +2178,26 @@ class FailureAttributor:
 class EvidenceGate:
     def evaluate(
         self,
-        insight: InsightRecord,
-        proposal: InsightUpdateProposal,
+        rule: RuleRecord,
+        proposal: RuleUpdateProposal,
         *,
         before: ExecutionEvidence,
         after: ExecutionEvidence,
     ) -> EvidenceGateResult:
-        if proposal.insight_id != insight.id:
-            return EvidenceGateResult(False, "proposal targets a different insight", insight)
+        if proposal.rule_id != rule.id:
+            return EvidenceGateResult(False, "proposal targets a different rule", rule)
         if after.score <= before.score or not after.tests_pass:
-            return EvidenceGateResult(False, "replay evidence did not improve", insight)
-        updated = _replace_insight_field(insight, proposal.field, proposal.new_text)
+            return EvidenceGateResult(False, "replay evidence did not improve", rule)
+        updated = _replace_rule_field(rule, proposal.field, proposal.new_text)
         return EvidenceGateResult(True, "replay evidence improved", updated)
 
 
-class InsightConstrainedReplayRunner:
-    """Replay one challenge before and after an insight update via injected translation."""
+class RuleConstrainedReplayRunner:
+    """Replay one challenge before and after an rule update via injected translation."""
 
     def __init__(
         self,
-        translate_fn: Callable[[ChallengeRecord, InsightRecord], str],
+        translate_fn: Callable[[ChallengeRecord, RuleRecord], str],
         *,
         tool_checker: ChallengeToolChecker | None = None,
         gate: EvidenceGate | None = None,
@@ -2208,17 +2208,17 @@ class InsightConstrainedReplayRunner:
 
     def evaluate_update(
         self,
-        insight: InsightRecord,
+        rule: RuleRecord,
         challenge: ChallengeRecord,
-        proposal: InsightUpdateProposal,
+        proposal: RuleUpdateProposal,
     ) -> EvidenceGateResult:
-        before_source = self.translate_fn(challenge, insight)
+        before_source = self.translate_fn(challenge, rule)
         before = self.tool_checker.check(challenge, rust_source=before_source)
-        updated_candidate = _replace_insight_field(insight, proposal.field, proposal.new_text)
+        updated_candidate = _replace_rule_field(rule, proposal.field, proposal.new_text)
         after_source = self.translate_fn(challenge, updated_candidate)
         after = self.tool_checker.check(challenge, rust_source=after_source)
         return self.gate.evaluate(
-            insight,
+            rule,
             proposal,
             before=before.evidence,
             after=after.evidence,
@@ -2237,15 +2237,15 @@ class TranslatorChallengeReplayAdapter:
         self.translator_factory = translator_factory
         self.base_config = dict(base_config or {})
 
-    def __call__(self, challenge: ChallengeRecord, insight: InsightRecord) -> str:
+    def __call__(self, challenge: ChallengeRecord, rule: RuleRecord) -> str:
         config = dict(self.base_config)
         config["adversarial_replay_challenge"] = self._challenge_payload(challenge)
-        config["adversarial_replay_insight"] = insight.to_dict()
+        config["adversarial_replay_rule"] = rule.to_dict()
         translator = self.translator_factory(config)
         translate = getattr(translator, "translate_adversarial_challenge", None)
         if not callable(translate):
-            raise TypeError("translator must provide translate_adversarial_challenge(challenge, insight)")
-        rust_source = translate(challenge, insight)
+            raise TypeError("translator must provide translate_adversarial_challenge(challenge, rule)")
+        rust_source = translate(challenge, rule)
         if not isinstance(rust_source, str):
             raise TypeError("translate_adversarial_challenge() must return Rust source text")
         return rust_source
@@ -2263,7 +2263,7 @@ class TranslatorChallengeReplayAdapter:
     @classmethod
     def _challenge_payload(cls, challenge: ChallengeRecord) -> dict:
         return {
-            "insight_id": challenge.insight_id,
+            "rule_id": challenge.rule_id,
             "c_program": challenge.c_program,
             "rust_interface": challenge.rust_interface,
             "harness": challenge.harness,
@@ -2276,18 +2276,18 @@ class TranslatorChallengeReplayAdapter:
         }
 
 
-def _replace_insight_field(insight: InsightRecord, field: str, value: str) -> InsightRecord:
-    raw = insight.to_dict()
+def _replace_rule_field(rule: RuleRecord, field: str, value: str) -> RuleRecord:
+    raw = rule.to_dict()
     if field not in {"trigger", "goal", "constraint", "risk"}:
-        raise ValueError(f"Unsupported insight update field: {field}")
+        raise ValueError(f"Unsupported rule update field: {field}")
     raw[field] = value
-    raw["version"] = insight.version + 1
-    raw["parents"] = [*insight.parents, f"{insight.id}@v{insight.version}"]
-    return InsightRecord.from_dict(raw)
+    raw["version"] = rule.version + 1
+    raw["parents"] = [*rule.parents, f"{rule.id}@v{rule.version}"]
+    return RuleRecord.from_dict(raw)
 
 
 class TraceReflector:
-    def __init__(self, bank: InsightBank):
+    def __init__(self, bank: RuleBank):
         self.bank = bank
         self._known_ids = {record.id for record in bank.records}
 
@@ -2301,12 +2301,12 @@ class TraceReflector:
                 evidence = _evidence_from_test_record(record)
                 if evidence.tests_pass:
                     continue
-                for insight_id in _insight_ids_from_record(record):
-                    if insight_id not in self._known_ids:
+                for rule_id in _rule_ids_from_record(record):
+                    if rule_id not in self._known_ids:
                         continue
                     challenges.append(
                         ChallengeRecord(
-                            insight_id=insight_id,
+                            rule_id=rule_id,
                             c_program=str(record.get("c_context") or record.get("test_output") or ""),
                             rust_interface=str(record.get("callable_id") or record.get("project") or project_dir.name),
                             harness=str(record.get("test_output", ""))[:2000],
@@ -2331,10 +2331,10 @@ class TraceReflector:
         return challenges
 
 
-class TraceInsightMiner:
+class TraceRuleMiner:
     def __init__(
         self,
-        bank: InsightBank,
+        bank: RuleBank,
         *,
         min_signal_tokens: int = 4,
         synthesizer: StructuredTraceSynthesizer | None = None,
@@ -2349,8 +2349,8 @@ class TraceInsightMiner:
             _contradiction_rules_from_record(record) for record in bank.records
         ]
 
-    def mine(self, run_root: str | Path) -> list[InsightRecord]:
-        candidates: list[InsightRecord] = []
+    def mine(self, run_root: str | Path) -> list[RuleRecord]:
+        candidates: list[RuleRecord] = []
         seen: set[str] = set()
         for project_dir in _iter_project_artifacts(Path(run_root)):
             translation_history = _load_json(project_dir / "translation_history.json", {})
@@ -2393,7 +2393,7 @@ class TraceInsightMiner:
         project_dir: Path,
         record: dict,
         translation_history: dict | None = None,
-    ) -> InsightRecord | None:
+    ) -> RuleRecord | None:
         evidence = _evidence_from_test_record(record)
         if evidence.tests_pass:
             return None
@@ -2427,26 +2427,26 @@ class TraceInsightMiner:
                 hashlib.sha1((trigger + "\n" + output).encode("utf-8")).hexdigest()[:10],
             ]
         )
-        return InsightRecord(
+        return RuleRecord(
             id=candidate_id,
             title=f"Trace candidate: {project_dir.name}/{callable_id}",
             trigger=_truncate(trigger, 300),
             goal=f"Preserve behavior observed in failing trace for {callable_id}.",
             constraint=f"Account for failing evidence: {evidence_text}",
-            risk=f"Without this insight, translations may reproduce: {evidence_text}",
-            guidance="Review this trace-mined candidate before admitting it to the insight bank.",
+            risk=f"Without this rule, translations may reproduce: {evidence_text}",
+            guidance="Review this trace-mined candidate before admitting it to the rule bank.",
             tags=("trace-mined", _slug(project_dir.name)),
             keywords=tuple(_keyword_candidates(" ".join([trigger, output]))[:8]),
             source="trace",
         )
 
-    def _duplicates_existing(self, candidate: InsightRecord) -> bool:
+    def _duplicates_existing(self, candidate: RuleRecord) -> bool:
         evidence = _failure_signature(candidate.constraint)
         if not evidence:
             return False
         return any(evidence in known_text for known_text in self._known_text)
 
-    def _contradicts_existing(self, candidate: InsightRecord) -> bool:
+    def _contradicts_existing(self, candidate: RuleRecord) -> bool:
         candidate_rules = _contradiction_rules_from_record(candidate)
         candidate_text = _normalize_record_text(candidate)
         for known_text, known_rules in zip(self._known_text, self._known_contradiction_rules):
@@ -2456,7 +2456,7 @@ class TraceInsightMiner:
                 return True
         return False
 
-    def _semantically_contradicts_existing(self, candidate: InsightRecord) -> bool:
+    def _semantically_contradicts_existing(self, candidate: RuleRecord) -> bool:
         if self.contradiction_reviewer is None or not self.bank.records:
             return False
         review = self.contradiction_reviewer.review(candidate, self.bank.records)
@@ -2490,7 +2490,7 @@ def _looks_project_specific_trace(text: str) -> bool:
 
 
 @contextlib.contextmanager
-def exclusive_insight_bank_lock(bank_path: str | Path):
+def exclusive_rule_bank_lock(bank_path: str | Path):
     lock_target = Path(bank_path).resolve()
     lock_path = lock_target.with_name(lock_target.name + ".lock")
     lock_path.parent.mkdir(parents=True, exist_ok=True)
@@ -2510,7 +2510,7 @@ def _exclusive_bank_update_lock(bank_path: str | Path, output_bank_path: str | P
         yield
         return
 
-    with exclusive_insight_bank_lock(output_path):
+    with exclusive_rule_bank_lock(output_path):
         yield
 
 
@@ -2533,7 +2533,7 @@ def run_offline_adversarial_learning(
     trace_synthesizer: StructuredTraceSynthesizer | None = None,
     trace_contradiction_reviewer: StructuredTraceContradictionReviewer | None = None,
     composition_relation_reviewer: StructuredCompositionRelationReviewer | None = None,
-    replay_translate_fn: Callable[[ChallengeRecord, InsightRecord], str] | None = None,
+    replay_translate_fn: Callable[[ChallengeRecord, RuleRecord], str] | None = None,
 ) -> dict:
     with _exclusive_bank_update_lock(bank_path, output_bank_path):
         return _run_offline_adversarial_learning_unlocked(
@@ -2577,9 +2577,9 @@ def _run_offline_adversarial_learning_unlocked(
     trace_synthesizer: StructuredTraceSynthesizer | None = None,
     trace_contradiction_reviewer: StructuredTraceContradictionReviewer | None = None,
     composition_relation_reviewer: StructuredCompositionRelationReviewer | None = None,
-    replay_translate_fn: Callable[[ChallengeRecord, InsightRecord], str] | None = None,
+    replay_translate_fn: Callable[[ChallengeRecord, RuleRecord], str] | None = None,
 ) -> dict:
-    bank = InsightBank.load(bank_path)
+    bank = RuleBank.load(bank_path)
     records_by_id = {record.id: record for record in bank.records}
     checker = ChallengeSanityChecker(
         oracle_validator=oracle_validator,
@@ -2597,12 +2597,12 @@ def _run_offline_adversarial_learning_unlocked(
     relation_records = list(bank.relations)
 
     for challenge in TraceReflector(bank).reflect(run_root):
-        insight = records_by_id.get(challenge.insight_id)
-        if insight is None:
+        rule = records_by_id.get(challenge.rule_id)
+        if rule is None:
             continue
-        sanity = checker.check(challenge, insight)
+        sanity = checker.check(challenge, rule)
         event = {
-            "insight_id": challenge.insight_id,
+            "rule_id": challenge.rule_id,
             "fingerprint": challenge.fingerprint,
             "sanity_valid": sanity.valid,
             "failed_checks": list(sanity.failed_checks),
@@ -2611,21 +2611,21 @@ def _run_offline_adversarial_learning_unlocked(
         if not sanity.valid:
             report_events.append(event)
             continue
-        proposal = _propose_insight_update(
-            insight,
+        proposal = _propose_rule_update(
+            rule,
             challenge,
             refiner_agent=refiner_agent,
             fallback_attributor=attributor,
         )
         if replay_translate_fn is not None:
             replay_checker = challenge_tool_checker or ChallengeToolChecker()
-            updated_candidate = _replace_insight_field(insight, proposal.field, proposal.new_text)
-            before_source = replay_translate_fn(challenge, insight)
+            updated_candidate = _replace_rule_field(rule, proposal.field, proposal.new_text)
+            before_source = replay_translate_fn(challenge, rule)
             before_checked = replay_checker.check(challenge, rust_source=before_source)
             after_source = replay_translate_fn(challenge, updated_candidate)
             after_checked = replay_checker.check(challenge, rust_source=after_source)
             result = gate.evaluate(
-                insight,
+                rule,
                 proposal,
                 before=before_checked.evidence,
                 after=after_checked.evidence,
@@ -2637,7 +2637,7 @@ def _run_offline_adversarial_learning_unlocked(
             }
         else:
             replay = challenge.replay_evidence or challenge.evidence
-            result = gate.evaluate(insight, proposal, before=challenge.evidence, after=replay)
+            result = gate.evaluate(rule, proposal, before=challenge.evidence, after=replay)
             event["fresh_replay"] = False
         event.update(
             {
@@ -2652,7 +2652,7 @@ def _run_offline_adversarial_learning_unlocked(
             }
         )
         if result.accepted:
-            records_by_id[challenge.insight_id] = result.updated_insight
+            records_by_id[challenge.rule_id] = result.updated_rule
             accepted_updates += 1
         report_events.append(event)
 
@@ -2663,16 +2663,16 @@ def _run_offline_adversarial_learning_unlocked(
             activation_validator=activation_validator,
         )
         generator = SyntheticChallengeGenerator()
-        for insight in list(records_by_id.values()):
-            challenge = _generate_single_insight_challenge(
-                insight,
+        for rule in list(records_by_id.values()):
+            challenge = _generate_single_rule_challenge(
+                rule,
                 generator=generator,
                 challenger_agent=challenger_agent,
             )
             synthetic_events.append(
                 _execute_generated_challenge(
                     challenge,
-                    insight,
+                    rule,
                     tool_checker=synthetic_tool_checker,
                     sanity_checker=synthetic_sanity_checker,
                 )
@@ -2685,20 +2685,20 @@ def _run_offline_adversarial_learning_unlocked(
             activation_validator=activation_validator,
         )
         generator = CompositionalChallengeGenerator()
-        for insight_set in _composition_candidate_sets(
+        for rule_set in _composition_candidate_sets(
             list(records_by_id.values()),
             limit=max(compositional_limit, 0),
             relations=relation_records,
         ):
-            challenge = generator.generate(insight_set)
+            challenge = generator.generate(rule_set)
             event = _execute_generated_challenge(
                 challenge,
-                _combined_insight_for_challenge(challenge, insight_set),
+                _combined_rule_for_challenge(challenge, rule_set),
                 tool_checker=composition_tool_checker,
                 sanity_checker=composition_sanity_checker,
             )
             dependency = _composition_interaction_dependency(
-                insight_set,
+                rule_set,
                 challenge,
                 tool_checker=composition_tool_checker,
             )
@@ -2708,7 +2708,7 @@ def _run_offline_adversarial_learning_unlocked(
                 event["executable_dependency_valid"] = dependency["executable_dependency_valid"]
                 event["executable_dependency_probes"] = dependency["executable_dependency_probes"]
             translator_dependency = _composition_translator_replay_dependency(
-                insight_set,
+                rule_set,
                 challenge,
                 tool_checker=composition_tool_checker,
                 replay_translate_fn=replay_translate_fn,
@@ -2717,7 +2717,7 @@ def _run_offline_adversarial_learning_unlocked(
                 event["translator_replay_dependency_valid"] = translator_dependency["valid"]
                 event["translator_replay_dependency_probes"] = translator_dependency["probes"]
             relation = _composition_relation_record(
-                insight_set,
+                rule_set,
                 event,
                 reviewer=composition_relation_reviewer,
             )
@@ -2726,9 +2726,9 @@ def _run_offline_adversarial_learning_unlocked(
                 relation_updates += 1
                 event["relation_update"] = relation.to_dict()
             if admit_composition_failure_candidates:
-                candidate = _composition_failure_candidate(insight_set, event)
+                candidate = _composition_failure_candidate(rule_set, event)
                 if candidate is not None:
-                    candidate_event, admitted = _validate_candidate_insight(
+                    candidate_event, admitted = _validate_candidate_rule(
                         candidate,
                         generator=SyntheticChallengeGenerator(),
                         challenger_agent=challenger_agent,
@@ -2745,19 +2745,19 @@ def _run_offline_adversarial_learning_unlocked(
             composition_events.append(event)
 
     if admit_trace_candidates:
-        candidate_bank = InsightBank(records_by_id.values())
+        candidate_bank = RuleBank(records_by_id.values())
         candidate_tool_checker = challenge_tool_checker or ChallengeToolChecker()
         candidate_sanity_checker = ChallengeSanityChecker(
             oracle_validator=oracle_validator,
             activation_validator=activation_validator,
         )
         generator = SyntheticChallengeGenerator()
-        for candidate in TraceInsightMiner(
+        for candidate in TraceRuleMiner(
             candidate_bank,
             synthesizer=trace_synthesizer,
             contradiction_reviewer=trace_contradiction_reviewer,
         ).mine(run_root):
-            event, admitted = _validate_candidate_insight(
+            event, admitted = _validate_candidate_rule(
                 candidate,
                 generator=generator,
                 challenger_agent=challenger_agent,
@@ -2769,7 +2769,7 @@ def _run_offline_adversarial_learning_unlocked(
                 admitted_candidates += 1
             candidate_events.append(event)
 
-    updated_bank = InsightBank([records_by_id[record.id] for record in bank.records], relation_records)
+    updated_bank = RuleBank([records_by_id[record.id] for record in bank.records], relation_records)
     if admitted_candidates:
         existing_ids = {record.id for record in updated_bank.records}
         updated_bank.records.extend(
@@ -2807,7 +2807,7 @@ def _evidence_to_dict(evidence: ExecutionEvidence) -> dict:
 
 def _execute_generated_challenge(
     challenge: ChallengeRecord,
-    insight: InsightRecord,
+    rule: RuleRecord,
     *,
     tool_checker: ChallengeToolChecker,
     sanity_checker: ChallengeSanityChecker,
@@ -2824,9 +2824,9 @@ def _execute_generated_challenge(
             reference_replay = False
     else:
         checked = tool_checker.check(challenge)
-    sanity = sanity_checker.check(checked, insight)
+    sanity = sanity_checker.check(checked, rule)
     return {
-        "insight_id": checked.insight_id,
+        "rule_id": checked.rule_id,
         "fingerprint": checked.fingerprint,
         "sanity_valid": sanity.valid,
         "failed_checks": list(sanity.failed_checks),
@@ -2839,8 +2839,8 @@ def _execute_generated_challenge(
     }
 
 
-def _validate_candidate_insight(
-    candidate: InsightRecord,
+def _validate_candidate_rule(
+    candidate: RuleRecord,
     *,
     generator: SyntheticChallengeGenerator,
     challenger_agent: StructuredChallengerAgent | None,
@@ -2853,7 +2853,7 @@ def _validate_candidate_insight(
         "status": "rejected",
         "failed_checks": [],
     }
-    challenge = _generate_single_insight_challenge(
+    challenge = _generate_single_rule_challenge(
         candidate,
         generator=generator,
         challenger_agent=challenger_agent,
@@ -2879,9 +2879,9 @@ def _validate_candidate_insight(
 
 
 def _composition_failure_candidate(
-    insights: Sequence[InsightRecord],
+    rules: Sequence[RuleRecord],
     event: dict,
-) -> InsightRecord | None:
+) -> RuleRecord | None:
     evidence = event.get("tool_evidence")
     if not isinstance(evidence, dict):
         return None
@@ -2890,55 +2890,55 @@ def _composition_failure_candidate(
     if not event.get("sanity_valid") or not evidence.get("compiles") or evidence.get("tests_pass"):
         return None
     failure_text = str(evidence.get("output") or "").strip()
-    insight_ids = [insight.id for insight in insights]
-    digest = hashlib.sha1(("+".join(insight_ids) + "\n" + failure_text).encode("utf-8")).hexdigest()[:10]
-    candidate_id = "composition-candidate-" + "-".join(_slug(insight_id) for insight_id in insight_ids) + f"-{digest}"
-    interaction = " + ".join(insight_ids)
+    rule_ids = [rule.id for rule in rules]
+    digest = hashlib.sha1(("+".join(rule_ids) + "\n" + failure_text).encode("utf-8")).hexdigest()[:10]
+    candidate_id = "composition-candidate-" + "-".join(_slug(rule_id) for rule_id in rule_ids) + f"-{digest}"
+    interaction = " + ".join(rule_ids)
     evidence_text = _truncate(failure_text or "composition challenge failed", 300)
     combined_text = " ".join(
         [
             interaction,
             evidence_text,
-            " ".join(insight.trigger for insight in insights),
-            " ".join(insight.constraint for insight in insights),
-            " ".join(insight.risk for insight in insights),
+            " ".join(rule.trigger for rule in rules),
+            " ".join(rule.constraint for rule in rules),
+            " ".join(rule.risk for rule in rules),
         ]
     )
-    return InsightRecord(
+    return RuleRecord(
         id=candidate_id,
         title=f"Composition candidate: {interaction}",
         trigger=f"Joint activation of {interaction} produced failing compositional evidence.",
-        goal="Preserve behavior when the contributing insights are active together.",
+        goal="Preserve behavior when the contributing rules are active together.",
         constraint=f"Account for the observed interaction failure: {evidence_text}",
-        risk=f"Applying these insights independently may still fail when combined: {evidence_text}",
-        guidance="Validate this composition-mined candidate before using it as a prompt insight.",
-        tags=("composition-mined", *tuple(_slug(insight_id) for insight_id in insight_ids)),
+        risk=f"Applying these rules independently may still fail when combined: {evidence_text}",
+        guidance="Validate this composition-mined candidate before using it as a prompt rule.",
+        tags=("composition-mined", *tuple(_slug(rule_id) for rule_id in rule_ids)),
         keywords=tuple(_keyword_candidates(combined_text)[:8]),
         source="composition",
     )
 
 
-def _propose_insight_update(
-    insight: InsightRecord,
+def _propose_rule_update(
+    rule: RuleRecord,
     challenge: ChallengeRecord,
     *,
     refiner_agent: StructuredRefinerAgent | None,
     fallback_attributor: FailureAttributor,
-) -> InsightUpdateProposal:
+) -> RuleUpdateProposal:
     if refiner_agent is not None:
-        return refiner_agent.propose_update(insight, challenge, challenge.evidence)
-    return fallback_attributor.propose_update(insight, challenge.evidence)
+        return refiner_agent.propose_update(rule, challenge, challenge.evidence)
+    return fallback_attributor.propose_update(rule, challenge.evidence)
 
 
-def _generate_single_insight_challenge(
-    insight: InsightRecord,
+def _generate_single_rule_challenge(
+    rule: RuleRecord,
     *,
     generator: SyntheticChallengeGenerator,
     challenger_agent: StructuredChallengerAgent | None,
 ) -> ChallengeRecord:
     if challenger_agent is not None:
-        return challenger_agent.generate(insight)
-    return generator.generate(insight)
+        return challenger_agent.generate(rule)
+    return generator.generate(rule)
 
 
 @dataclass(frozen=True)
@@ -2948,14 +2948,14 @@ class _CompositionPairScore:
 
 
 def _composition_candidate_sets(
-    records: list[InsightRecord],
+    records: list[RuleRecord],
     *,
     limit: int,
-    relations: Sequence[InsightRelationRecord] = (),
-) -> list[tuple[InsightRecord, ...]]:
+    relations: Sequence[RuleRelationRecord] = (),
+) -> list[tuple[RuleRecord, ...]]:
     if limit <= 0:
         return []
-    unique_records = _dedupe_insight_records(records)
+    unique_records = _dedupe_rule_records(records)
     if len(unique_records) < 2:
         return []
 
@@ -2966,19 +2966,19 @@ def _composition_candidate_sets(
         for tag in record.tags
         if str(tag).strip()
     }
-    selected_sets: list[tuple[InsightRecord, ...]] = []
+    selected_sets: list[tuple[RuleRecord, ...]] = []
     seen: set[tuple[str, ...]] = set()
 
     for seed in unique_records:
         selected = [seed]
-        while len(selected) < COMPOSITION_MAX_INSIGHTS:
+        while len(selected) < COMPOSITION_MAX_RULES:
             selected_ids = {record.id for record in selected}
             current_score = _composition_set_score(
                 selected,
                 tag_vocabulary=tag_vocabulary,
                 relation_scores=relation_scores,
             )
-            best_candidate: InsightRecord | None = None
+            best_candidate: RuleRecord | None = None
             best_gain = 0.0
             best_order = len(unique_records)
             for order, candidate in enumerate(unique_records):
@@ -3019,9 +3019,9 @@ def _composition_candidate_sets(
     return selected_sets
 
 
-def _dedupe_insight_records(records: Sequence[InsightRecord]) -> list[InsightRecord]:
+def _dedupe_rule_records(records: Sequence[RuleRecord]) -> list[RuleRecord]:
     seen: set[str] = set()
-    unique: list[InsightRecord] = []
+    unique: list[RuleRecord] = []
     for record in records:
         if record.id in seen:
             continue
@@ -3031,7 +3031,7 @@ def _dedupe_insight_records(records: Sequence[InsightRecord]) -> list[InsightRec
 
 
 def _composition_relation_scores(
-    relations: Sequence[InsightRelationRecord],
+    relations: Sequence[RuleRelationRecord],
 ) -> dict[frozenset[str], _CompositionPairScore]:
     scores: dict[frozenset[str], _CompositionPairScore] = {}
     for relation in relations:
@@ -3047,7 +3047,7 @@ def _composition_relation_scores(
 
 
 def _composition_set_score(
-    records: Sequence[InsightRecord],
+    records: Sequence[RuleRecord],
     *,
     tag_vocabulary: set[str],
     relation_scores: dict[frozenset[str], _CompositionPairScore],
@@ -3059,7 +3059,7 @@ def _composition_set_score(
     )
 
 
-def _composition_coverage(records: Sequence[InsightRecord], tag_vocabulary: set[str]) -> float:
+def _composition_coverage(records: Sequence[RuleRecord], tag_vocabulary: set[str]) -> float:
     if not records:
         return 0.0
     selected_tags = {
@@ -3069,12 +3069,12 @@ def _composition_coverage(records: Sequence[InsightRecord], tag_vocabulary: set[
         if str(tag).strip()
     }
     if selected_tags and tag_vocabulary:
-        return len(selected_tags) / min(COMPOSITION_MAX_INSIGHTS, len(tag_vocabulary))
-    return min(len(records), COMPOSITION_MAX_INSIGHTS) / COMPOSITION_MAX_INSIGHTS
+        return len(selected_tags) / min(COMPOSITION_MAX_RULES, len(tag_vocabulary))
+    return min(len(records), COMPOSITION_MAX_RULES) / COMPOSITION_MAX_RULES
 
 
 def _composition_support(
-    records: Sequence[InsightRecord],
+    records: Sequence[RuleRecord],
     relation_scores: dict[frozenset[str], _CompositionPairScore],
 ) -> float:
     pair_scores = _composition_pair_scores(records, relation_scores)
@@ -3084,7 +3084,7 @@ def _composition_support(
 
 
 def _composition_conflict(
-    records: Sequence[InsightRecord],
+    records: Sequence[RuleRecord],
     relation_scores: dict[frozenset[str], _CompositionPairScore],
 ) -> float:
     pair_scores = _composition_pair_scores(records, relation_scores)
@@ -3094,7 +3094,7 @@ def _composition_conflict(
 
 
 def _composition_pair_scores(
-    records: Sequence[InsightRecord],
+    records: Sequence[RuleRecord],
     relation_scores: dict[frozenset[str], _CompositionPairScore],
 ) -> list[_CompositionPairScore]:
     scores: list[_CompositionPairScore] = []
@@ -3105,8 +3105,8 @@ def _composition_pair_scores(
 
 
 def _composition_pair_score(
-    first: InsightRecord,
-    second: InsightRecord,
+    first: RuleRecord,
+    second: RuleRecord,
     relation_scores: dict[frozenset[str], _CompositionPairScore],
 ) -> _CompositionPairScore:
     relation_score = relation_scores.get(frozenset((first.id, second.id)))
@@ -3130,7 +3130,7 @@ def _composition_pair_score(
     return _CompositionPairScore(support=support, conflict=conflict)
 
 
-def _composition_score_tokens(record: InsightRecord) -> list[str]:
+def _composition_score_tokens(record: RuleRecord) -> list[str]:
     return [
         token
         for token in re.findall(
@@ -3143,7 +3143,7 @@ def _composition_score_tokens(record: InsightRecord) -> list[str]:
     ]
 
 
-def _heuristic_composition_conflict(first: InsightRecord, second: InsightRecord) -> float:
+def _heuristic_composition_conflict(first: RuleRecord, second: RuleRecord) -> float:
     joined = " ".join(
         [
             _normalize(first.constraint),
@@ -3160,7 +3160,7 @@ def _heuristic_composition_conflict(first: InsightRecord, second: InsightRecord)
 
 
 def _composition_has_unresolved_conflict(
-    records: Sequence[InsightRecord],
+    records: Sequence[RuleRecord],
     *,
     relation_scores: dict[frozenset[str], _CompositionPairScore],
 ) -> bool:
@@ -3176,31 +3176,31 @@ def _jaccard(first: set[str], second: set[str]) -> float:
     return len(first & second) / len(first | second)
 
 
-def _combined_insight_for_challenge(
+def _combined_rule_for_challenge(
     challenge: ChallengeRecord,
-    insights: Sequence[InsightRecord],
-) -> InsightRecord:
-    return InsightRecord(
-        id=challenge.insight_id,
-        title="Compositional challenge insight",
-        trigger=" ".join(insight.trigger for insight in insights),
-        goal=" ".join(insight.goal for insight in insights),
-        constraint=" ".join(insight.constraint for insight in insights),
-        risk=" ".join(insight.risk for insight in insights),
-        guidance=" ".join(insight.guidance for insight in insights),
-        tags=tuple(tag for insight in insights for tag in insight.tags),
-        keywords=tuple(keyword for insight in insights for keyword in insight.keywords),
+    rules: Sequence[RuleRecord],
+) -> RuleRecord:
+    return RuleRecord(
+        id=challenge.rule_id,
+        title="Compositional challenge rule",
+        trigger=" ".join(rule.trigger for rule in rules),
+        goal=" ".join(rule.goal for rule in rules),
+        constraint=" ".join(rule.constraint for rule in rules),
+        risk=" ".join(rule.risk for rule in rules),
+        guidance=" ".join(rule.guidance for rule in rules),
+        tags=tuple(tag for rule in rules for tag in rule.tags),
+        keywords=tuple(keyword for rule in rules for keyword in rule.keywords),
         source="composition",
     )
 
 
 def _composition_relation_record(
-    insights: Sequence[InsightRecord],
+    rules: Sequence[RuleRecord],
     event: dict,
     *,
     reviewer: StructuredCompositionRelationReviewer | None = None,
-) -> InsightRelationRecord | None:
-    if len(insights) != 2:
+) -> RuleRelationRecord | None:
+    if len(rules) != 2:
         return None
     if event.get("interaction_dependency_valid") is False:
         return None
@@ -3210,13 +3210,13 @@ def _composition_relation_record(
     if not event.get("sanity_valid") or not tool_evidence.get("compiles") or not tool_evidence.get("tests_pass"):
         return None
     if reviewer is not None:
-        return reviewer.review(insights, event)
-    hinted = _heuristic_composition_relation_record(insights, event)
+        return reviewer.review(rules, event)
+    hinted = _heuristic_composition_relation_record(rules, event)
     if hinted is not None:
         return hinted
-    first, second = insights
+    first, second = rules
     fingerprint = str(event.get("fingerprint", ""))
-    return InsightRelationRecord(
+    return RuleRelationRecord(
         first_id=first.id,
         second_id=second.id,
         relation="supports",
@@ -3233,13 +3233,13 @@ def _composition_relation_record(
 
 
 def _heuristic_composition_relation_record(
-    insights: Sequence[InsightRecord],
+    rules: Sequence[RuleRecord],
     event: dict,
-) -> InsightRelationRecord | None:
-    if len(insights) != 2:
+) -> RuleRelationRecord | None:
+    if len(rules) != 2:
         return None
-    for source, target in ((insights[0], insights[1]), (insights[1], insights[0])):
-        source_text = _normalize(_insight_relation_text(source))
+    for source, target in ((rules[0], rules[1]), (rules[1], rules[0])):
+        source_text = _normalize(_rule_relation_text(source))
         target_matches = sorted(
             term for term in _composition_dependency_terms(target) if _whole_term_in_text(term, source_text)
         )[:8]
@@ -3255,7 +3255,7 @@ def _heuristic_composition_relation_record(
             marker = "before"
         if not relation:
             continue
-        return InsightRelationRecord(
+        return RuleRelationRecord(
             first_id=source.id,
             second_id=target.id,
             relation=relation,
@@ -3268,15 +3268,15 @@ def _heuristic_composition_relation_record(
     return None
 
 
-def _insight_relation_text(insight: InsightRecord) -> str:
+def _rule_relation_text(rule: RuleRecord) -> str:
     return " ".join(
         [
-            insight.title,
-            insight.trigger,
-            insight.goal,
-            insight.constraint,
-            insight.risk,
-            insight.guidance,
+            rule.title,
+            rule.trigger,
+            rule.goal,
+            rule.constraint,
+            rule.risk,
+            rule.guidance,
         ]
     )
 
@@ -3291,7 +3291,7 @@ def _whole_term_in_text(term: str, text: str) -> bool:
 
 
 def _composition_interaction_dependency(
-    insights: Sequence[InsightRecord],
+    rules: Sequence[RuleRecord],
     challenge: ChallengeRecord,
     *,
     tool_checker: ChallengeToolChecker | None = None,
@@ -3307,10 +3307,10 @@ def _composition_interaction_dependency(
         )
     )
     matches = {
-        insight.id: sorted(term for term in _composition_dependency_terms(insight) if term in text)[:8]
-        for insight in insights
+        rule.id: sorted(term for term in _composition_dependency_terms(rule) if term in text)[:8]
+        for rule in rules
     }
-    static_valid = len(insights) >= 2 and all(matches.get(insight.id) for insight in insights)
+    static_valid = len(rules) >= 2 and all(matches.get(rule.id) for rule in rules)
     dependency = {
         "valid": static_valid,
         "matches": matches,
@@ -3343,7 +3343,7 @@ def _composition_executable_dependency(
     probe_results.append(
         {
             "kind": "reference",
-            "insight_id": None,
+            "rule_id": None,
             "compiles": reference_checked.evidence.compiles,
             "tests_pass": reference_checked.evidence.tests_pass,
         }
@@ -3354,7 +3354,7 @@ def _composition_executable_dependency(
         if not isinstance(mutant, dict):
             continue
         rust_source = mutant.get("rust_source")
-        insight_id = mutant.get("insight_id")
+        rule_id = mutant.get("rule_id")
         if not isinstance(rust_source, str):
             continue
         checked = tool_checker.check(challenge, rust_source=rust_source)
@@ -3363,7 +3363,7 @@ def _composition_executable_dependency(
         probe_results.append(
             {
                 "kind": str(mutant.get("kind", "mutant")),
-                "insight_id": str(insight_id) if insight_id is not None else None,
+                "rule_id": str(rule_id) if rule_id is not None else None,
                 "compiles": checked.evidence.compiles,
                 "tests_pass": checked.evidence.tests_pass,
                 "failed_as_expected": failed_as_expected,
@@ -3377,26 +3377,26 @@ def _composition_executable_dependency(
 
 
 def _composition_translator_replay_dependency(
-    insights: Sequence[InsightRecord],
+    rules: Sequence[RuleRecord],
     challenge: ChallengeRecord,
     *,
     tool_checker: ChallengeToolChecker | None,
-    replay_translate_fn: Callable[[ChallengeRecord, InsightRecord], str] | None,
+    replay_translate_fn: Callable[[ChallengeRecord, RuleRecord], str] | None,
 ) -> dict | None:
-    if tool_checker is None or replay_translate_fn is None or len(insights) < 2:
+    if tool_checker is None or replay_translate_fn is None or len(rules) < 2:
         return None
 
     probe_results: list[dict] = []
-    combined_insight = _combined_insight_for_challenge(challenge, insights)
+    combined_rule = _combined_rule_for_challenge(challenge, rules)
 
     try:
-        combined_source = replay_translate_fn(challenge, combined_insight)
+        combined_source = replay_translate_fn(challenge, combined_rule)
         combined_checked = tool_checker.check(challenge, rust_source=combined_source)
         combined_passed = combined_checked.evidence.compiles and combined_checked.evidence.tests_pass
         probe_results.append(
             {
                 "kind": "translator_combined",
-                "insight_id": combined_insight.id,
+                "rule_id": combined_rule.id,
                 "compiles": combined_checked.evidence.compiles,
                 "tests_pass": combined_checked.evidence.tests_pass,
             }
@@ -3405,23 +3405,23 @@ def _composition_translator_replay_dependency(
         probe_results.append(
             {
                 "kind": "translator_combined",
-                "insight_id": combined_insight.id,
+                "rule_id": combined_rule.id,
                 "error": str(exc),
             }
         )
         return {"valid": False, "probes": probe_results}
 
     single_failures = []
-    for insight in insights:
+    for rule in rules:
         try:
-            single_source = replay_translate_fn(challenge, insight)
+            single_source = replay_translate_fn(challenge, rule)
             checked = tool_checker.check(challenge, rust_source=single_source)
             failed_as_expected = checked.evidence.compiles and not checked.evidence.tests_pass
             single_failures.append(failed_as_expected)
             probe_results.append(
                 {
                     "kind": "translator_single",
-                    "insight_id": insight.id,
+                    "rule_id": rule.id,
                     "compiles": checked.evidence.compiles,
                     "tests_pass": checked.evidence.tests_pass,
                     "failed_as_expected": failed_as_expected,
@@ -3432,19 +3432,19 @@ def _composition_translator_replay_dependency(
             probe_results.append(
                 {
                     "kind": "translator_single",
-                    "insight_id": insight.id,
+                    "rule_id": rule.id,
                     "error": str(exc),
                     "failed_as_expected": False,
                 }
             )
 
     return {
-        "valid": combined_passed and len(single_failures) == len(insights) and all(single_failures),
+        "valid": combined_passed and len(single_failures) == len(rules) and all(single_failures),
         "probes": probe_results,
     }
 
 
-def _composition_dependency_terms(insight: InsightRecord) -> set[str]:
+def _composition_dependency_terms(rule: RuleRecord) -> set[str]:
     stopwords = {
         "and",
         "the",
@@ -3457,17 +3457,17 @@ def _composition_dependency_terms(insight: InsightRecord) -> set[str]:
         "keep",
         "preserve",
         "translation",
-        "insight",
+        "rule",
         "risk",
         "goal",
         "trigger",
         "constraint",
     }
     raw_terms = [
-        *insight.tags,
-        *insight.keywords,
+        *rule.tags,
+        *rule.keywords,
         *_keyword_candidates(
-            " ".join([insight.trigger, insight.goal, insight.constraint, insight.risk])
+            " ".join([rule.trigger, rule.goal, rule.constraint, rule.risk])
         ),
     ]
     terms: set[str] = set()
@@ -3478,7 +3478,7 @@ def _composition_dependency_terms(insight: InsightRecord) -> set[str]:
     return terms
 
 
-def _has_relation(records: Sequence[InsightRelationRecord], candidate: InsightRelationRecord) -> bool:
+def _has_relation(records: Sequence[RuleRelationRecord], candidate: RuleRelationRecord) -> bool:
     return any(
         record.first_id == candidate.first_id
         and record.second_id == candidate.second_id
@@ -3533,19 +3533,19 @@ def _load_jsonl(path: Path) -> list[object]:
     return records
 
 
-def _insight_ids_from_record(record: dict) -> list[str]:
-    raw_items = record.get("selected_insights") or record.get("insights") or []
+def _rule_ids_from_record(record: dict) -> list[str]:
+    raw_items = record.get("selected_rules") or record.get("rules") or []
     ids: list[str] = []
     seen = set()
     for item in raw_items:
-        insight_id = ""
+        rule_id = ""
         if isinstance(item, dict):
-            insight_id = str(item.get("id", ""))
+            rule_id = str(item.get("id", ""))
         elif isinstance(item, str):
-            insight_id = item
-        if insight_id and insight_id not in seen:
-            seen.add(insight_id)
-            ids.append(insight_id)
+            rule_id = item
+        if rule_id and rule_id not in seen:
+            seen.add(rule_id)
+            ids.append(rule_id)
     return ids
 
 
@@ -3559,7 +3559,7 @@ def _trace_bundle_from_test_record(
         "callable_id",
         "source",
         "project",
-        "selected_insights",
+        "selected_rules",
         "test_output",
         "test_stats",
         "post_patch_test_output",
@@ -3595,7 +3595,7 @@ def _compile_trace_records_from_translation_history(
         if not isinstance(attempts, list):
             continue
         callable_id = str(entry.get("callable_id") or entry_key)
-        entry_insight_ids = _insight_ids_from_record(entry)
+        entry_rule_ids = _rule_ids_from_record(entry)
         for attempt_index, attempt in enumerate(attempts):
             if not isinstance(attempt, dict) or attempt.get("compilation_success"):
                 continue
@@ -3604,15 +3604,15 @@ def _compile_trace_records_from_translation_history(
             evidence_text = output or "\n".join(compiler_errors)
             if not evidence_text.strip():
                 continue
-            selected_insights = attempt.get("selected_insights")
-            if not selected_insights and entry_insight_ids:
-                selected_insights = [{"id": insight_id} for insight_id in entry_insight_ids]
+            selected_rules = attempt.get("selected_rules")
+            if not selected_rules and entry_rule_ids:
+                selected_rules = [{"id": rule_id} for rule_id in entry_rule_ids]
             record = {
                 "source": "translation_history",
                 "project": project_dir.name,
                 "callable_id": callable_id,
                 "callable_label": entry.get("callable_label") or entry.get("module_name") or callable_id,
-                "selected_insights": selected_insights or [],
+                "selected_rules": selected_rules or [],
                 "c_context": _c_program_from_translation_entry(entry, attempt),
                 "test_output": evidence_text,
                 "test_stats": {"failed": 1, "passed": 0},
@@ -3651,12 +3651,12 @@ def _compile_challenges_from_translation_history(
             for item in record.get("compiler_errors", [])
             if str(item).strip()
         ]
-        for insight_id in _insight_ids_from_record(record):
-            if insight_id not in known_ids:
+        for rule_id in _rule_ids_from_record(record):
+            if rule_id not in known_ids:
                 continue
             challenges.append(
                 ChallengeRecord(
-                    insight_id=insight_id,
+                    rule_id=rule_id,
                     c_program=str(record.get("c_context") or ""),
                     rust_interface=str(
                         record.get("callable_label")
@@ -3691,12 +3691,12 @@ def _llm_call_challenges_from_project(
         evidence_text = _llm_call_evidence_text(call, output_issue)
         if not evidence_text:
             continue
-        for insight_id in _insight_ids_from_record(call):
-            if insight_id not in known_ids:
+        for rule_id in _rule_ids_from_record(call):
+            if rule_id not in known_ids:
                 continue
             challenges.append(
                 ChallengeRecord(
-                    insight_id=insight_id,
+                    rule_id=rule_id,
                     c_program=str(call.get("prompt") or ""),
                     rust_interface=str(
                         call.get("callable_label")
@@ -3749,7 +3749,7 @@ def _trace_bundle_from_llm_call(
         "prompt",
         "raw_text",
         "extracted_code",
-        "insights",
+        "rules",
         "dependencies",
         "alignment",
     ):
@@ -4039,7 +4039,7 @@ _FAILURE_ONLY_MARKERS = (
 )
 
 
-def _contradiction_rules_from_record(record: InsightRecord) -> dict[str, set[tuple[str, ...]]]:
+def _contradiction_rules_from_record(record: RuleRecord) -> dict[str, set[tuple[str, ...]]]:
     text = _normalize_record_text(record)
     return {"forbidden": _negated_action_signatures(text)}
 
@@ -4119,7 +4119,7 @@ def _canonical_action_token(token: str) -> str:
     return _CONTRADICTION_ACTION_ALIASES.get(token, token)
 
 
-def _normalize_record_text(record: InsightRecord) -> str:
+def _normalize_record_text(record: RuleRecord) -> str:
     return _normalize(
         " ".join(
             [
@@ -4135,7 +4135,7 @@ def _normalize_record_text(record: InsightRecord) -> str:
     )
 
 
-def _candidate_fingerprint(candidate: InsightRecord) -> str:
+def _candidate_fingerprint(candidate: RuleRecord) -> str:
     return hashlib.sha256(
         "\n".join([candidate.trigger, candidate.constraint, candidate.risk]).encode("utf-8")
     ).hexdigest()
@@ -4155,7 +4155,7 @@ def _keyword_candidates(text: str) -> list[str]:
 def _failure_signature(text: str) -> str:
     normalized = _normalize(text)
     normalized = normalized.replace("account for failing evidence:", " ")
-    normalized = normalized.replace("without this insight translations may reproduce:", " ")
+    normalized = normalized.replace("without this rule translations may reproduce:", " ")
     normalized = normalized.replace("assertion failed:", " ")
     return re.sub(r"\s+", " ", normalized).strip()
 

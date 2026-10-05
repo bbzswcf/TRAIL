@@ -8,9 +8,9 @@ from unittest import mock
 from types import SimpleNamespace
 from pathlib import Path
 
-from c2rust_translator.insights import DEFAULT_INSIGHTS
-from c2rust_translator import adversarial_insights as adversarial_core
-from c2rust_translator.adversarial_insights import (
+from c2rust_translator.rules import DEFAULT_RULES
+from c2rust_translator import adversarial_rules as adversarial_core
+from c2rust_translator.adversarial_rules import (
     ChallengeRecord,
     ChallengeSanityChecker,
     ChallengeToolChecker,
@@ -18,18 +18,18 @@ from c2rust_translator.adversarial_insights import (
     EvidenceGate,
     ExecutionEvidence,
     FailureAttributor,
-    InsightBank,
-    InsightConstrainedReplayRunner,
-    InsightRecord,
-    InsightRelationRecord,
-    InsightUpdateProposal,
+    RuleBank,
+    RuleConstrainedReplayRunner,
+    RuleRecord,
+    RuleRelationRecord,
+    RuleUpdateProposal,
     LLMActivationValidator,
     LLMCompositionRelationReviewer,
     LLMSemanticOracleValidator,
     LLMStructuredChallengerAgent,
     LLMStructuredRefinerAgent,
     LLMTraceContradictionReviewer,
-    LLMTraceInsightSynthesizer,
+    LLMTraceRuleSynthesizer,
     RetrievalEngine,
     SemanticActivationValidationResult,
     SemanticOracleValidationResult,
@@ -42,18 +42,18 @@ from c2rust_translator.adversarial_insights import (
     StructuredTraceSynthesizer,
     SyntheticChallengeGenerator,
     TraceReflector,
-    TraceInsightMiner,
+    TraceRuleMiner,
     TranslatorChallengeReplayAdapter,
     run_offline_adversarial_learning,
 )
 
 
-class AdversarialInsightBankTest(unittest.TestCase):
+class AdversarialRuleBankTest(unittest.TestCase):
     def test_json_bank_round_trips_records_and_versions(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "bank.json"
-            bank = InsightBank([
-                InsightRecord(
+            bank = RuleBank([
+                RuleRecord(
                     id="pointer-buffer",
                     title="Pointer Buffer",
                     trigger="C pointer and length",
@@ -69,7 +69,7 @@ class AdversarialInsightBankTest(unittest.TestCase):
             ])
 
             bank.save(path)
-            loaded = InsightBank.load(path)
+            loaded = RuleBank.load(path)
 
             self.assertEqual(len(loaded.records), 1)
             self.assertEqual(loaded.records[0].id, "pointer-buffer")
@@ -80,9 +80,9 @@ class AdversarialInsightBankTest(unittest.TestCase):
     def test_json_bank_round_trips_relation_records(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "bank.json"
-            bank = InsightBank(
+            bank = RuleBank(
                 [
-                    InsightRecord(
+                    RuleRecord(
                         id="fixed-c-string",
                         title="Fixed C String",
                         trigger="fixed char array",
@@ -90,7 +90,7 @@ class AdversarialInsightBankTest(unittest.TestCase):
                         constraint="Trim at NUL",
                         risk="padding may leak",
                     ),
-                    InsightRecord(
+                    RuleRecord(
                         id="capacity-contract",
                         title="Capacity Contract",
                         trigger="count and capacity",
@@ -100,7 +100,7 @@ class AdversarialInsightBankTest(unittest.TestCase):
                     ),
                 ],
                 relations=[
-                    InsightRelationRecord(
+                    RuleRelationRecord(
                         first_id="fixed-c-string",
                         second_id="capacity-contract",
                         relation="supports",
@@ -111,7 +111,7 @@ class AdversarialInsightBankTest(unittest.TestCase):
             )
 
             bank.save(path)
-            loaded = InsightBank.load(path)
+            loaded = RuleBank.load(path)
 
             self.assertEqual(len(loaded.relations), 1)
             self.assertEqual(loaded.relations[0].first_id, "fixed-c-string")
@@ -125,9 +125,9 @@ class AdversarialInsightBankTest(unittest.TestCase):
             run_root.mkdir()
             bank_path = root / "bank.json"
             report_path = root / "report.json"
-            InsightBank([]).save(bank_path)
+            RuleBank([]).save(bank_path)
 
-            with mock.patch("c2rust_translator.adversarial_insights.fcntl.flock") as flock:
+            with mock.patch("c2rust_translator.adversarial_rules.fcntl.flock") as flock:
                 run_offline_adversarial_learning(run_root, bank_path, bank_path, report_path)
 
             lock_ops = [call.args[1] for call in flock.call_args_list]
@@ -140,17 +140,17 @@ class AdversarialInsightBankTest(unittest.TestCase):
             )
 
 
-class AdversarialInsightRetrievalTest(unittest.TestCase):
-    def test_imports_legacy_insights_into_json_bank(self):
-        bank = InsightBank.from_legacy(DEFAULT_INSIGHTS[:2])
+class AdversarialRuleRetrievalTest(unittest.TestCase):
+    def test_imports_legacy_rules_into_json_bank(self):
+        bank = RuleBank.from_legacy(DEFAULT_RULES[:2])
 
         self.assertEqual(len(bank.records), 2)
         self.assertEqual(bank.records[0].source, "legacy")
         self.assertTrue(bank.records[0].keywords)
 
     def test_retrieval_reports_keyword_fallback_when_embedding_deps_missing(self):
-        bank = InsightBank([
-            InsightRecord(
+        bank = RuleBank([
+            RuleRecord(
                 id="fixed-c-string",
                 title="Fixed C String",
                 trigger="fixed char array",
@@ -207,8 +207,8 @@ class AdversarialInsightRetrievalTest(unittest.TestCase):
             def IndexFlatIP(dimension):
                 return FakeIndex(dimension)
 
-        bank = InsightBank([
-            InsightRecord(
+        bank = RuleBank([
+            RuleRecord(
                 id="pointer-buffer",
                 title="Pointer Buffer",
                 trigger="pointer and length",
@@ -216,7 +216,7 @@ class AdversarialInsightRetrievalTest(unittest.TestCase):
                 constraint="Keep slice length",
                 risk="pointer aliasing",
             ),
-            InsightRecord(
+            RuleRecord(
                 id="capacity-contract",
                 title="Capacity Contract",
                 trigger="count and capacity",
@@ -292,8 +292,8 @@ class AdversarialInsightRetrievalTest(unittest.TestCase):
                 index.vectors = vectors
                 return index
 
-        bank = InsightBank([
-            InsightRecord(
+        bank = RuleBank([
+            RuleRecord(
                 id="pointer-buffer",
                 title="Pointer Buffer",
                 trigger="pointer and length",
@@ -301,7 +301,7 @@ class AdversarialInsightRetrievalTest(unittest.TestCase):
                 constraint="Keep slice length",
                 risk="pointer aliasing",
             ),
-            InsightRecord(
+            RuleRecord(
                 id="capacity-contract",
                 title="Capacity Contract",
                 trigger="count and capacity",
@@ -341,8 +341,8 @@ class AdversarialInsightRetrievalTest(unittest.TestCase):
             self.assertEqual([record.id for record in selected], ["capacity-contract"])
             self.assertEqual(second_model.encoded_batches, [["capacity must remain visible"]])
 
-    def test_build_insight_retrieval_index_writes_manifest(self):
-        from scripts.build_insight_retrieval_index import build_index_manifest
+    def test_build_rule_retrieval_index_writes_manifest(self):
+        from scripts.build_rule_retrieval_index import build_index_manifest
 
         class RecordingEmbeddingModel:
             def encode(self, texts, normalize_embeddings=True):
@@ -370,8 +370,8 @@ class AdversarialInsightRetrievalTest(unittest.TestCase):
             def write_index(index, path):
                 Path(path).write_text(json.dumps(index.vectors), encoding="utf-8")
 
-        bank = InsightBank([
-            InsightRecord(
+        bank = RuleBank([
+            RuleRecord(
                 id="pointer-buffer",
                 title="Pointer Buffer",
                 trigger="pointer and length",
@@ -382,7 +382,7 @@ class AdversarialInsightRetrievalTest(unittest.TestCase):
         ])
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            index_path = Path(tmpdir) / "insights.faiss"
+            index_path = Path(tmpdir) / "rules.faiss"
             manifest_path = Path(tmpdir) / "manifest.json"
 
             manifest = build_index_manifest(
@@ -400,11 +400,11 @@ class AdversarialInsightRetrievalTest(unittest.TestCase):
             self.assertTrue(index_path.exists())
             self.assertEqual(json.loads(manifest_path.read_text(encoding="utf-8")), manifest)
 
-    def test_build_insight_retrieval_index_manifest_reports_missing_dependencies(self):
-        from scripts.build_insight_retrieval_index import build_index_manifest
+    def test_build_rule_retrieval_index_manifest_reports_missing_dependencies(self):
+        from scripts.build_rule_retrieval_index import build_index_manifest
 
-        bank = InsightBank([
-            InsightRecord(
+        bank = RuleBank([
+            RuleRecord(
                 id="pointer-buffer",
                 title="Pointer Buffer",
                 trigger="pointer and length",
@@ -415,7 +415,7 @@ class AdversarialInsightRetrievalTest(unittest.TestCase):
         ])
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            index_path = Path(tmpdir) / "insights.faiss"
+            index_path = Path(tmpdir) / "rules.faiss"
             manifest = build_index_manifest(
                 bank,
                 index_path,
@@ -429,19 +429,19 @@ class AdversarialInsightRetrievalTest(unittest.TestCase):
             self.assertEqual(dependencies["modules"]["sentence_transformers"], "missing")
             self.assertIn("uv", dependencies["install_hint"])
 
-    def test_build_insight_retrieval_index_loads_python_insights_path(self):
-        from scripts.build_insight_retrieval_index import load_bank
+    def test_build_rule_retrieval_index_loads_python_rules_path(self):
+        from scripts.build_rule_retrieval_index import load_bank
 
         with tempfile.TemporaryDirectory() as tmpdir:
             snapshot_path = Path(tmpdir) / "snapshot.py"
             snapshot_path.write_text(
                 "\n".join(
                     [
-                        "from c2rust_translator.insights import TranslationInsight",
-                        "DEFAULT_INSIGHTS = (",
-                        "    TranslationInsight(",
-                        "        id='snapshot-insight',",
-                        "        title='Snapshot Insight',",
+                        "from c2rust_translator.rules import TranslationRule",
+                        "DEFAULT_RULES = (",
+                        "    TranslationRule(",
+                        "        id='snapshot-rule',",
+                        "        title='Snapshot Rule',",
                         "        trigger='python snapshot trigger',",
                         "        goal='load the Python snapshot',",
                         "        constraint='preserve snapshot fields',",
@@ -456,15 +456,15 @@ class AdversarialInsightRetrievalTest(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            bank = load_bank(None, insights_path=snapshot_path)
+            bank = load_bank(None, rules_path=snapshot_path)
 
-        self.assertEqual([record.id for record in bank.records], ["snapshot-insight"])
+        self.assertEqual([record.id for record in bank.records], ["snapshot-rule"])
         self.assertEqual(bank.records[0].trigger, "python snapshot trigger")
 
 
 class AdversarialChallengeTest(unittest.TestCase):
-    def test_compositional_generator_builds_joint_challenge_for_insight_set(self):
-        string_insight = InsightRecord(
+    def test_compositional_generator_builds_joint_challenge_for_rule_set(self):
+        string_rule = RuleRecord(
             id="fixed-c-string",
             title="Fixed C String",
             trigger="fixed char array",
@@ -474,7 +474,7 @@ class AdversarialChallengeTest(unittest.TestCase):
             tags=("strings",),
             keywords=("NUL",),
         )
-        capacity_insight = InsightRecord(
+        capacity_rule = RuleRecord(
             id="capacity-contract",
             title="Capacity Contract",
             trigger="output struct has count and capacity",
@@ -485,9 +485,9 @@ class AdversarialChallengeTest(unittest.TestCase):
             keywords=("capacity",),
         )
 
-        challenge = CompositionalChallengeGenerator().generate([string_insight, capacity_insight])
+        challenge = CompositionalChallengeGenerator().generate([string_rule, capacity_rule])
 
-        self.assertEqual(challenge.insight_id, "composition:fixed-c-string+capacity-contract")
+        self.assertEqual(challenge.rule_id, "composition:fixed-c-string+capacity-contract")
         self.assertIn("fixed-c-string", challenge.c_program)
         self.assertIn("capacity-contract", challenge.c_program)
         self.assertIn("challenge_composition", challenge.rust_interface)
@@ -496,7 +496,7 @@ class AdversarialChallengeTest(unittest.TestCase):
         self.assertFalse(challenge.evidence.tool_checked)
 
     def test_compositional_generator_includes_counterfactual_dependency_probes(self):
-        string_insight = InsightRecord(
+        string_rule = RuleRecord(
             id="fixed-c-string",
             title="Fixed C String",
             trigger="fixed char array",
@@ -506,7 +506,7 @@ class AdversarialChallengeTest(unittest.TestCase):
             tags=("strings",),
             keywords=("NUL",),
         )
-        capacity_insight = InsightRecord(
+        capacity_rule = RuleRecord(
             id="capacity-contract",
             title="Capacity Contract",
             trigger="output struct has count and capacity",
@@ -517,20 +517,20 @@ class AdversarialChallengeTest(unittest.TestCase):
             keywords=("capacity",),
         )
 
-        challenge = CompositionalChallengeGenerator().generate([string_insight, capacity_insight])
+        challenge = CompositionalChallengeGenerator().generate([string_rule, capacity_rule])
         probes = challenge.trace_bundle["composition_dependency_probes"]
 
         self.assertIn("reference_source", probes)
         self.assertIn("challenge_composition", probes["reference_source"])
         self.assertEqual(
-            [mutant["insight_id"] for mutant in probes["mutants"]],
+            [mutant["rule_id"] for mutant in probes["mutants"]],
             ["fixed-c-string", "capacity-contract"],
         )
         self.assertTrue(all("composition_mutant" in mutant["rust_source"] for mutant in probes["mutants"]))
 
     def test_composition_candidate_sets_use_formulaic_greedy_selection_with_bounded_size(self):
         records = [
-            InsightRecord(
+            RuleRecord(
                 id="string-boundary",
                 title="String Boundary",
                 trigger="fixed C buffer exposed through Rust string APIs",
@@ -540,7 +540,7 @@ class AdversarialChallengeTest(unittest.TestCase):
                 tags=("string",),
                 keywords=("buffer", "visible"),
             ),
-            InsightRecord(
+            RuleRecord(
                 id="capacity-contract",
                 title="Capacity Contract",
                 trigger="C struct carries count and capacity",
@@ -550,7 +550,7 @@ class AdversarialChallengeTest(unittest.TestCase):
                 tags=("capacity",),
                 keywords=("buffer", "capacity"),
             ),
-            InsightRecord(
+            RuleRecord(
                 id="ownership-transfer",
                 title="Ownership Transfer",
                 trigger="C caller transfers allocation ownership",
@@ -560,7 +560,7 @@ class AdversarialChallengeTest(unittest.TestCase):
                 tags=("ownership",),
                 keywords=("buffer", "ownership"),
             ),
-            InsightRecord(
+            RuleRecord(
                 id="late-extra-contract",
                 title="Late Extra Contract",
                 trigger="C code exposes a late extra observable field",
@@ -575,12 +575,12 @@ class AdversarialChallengeTest(unittest.TestCase):
         selected = adversarial_core._composition_candidate_sets(records, limit=1)
 
         self.assertEqual(
-            [[insight.id for insight in insight_set] for insight_set in selected],
+            [[rule.id for rule in rule_set] for rule_set in selected],
             [["string-boundary", "capacity-contract", "late-extra-contract"]],
         )
 
     def test_composition_candidate_sets_skip_unresolved_conflicts_above_threshold(self):
-        string_insight = InsightRecord(
+        string_rule = RuleRecord(
             id="string-boundary",
             title="String Boundary",
             trigger="fixed C buffer exposed through Rust string APIs",
@@ -590,7 +590,7 @@ class AdversarialChallengeTest(unittest.TestCase):
             tags=("string",),
             keywords=("buffer",),
         )
-        capacity_insight = InsightRecord(
+        capacity_rule = RuleRecord(
             id="capacity-contract",
             title="Capacity Contract",
             trigger="C struct carries count and capacity",
@@ -600,7 +600,7 @@ class AdversarialChallengeTest(unittest.TestCase):
             tags=("capacity",),
             keywords=("buffer",),
         )
-        conflicting_insight = InsightRecord(
+        conflicting_rule = RuleRecord(
             id="ownership-transfer",
             title="Ownership Transfer",
             trigger="C caller transfers allocation ownership",
@@ -612,10 +612,10 @@ class AdversarialChallengeTest(unittest.TestCase):
         )
 
         selected = adversarial_core._composition_candidate_sets(
-            [string_insight, capacity_insight, conflicting_insight],
+            [string_rule, capacity_rule, conflicting_rule],
             limit=1,
             relations=[
-                InsightRelationRecord(
+                RuleRelationRecord(
                     first_id="string-boundary",
                     second_id="ownership-transfer",
                     relation="conflicts",
@@ -626,12 +626,12 @@ class AdversarialChallengeTest(unittest.TestCase):
         )
 
         self.assertEqual(
-            [[insight.id for insight in insight_set] for insight_set in selected],
+            [[rule.id for rule in rule_set] for rule_set in selected],
             [["string-boundary", "capacity-contract"]],
         )
 
     def test_structured_composition_relation_reviewer_parses_precondition_relation(self):
-        string_insight = InsightRecord(
+        string_rule = RuleRecord(
             id="fixed-c-string",
             title="Fixed C String",
             trigger="fixed char array",
@@ -639,7 +639,7 @@ class AdversarialChallengeTest(unittest.TestCase):
             constraint="Trim at NUL",
             risk="zero padding leaks",
         )
-        capacity_insight = InsightRecord(
+        capacity_rule = RuleRecord(
             id="capacity-contract",
             title="Capacity Contract",
             trigger="count and capacity",
@@ -651,8 +651,8 @@ class AdversarialChallengeTest(unittest.TestCase):
 
         def fake_reviewer(payload):
             payloads.append(payload)
-            self.assertEqual(payload["insights"][0]["id"], "fixed-c-string")
-            self.assertEqual(payload["insights"][1]["id"], "capacity-contract")
+            self.assertEqual(payload["rules"][0]["id"], "fixed-c-string")
+            self.assertEqual(payload["rules"][1]["id"], "capacity-contract")
             return {
                 "relation": "requires",
                 "first_id": "fixed-c-string",
@@ -661,7 +661,7 @@ class AdversarialChallengeTest(unittest.TestCase):
             }
 
         relation = StructuredCompositionRelationReviewer(fake_reviewer).review(
-            (string_insight, capacity_insight),
+            (string_rule, capacity_rule),
             {
                 "fingerprint": "abc123",
                 "tool_evidence": {"compiles": True, "tests_pass": True},
@@ -678,7 +678,7 @@ class AdversarialChallengeTest(unittest.TestCase):
         self.assertEqual(len(payloads), 1)
 
     def test_llm_composition_relation_reviewer_records_pair_ids(self):
-        string_insight = InsightRecord(
+        string_rule = RuleRecord(
             id="fixed-c-string",
             title="Fixed C String",
             trigger="fixed char array",
@@ -686,7 +686,7 @@ class AdversarialChallengeTest(unittest.TestCase):
             constraint="Trim at NUL",
             risk="zero padding leaks",
         )
-        capacity_insight = InsightRecord(
+        capacity_rule = RuleRecord(
             id="capacity-contract",
             title="Capacity Contract",
             trigger="count and capacity",
@@ -716,7 +716,7 @@ class AdversarialChallengeTest(unittest.TestCase):
                 )
 
         relation = LLMCompositionRelationReviewer(FakeAgent(), call_recorder=calls.append).review(
-            (string_insight, capacity_insight),
+            (string_rule, capacity_rule),
             {
                 "fingerprint": "abc123",
                 "tool_evidence": {"compiles": True, "tests_pass": True},
@@ -732,7 +732,7 @@ class AdversarialChallengeTest(unittest.TestCase):
         self.assertEqual(calls[0]["usage"]["total_tokens"], 7)
 
     def test_synthetic_generator_builds_string_boundary_challenge_without_toolcheck(self):
-        insight = InsightRecord(
+        rule = RuleRecord(
             id="fixed-c-string",
             title="Fixed C String",
             trigger="fixed char array exposed through String::from_utf8_lossy",
@@ -743,9 +743,9 @@ class AdversarialChallengeTest(unittest.TestCase):
             keywords=("NUL", "from_utf8_lossy", "fixed char array"),
         )
 
-        challenge = SyntheticChallengeGenerator().generate(insight)
+        challenge = SyntheticChallengeGenerator().generate(rule)
 
-        self.assertEqual(challenge.insight_id, "fixed-c-string")
+        self.assertEqual(challenge.rule_id, "fixed-c-string")
         self.assertIn("challenge_buffer", challenge.c_program)
         self.assertIn("'\\0'", challenge.c_program)
         self.assertIn("pub fn translate_challenge", challenge.rust_interface)
@@ -753,13 +753,13 @@ class AdversarialChallengeTest(unittest.TestCase):
         self.assertIn("first NUL", challenge.oracle)
         self.assertFalse(challenge.evidence.tool_checked)
 
-        sanity = ChallengeSanityChecker().check(challenge, insight)
+        sanity = ChallengeSanityChecker().check(challenge, rule)
 
         self.assertIn("toolcheck", sanity.failed_checks)
         self.assertNotIn("activates", sanity.failed_checks)
 
     def test_generated_synthetic_challenge_replays_reference_source_when_available(self):
-        insight = InsightRecord(
+        rule = RuleRecord(
             id="fixed-c-string",
             title="Fixed C String",
             trigger="fixed char array exposed through String::from_utf8_lossy",
@@ -769,7 +769,7 @@ class AdversarialChallengeTest(unittest.TestCase):
             tags=("strings", "nul-terminated-string"),
             keywords=("NUL", "from_utf8_lossy", "fixed char array"),
         )
-        challenge = SyntheticChallengeGenerator().generate(insight)
+        challenge = SyntheticChallengeGenerator().generate(rule)
         reference_source = challenge.trace_bundle["reference_source"]
 
         class FakeChecker:
@@ -791,7 +791,7 @@ class AdversarialChallengeTest(unittest.TestCase):
 
         event = adversarial_core._execute_generated_challenge(
             challenge,
-            insight,
+            rule,
             tool_checker=checker,
             sanity_checker=ChallengeSanityChecker(),
         )
@@ -801,8 +801,8 @@ class AdversarialChallengeTest(unittest.TestCase):
         self.assertTrue(event["reference_replay"])
         self.assertTrue(event["tool_evidence"]["tests_pass"])
 
-    def test_synthetic_generator_builds_default_challenge_for_generic_insight(self):
-        insight = InsightRecord(
+    def test_synthetic_generator_builds_default_challenge_for_generic_rule(self):
+        rule = RuleRecord(
             id="capacity-contract",
             title="Capacity Contract",
             trigger="C output struct has count and capacity fields",
@@ -813,9 +813,9 @@ class AdversarialChallengeTest(unittest.TestCase):
             keywords=("capacity", "count"),
         )
 
-        challenge = SyntheticChallengeGenerator().generate(insight)
+        challenge = SyntheticChallengeGenerator().generate(rule)
 
-        self.assertEqual(challenge.insight_id, "capacity-contract")
+        self.assertEqual(challenge.rule_id, "capacity-contract")
         self.assertIn("capacity", challenge.c_program.lower())
         self.assertIn("translate_challenge", challenge.rust_interface)
         self.assertIn("assert_eq!", challenge.harness)
@@ -823,7 +823,7 @@ class AdversarialChallengeTest(unittest.TestCase):
         self.assertFalse(challenge.evidence.tool_checked)
 
     def test_synthetic_generator_builds_pointer_length_challenge(self):
-        insight = InsightRecord(
+        rule = RuleRecord(
             id="pointer-buffer-length",
             title="Pointer Buffer Length",
             trigger="C returns a pointer paired with an explicit buffer length",
@@ -834,16 +834,16 @@ class AdversarialChallengeTest(unittest.TestCase):
             keywords=("pointer", "buffer", "length"),
         )
 
-        challenge = SyntheticChallengeGenerator().generate(insight)
+        challenge = SyntheticChallengeGenerator().generate(rule)
 
-        self.assertEqual(challenge.insight_id, "pointer-buffer-length")
+        self.assertEqual(challenge.rule_id, "pointer-buffer-length")
         self.assertIn("challenge_buffer", challenge.c_program)
         self.assertIn("translate_challenge(input: &[u8], len: usize)", challenge.rust_interface)
         self.assertIn("vec![1, 2, 0, 3, 4]", challenge.harness)
         self.assertIn("explicit buffer length", challenge.oracle)
 
     def test_synthetic_generator_builds_parser_cursor_state_challenge(self):
-        insight = InsightRecord(
+        rule = RuleRecord(
             id="parser-cursor-state",
             title="Parser Cursor State",
             trigger="C parser helpers share a cursor and consumed byte state",
@@ -854,9 +854,9 @@ class AdversarialChallengeTest(unittest.TestCase):
             keywords=("parse", "consume", "cursor", "consumed"),
         )
 
-        challenge = SyntheticChallengeGenerator().generate(insight)
+        challenge = SyntheticChallengeGenerator().generate(rule)
 
-        self.assertEqual(challenge.insight_id, "parser-cursor-state")
+        self.assertEqual(challenge.rule_id, "parser-cursor-state")
         self.assertIn("ParserState", challenge.c_program)
         self.assertIn("cursor", challenge.c_program)
         self.assertIn("translate_challenge(input: &[u8]) -> (usize, usize)", challenge.rust_interface)
@@ -864,7 +864,7 @@ class AdversarialChallengeTest(unittest.TestCase):
         self.assertIn("shared parser cursor", challenge.oracle)
 
     def test_synthetic_generator_builds_prng_sequence_challenge(self):
-        insight = InsightRecord(
+        rule = RuleRecord(
             id="prng-sequence-state",
             title="PRNG Sequence State",
             trigger="C code uses rand, srand, drand48, lrand48, or random calls",
@@ -875,9 +875,9 @@ class AdversarialChallengeTest(unittest.TestCase):
             keywords=("lrand48", "srand48", "seed", "PRNG"),
         )
 
-        challenge = SyntheticChallengeGenerator().generate(insight)
+        challenge = SyntheticChallengeGenerator().generate(rule)
 
-        self.assertEqual(challenge.insight_id, "prng-sequence-state")
+        self.assertEqual(challenge.rule_id, "prng-sequence-state")
         self.assertIn("challenge_prng_sequence", challenge.c_program)
         self.assertIn("1103515245u", challenge.c_program)
         self.assertIn("translate_challenge(seed: u32) -> (u32, u32)", challenge.rust_interface)
@@ -885,7 +885,7 @@ class AdversarialChallengeTest(unittest.TestCase):
         self.assertIn("deterministic PRNG state", challenge.oracle)
 
     def test_synthetic_generator_builds_callback_user_data_state_challenge(self):
-        insight = InsightRecord(
+        rule = RuleRecord(
             id="callback-user-data-state",
             title="Preserve callback user_data state across invocations",
             trigger="C callbacks receive void *user_data state across multiple visitor calls",
@@ -896,9 +896,9 @@ class AdversarialChallengeTest(unittest.TestCase):
             keywords=("user_data", "callback", "handler"),
         )
 
-        challenge = SyntheticChallengeGenerator().generate(insight)
+        challenge = SyntheticChallengeGenerator().generate(rule)
 
-        self.assertEqual(challenge.insight_id, "callback-user-data-state")
+        self.assertEqual(challenge.rule_id, "callback-user-data-state")
         self.assertIn("challenge_visit_with_callback", challenge.c_program)
         self.assertIn("CallbackState", challenge.c_program)
         self.assertIn("user_data", challenge.c_program)
@@ -907,7 +907,7 @@ class AdversarialChallengeTest(unittest.TestCase):
         self.assertIn("callback user_data state", challenge.oracle)
 
     def test_tool_checker_writes_c_and_rust_stub_and_marks_compiling_challenge(self):
-        insight = InsightRecord(
+        rule = RuleRecord(
             id="fixed-c-string",
             title="Fixed C String",
             trigger="fixed char array exposed through String::from_utf8_lossy",
@@ -917,7 +917,7 @@ class AdversarialChallengeTest(unittest.TestCase):
             tags=("strings",),
             keywords=("NUL", "fixed char array"),
         )
-        challenge = SyntheticChallengeGenerator().generate(insight)
+        challenge = SyntheticChallengeGenerator().generate(rule)
         calls = []
 
         def fake_runner(command, *, cwd, text, stdout, stderr, timeout):
@@ -951,7 +951,7 @@ class AdversarialChallengeTest(unittest.TestCase):
 
     def test_tool_checker_runs_rust_harness_after_typecheck(self):
         challenge = ChallengeRecord(
-            insight_id="capacity-contract",
+            rule_id="capacity-contract",
             c_program="int challenge_value(void) { return 7; }",
             rust_interface="pub fn translate_challenge() -> i32;",
             harness="#[test]\nfn challenge_contract() { assert_eq!(translate_challenge(), 0); }",
@@ -986,7 +986,7 @@ class AdversarialChallengeTest(unittest.TestCase):
 
     def test_tool_checker_can_replay_harness_against_supplied_rust_source(self):
         challenge = ChallengeRecord(
-            insight_id="capacity-contract",
+            rule_id="capacity-contract",
             c_program="int challenge_value(void) { return 7; }",
             rust_interface="pub fn translate_challenge() -> i32;",
             harness="#[test]\nfn challenge_contract() { assert_eq!(translate_challenge(), 7); }",
@@ -1021,7 +1021,7 @@ class AdversarialChallengeTest(unittest.TestCase):
 
     def test_tool_checker_reports_rust_harness_replay_failure(self):
         challenge = ChallengeRecord(
-            insight_id="capacity-contract",
+            rule_id="capacity-contract",
             c_program="int challenge_value(void) { return 7; }",
             rust_interface="pub fn translate_challenge() -> i32;",
             harness="#[test]\nfn challenge_contract() { assert_eq!(translate_challenge(), 7); }",
@@ -1048,7 +1048,7 @@ class AdversarialChallengeTest(unittest.TestCase):
 
     def test_tool_checker_runs_executable_c_snippet_when_main_exists(self):
         challenge = ChallengeRecord(
-            insight_id="capacity-contract",
+            rule_id="capacity-contract",
             c_program="int main(void) { return 0; }",
             rust_interface="pub fn translate_challenge() -> i32;",
             harness="#[test]\nfn challenge_contract() { assert_eq!(translate_challenge(), 0); }",
@@ -1081,7 +1081,7 @@ class AdversarialChallengeTest(unittest.TestCase):
 
     def test_tool_checker_generates_executable_wrapper_for_c_snippet_without_main(self):
         challenge = ChallengeRecord(
-            insight_id="capacity-contract",
+            rule_id="capacity-contract",
             c_program="int challenge_value(void) { return 7; }",
             rust_interface="pub fn translate_challenge() -> i32;",
             harness="#[test]\nfn challenge_contract() { assert_eq!(translate_challenge(), 0); }",
@@ -1117,7 +1117,7 @@ class AdversarialChallengeTest(unittest.TestCase):
 
     def test_tool_checker_reports_executable_c_snippet_failure(self):
         challenge = ChallengeRecord(
-            insight_id="capacity-contract",
+            rule_id="capacity-contract",
             c_program="int main(void) { return 1; }",
             rust_interface="pub fn translate_challenge() -> i32;",
             harness="#[test]\nfn challenge_contract() { assert_eq!(translate_challenge(), 0); }",
@@ -1146,7 +1146,7 @@ class AdversarialChallengeTest(unittest.TestCase):
 
     def test_tool_checker_reports_rust_typecheck_failure(self):
         challenge = ChallengeRecord(
-            insight_id="capacity-contract",
+            rule_id="capacity-contract",
             c_program="int challenge_value(void) { return 7; }",
             rust_interface="pub fn translate_challenge() -> (i32, i32);",
             harness="#[test]\nfn challenge_contract() { assert_eq!(translate_challenge(), (2, 8)); }",
@@ -1170,7 +1170,7 @@ class AdversarialChallengeTest(unittest.TestCase):
         self.assertIn("cargo test --no-run failed", checked.evidence.output)
 
     def test_sanity_checker_rejects_duplicates_and_inactive_challenges(self):
-        insight = InsightRecord(
+        rule = RuleRecord(
             id="fixed-c-string",
             title="Fixed C String",
             trigger="fixed char array",
@@ -1182,7 +1182,7 @@ class AdversarialChallengeTest(unittest.TestCase):
         )
         checker = ChallengeSanityChecker()
         first = ChallengeRecord(
-            insight_id="fixed-c-string",
+            rule_id="fixed-c-string",
             c_program="char name[8];",
             rust_interface="pub fn name() -> String",
             harness="assert_eq!(name(), \"abc\")",
@@ -1190,7 +1190,7 @@ class AdversarialChallengeTest(unittest.TestCase):
             evidence=ExecutionEvidence(compiles=True, tests_pass=False, output="NUL padding"),
         )
         duplicate = ChallengeRecord(
-            insight_id="fixed-c-string",
+            rule_id="fixed-c-string",
             c_program="char name[8];",
             rust_interface="pub fn name() -> String",
             harness="assert_eq!(name(), \"abc\")",
@@ -1198,7 +1198,7 @@ class AdversarialChallengeTest(unittest.TestCase):
             evidence=ExecutionEvidence(compiles=True, tests_pass=False, output="NUL padding"),
         )
         inactive = ChallengeRecord(
-            insight_id="fixed-c-string",
+            rule_id="fixed-c-string",
             c_program="int add(int a, int b) { return a + b; }",
             rust_interface="pub fn add(a: i32, b: i32) -> i32",
             harness="assert_eq!(add(1, 2), 3)",
@@ -1206,16 +1206,16 @@ class AdversarialChallengeTest(unittest.TestCase):
             evidence=ExecutionEvidence(compiles=True, tests_pass=True, output="ok"),
         )
 
-        first_result = checker.check(first, insight)
-        duplicate_result = checker.check(duplicate, insight)
-        inactive_result = checker.check(inactive, insight)
+        first_result = checker.check(first, rule)
+        duplicate_result = checker.check(duplicate, rule)
+        inactive_result = checker.check(inactive, rule)
 
         self.assertTrue(first_result.valid)
         self.assertIn("leak", duplicate_result.failed_checks)
         self.assertIn("activates", inactive_result.failed_checks)
 
     def test_sanity_checker_rejects_near_duplicate_challenges(self):
-        insight = InsightRecord(
+        rule = RuleRecord(
             id="fixed-c-string",
             title="Fixed C String",
             trigger="fixed char array",
@@ -1226,7 +1226,7 @@ class AdversarialChallengeTest(unittest.TestCase):
             keywords=("NUL",),
         )
         first = ChallengeRecord(
-            insight_id="fixed-c-string",
+            rule_id="fixed-c-string",
             c_program="unsigned char name[8] = {'a','b','c','\\0','x','y','z','\\0'};",
             rust_interface="pub fn name() -> String;",
             harness="assert_eq!(name(), \"abc\");",
@@ -1234,7 +1234,7 @@ class AdversarialChallengeTest(unittest.TestCase):
             evidence=ExecutionEvidence(compiles=True, tests_pass=True, output="cargo test ok"),
         )
         same_boundary_with_noise = ChallengeRecord(
-            insight_id="fixed-c-string",
+            rule_id="fixed-c-string",
             c_program="\n/* generated again */\nunsigned char name [ 8 ] = { 'a', 'b', 'c', '\\0', 'x', 'y', 'z', '\\0' };\n",
             rust_interface="pub fn name ( ) -> String;",
             harness="\nassert_eq!( name(), \"abc\" );\n",
@@ -1243,14 +1243,14 @@ class AdversarialChallengeTest(unittest.TestCase):
         )
         checker = ChallengeSanityChecker()
 
-        first_result = checker.check(first, insight)
-        near_duplicate_result = checker.check(same_boundary_with_noise, insight)
+        first_result = checker.check(first, rule)
+        near_duplicate_result = checker.check(same_boundary_with_noise, rule)
 
         self.assertTrue(first_result.valid)
         self.assertIn("leak", near_duplicate_result.failed_checks)
 
-    def test_sanity_checker_rejects_boundary_insight_without_boundary_payload(self):
-        insight = InsightRecord(
+    def test_sanity_checker_rejects_boundary_rule_without_boundary_payload(self):
+        rule = RuleRecord(
             id="fixed-c-string",
             title="Fixed C String",
             trigger="fixed char array exposed through String::from_utf8_lossy",
@@ -1261,7 +1261,7 @@ class AdversarialChallengeTest(unittest.TestCase):
             keywords=("NUL", "fixed char array"),
         )
         challenge = ChallengeRecord(
-            insight_id="fixed-c-string",
+            rule_id="fixed-c-string",
             c_program="unsigned char name[8] = {'a','b','c','x','y','z','q','r'};",
             rust_interface="pub fn name() -> String;",
             harness="assert_eq!(name(), \"abc\");",
@@ -1269,12 +1269,12 @@ class AdversarialChallengeTest(unittest.TestCase):
             evidence=ExecutionEvidence(compiles=True, tests_pass=True, output="cargo test ok"),
         )
 
-        result = ChallengeSanityChecker().check(challenge, insight)
+        result = ChallengeSanityChecker().check(challenge, rule)
 
         self.assertIn("activates", result.failed_checks)
 
     def test_sanity_checker_rejects_challenge_without_self_validating_oracle(self):
-        insight = InsightRecord(
+        rule = RuleRecord(
             id="capacity-contract",
             title="Capacity Contract",
             trigger="count and capacity",
@@ -1285,7 +1285,7 @@ class AdversarialChallengeTest(unittest.TestCase):
             keywords=("capacity",),
         )
         no_assertion = ChallengeRecord(
-            insight_id="capacity-contract",
+            rule_id="capacity-contract",
             c_program="typedef struct S { int count; int capacity; } S;",
             rust_interface="pub fn translate_challenge() -> (i32, i32);",
             harness="let _observed = translate_challenge();",
@@ -1293,12 +1293,12 @@ class AdversarialChallengeTest(unittest.TestCase):
             evidence=ExecutionEvidence(compiles=True, tests_pass=True, output="cargo test ok"),
         )
 
-        result = ChallengeSanityChecker().check(no_assertion, insight)
+        result = ChallengeSanityChecker().check(no_assertion, rule)
 
         self.assertIn("oracle", result.failed_checks)
 
     def test_sanity_checker_rejects_harness_that_does_not_call_declared_interface(self):
-        insight = InsightRecord(
+        rule = RuleRecord(
             id="capacity-contract",
             title="Capacity Contract",
             trigger="count and capacity",
@@ -1309,7 +1309,7 @@ class AdversarialChallengeTest(unittest.TestCase):
             keywords=("capacity",),
         )
         wrong_call = ChallengeRecord(
-            insight_id="capacity-contract",
+            rule_id="capacity-contract",
             c_program="typedef struct S { int count; int capacity; } S;",
             rust_interface="pub fn translate_challenge() -> (i32, i32);",
             harness="#[test]\nfn challenge_contract() { assert_eq!(other_function(), (2, 8)); }",
@@ -1317,12 +1317,12 @@ class AdversarialChallengeTest(unittest.TestCase):
             evidence=ExecutionEvidence(compiles=True, tests_pass=True, output="cargo test ok"),
         )
 
-        result = ChallengeSanityChecker().check(wrong_call, insight)
+        result = ChallengeSanityChecker().check(wrong_call, rule)
 
         self.assertIn("oracle", result.failed_checks)
 
     def test_sanity_checker_rejects_mismatched_activation_predicate(self):
-        insight = InsightRecord(
+        rule = RuleRecord(
             id="fixed-c-string",
             title="Fixed C String",
             trigger="fixed char array exposed through String::from_utf8_lossy",
@@ -1333,7 +1333,7 @@ class AdversarialChallengeTest(unittest.TestCase):
             keywords=("NUL", "fixed char array"),
         )
         challenge = ChallengeRecord(
-            insight_id="fixed-c-string",
+            rule_id="fixed-c-string",
             c_program="const unsigned char *challenge(void) { return (const unsigned char *)\"abc\\0pad\"; }",
             rust_interface="pub fn translate_challenge(input: &[u8]) -> String;",
             harness="#[test]\nfn generated() { assert_eq!(translate_challenge(b\"abc\\0pad\"), \"abc\"); }",
@@ -1342,12 +1342,12 @@ class AdversarialChallengeTest(unittest.TestCase):
             evidence=ExecutionEvidence(compiles=True, tests_pass=True, output="toolcheck ok"),
         )
 
-        result = ChallengeSanityChecker().check(challenge, insight)
+        result = ChallengeSanityChecker().check(challenge, rule)
 
         self.assertIn("activates", result.failed_checks)
 
     def test_sanity_checker_can_use_activation_validator_for_generic_activation(self):
-        insight = InsightRecord(
+        rule = RuleRecord(
             id="callback-state",
             title="Callback State",
             trigger="C library invokes a cleanup callback after ownership transfer",
@@ -1358,7 +1358,7 @@ class AdversarialChallengeTest(unittest.TestCase):
             keywords=("ownership",),
         )
         challenge = ChallengeRecord(
-            insight_id="callback-state",
+            rule_id="callback-state",
             c_program="int challenge_value(int x) { return x + 1; }",
             rust_interface="pub fn translate_challenge(x: i32) -> i32;",
             harness="#[test]\nfn generated() { assert_eq!(translate_challenge(1), 2); }",
@@ -1370,18 +1370,18 @@ class AdversarialChallengeTest(unittest.TestCase):
         def fake_validator(payload):
             calls.append(payload)
             self.assertFalse(payload["local_activation_valid"])
-            self.assertEqual(payload["insight"]["id"], "callback-state")
+            self.assertEqual(payload["rule"]["id"], "callback-state")
             return {"activates": True, "reason": "The transition result exercises the callback-state rule."}
 
         result = ChallengeSanityChecker(
             activation_validator=StructuredActivationValidator(fake_validator)
-        ).check(challenge, insight)
+        ).check(challenge, rule)
 
         self.assertTrue(result.valid)
-        self.assertEqual(calls[0]["challenge"]["insight_id"], "callback-state")
+        self.assertEqual(calls[0]["challenge"]["rule_id"], "callback-state")
 
     def test_sanity_checker_rejects_activation_validator_negative_result(self):
-        insight = InsightRecord(
+        rule = RuleRecord(
             id="callback-state",
             title="Callback State",
             trigger="C library invokes a cleanup callback after ownership transfer",
@@ -1392,7 +1392,7 @@ class AdversarialChallengeTest(unittest.TestCase):
             keywords=("ownership",),
         )
         challenge = ChallengeRecord(
-            insight_id="callback-state",
+            rule_id="callback-state",
             c_program="int unrelated(int x) { return x + 1; }",
             rust_interface="pub fn translate_challenge(x: i32) -> i32;",
             harness="#[test]\nfn generated() { assert_eq!(translate_challenge(1), 2); }",
@@ -1404,12 +1404,12 @@ class AdversarialChallengeTest(unittest.TestCase):
             activation_validator=StructuredActivationValidator(
                 lambda _payload: {"activates": False, "reason": "No callback behavior is exercised."}
             )
-        ).check(challenge, insight)
+        ).check(challenge, rule)
 
         self.assertIn("activates_semantic", result.failed_checks)
 
     def test_sanity_checker_can_use_semantic_oracle_validator(self):
-        insight = InsightRecord(
+        rule = RuleRecord(
             id="fixed-c-string",
             title="Fixed C String",
             trigger="fixed char array exposed through String::from_utf8_lossy",
@@ -1420,7 +1420,7 @@ class AdversarialChallengeTest(unittest.TestCase):
             keywords=("NUL", "fixed char array"),
         )
         challenge = ChallengeRecord(
-            insight_id="fixed-c-string",
+            rule_id="fixed-c-string",
             c_program="const unsigned char *challenge(void) { return (const unsigned char *)\"abc\\0pad\"; }",
             rust_interface="pub fn translate_challenge(input: &[u8]) -> String;",
             harness="#[test]\nfn generated() { assert_eq!(translate_challenge(b\"abc\\0pad\"), \"abc\"); }",
@@ -1430,22 +1430,22 @@ class AdversarialChallengeTest(unittest.TestCase):
         )
 
         class RejectingOracleValidator:
-            def validate(self, input_challenge, input_insight):
+            def validate(self, input_challenge, input_rule):
                 self.challenge = input_challenge
-                self.insight = input_insight
+                self.rule = input_rule
                 return SemanticOracleValidationResult(False, "oracle does not cover visible length")
 
         validator = RejectingOracleValidator()
-        result = ChallengeSanityChecker(oracle_validator=validator).check(challenge, insight)
+        result = ChallengeSanityChecker(oracle_validator=validator).check(challenge, rule)
 
         self.assertIn("oracle_semantic", result.failed_checks)
         self.assertIs(validator.challenge, challenge)
-        self.assertIs(validator.insight, insight)
+        self.assertIs(validator.rule, rule)
 
 
 class AdversarialRefinementTest(unittest.TestCase):
     def test_structured_challenger_agent_parses_challenge_schema(self):
-        insight = InsightRecord(
+        rule = RuleRecord(
             id="fixed-c-string",
             title="Fixed C String",
             trigger="fixed char array",
@@ -1461,7 +1461,7 @@ class AdversarialRefinementTest(unittest.TestCase):
             payloads.append(payload)
             return json.dumps(
                 {
-                    "insight_id": "fixed-c-string",
+                    "rule_id": "fixed-c-string",
                     "c_program": "const char *challenge(void) { return \"abc\"; }",
                     "rust_interface": "pub fn translate_challenge() -> String;",
                     "harness": "#[test]\nfn generated() { assert_eq!(translate_challenge(), \"abc\"); }",
@@ -1471,18 +1471,18 @@ class AdversarialRefinementTest(unittest.TestCase):
                 }
             )
 
-        challenge = StructuredChallengerAgent(fake_agent).generate(insight)
+        challenge = StructuredChallengerAgent(fake_agent).generate(rule)
 
-        self.assertEqual(payloads[0]["insight"]["id"], "fixed-c-string")
+        self.assertEqual(payloads[0]["rule"]["id"], "fixed-c-string")
         self.assertIn("schema", payloads[0])
-        self.assertEqual(challenge.insight_id, "fixed-c-string")
+        self.assertEqual(challenge.rule_id, "fixed-c-string")
         self.assertIn("challenge", challenge.c_program)
         self.assertIn("fixed char array", challenge.activation_predicate)
         self.assertFalse(challenge.evidence.compiles)
         self.assertFalse(challenge.evidence.tests_pass)
 
     def test_structured_challenger_agent_rejects_invalid_schema(self):
-        insight = InsightRecord(
+        rule = RuleRecord(
             id="fixed-c-string",
             title="Fixed C String",
             trigger="fixed char array",
@@ -1492,10 +1492,10 @@ class AdversarialRefinementTest(unittest.TestCase):
         )
 
         with self.assertRaises(ValueError):
-            StructuredChallengerAgent(lambda _payload: {"insight_id": "other"}).generate(insight)
+            StructuredChallengerAgent(lambda _payload: {"rule_id": "other"}).generate(rule)
 
     def test_llm_structured_challenger_agent_uses_translation_agent(self):
-        insight = InsightRecord(
+        rule = RuleRecord(
             id="fixed-c-string",
             title="Fixed C String",
             trigger="fixed char array",
@@ -1514,7 +1514,7 @@ class AdversarialRefinementTest(unittest.TestCase):
                     raw_text=(
                         "```json\n"
                         "{"
-                        "\"insight_id\":\"fixed-c-string\","
+                        "\"rule_id\":\"fixed-c-string\","
                         "\"c_program\":\"const char *challenge(void) { return \\\"abc\\\"; }\","
                         "\"rust_interface\":\"pub fn translate_challenge() -> String;\","
                         "\"harness\":\"#[test]\\nfn generated() { assert_eq!(translate_challenge(), \\\"abc\\\"); }\","
@@ -1527,16 +1527,16 @@ class AdversarialRefinementTest(unittest.TestCase):
                 )
 
         agent = FakeLiveAgent()
-        challenge = LLMStructuredChallengerAgent(agent).generate(insight)
+        challenge = LLMStructuredChallengerAgent(agent).generate(rule)
 
-        self.assertEqual(challenge.insight_id, "fixed-c-string")
+        self.assertEqual(challenge.rule_id, "fixed-c-string")
         self.assertIn("fixed char array", challenge.activation_predicate)
         self.assertEqual(len(agent.calls), 1)
         self.assertIn("Challenger", agent.calls[0]["system"])
         self.assertIn('"schema"', agent.calls[0]["prompt"])
 
     def test_llm_structured_challenger_agent_records_live_call_metadata(self):
-        insight = InsightRecord(
+        rule = RuleRecord(
             id="fixed-c-string",
             title="Fixed C String",
             trigger="fixed char array",
@@ -1550,7 +1550,7 @@ class AdversarialRefinementTest(unittest.TestCase):
                 return SimpleNamespace(
                     raw_text=json.dumps(
                         {
-                            "insight_id": "fixed-c-string",
+                            "rule_id": "fixed-c-string",
                             "c_program": "const char *challenge(void) { return \"abc\"; }",
                             "rust_interface": "pub fn translate_challenge() -> String;",
                             "harness": "#[test]\nfn generated() { assert_eq!(translate_challenge(), \"abc\"); }",
@@ -1567,7 +1567,7 @@ class AdversarialRefinementTest(unittest.TestCase):
                 )
 
         recorded_calls = []
-        LLMStructuredChallengerAgent(FakeLiveAgent(), call_recorder=recorded_calls.append).generate(insight)
+        LLMStructuredChallengerAgent(FakeLiveAgent(), call_recorder=recorded_calls.append).generate(rule)
 
         self.assertEqual(len(recorded_calls), 1)
         self.assertEqual(recorded_calls[0]["phase"], "adversarial_structured_challenger")
@@ -1595,7 +1595,7 @@ class AdversarialRefinementTest(unittest.TestCase):
         self.assertIn("minimal counterexample", adversarial_core.LLM_STRUCTURED_CHALLENGER_SYSTEM)
         self.assertIn("harness must call the declared Rust interface", adversarial_core.LLM_STRUCTURED_CHALLENGER_SYSTEM)
         self.assertIn("EvidenceGate", adversarial_core.LLM_STRUCTURED_REFINER_SYSTEM)
-        self.assertIn("Preserve the insight id", adversarial_core.LLM_STRUCTURED_REFINER_SYSTEM)
+        self.assertIn("Preserve the rule id", adversarial_core.LLM_STRUCTURED_REFINER_SYSTEM)
         self.assertIn("cite concrete challenge or trace evidence", adversarial_core.LLM_STRUCTURED_REFINER_SYSTEM)
         self.assertIn("tautological", adversarial_core.LLM_SEMANTIC_ORACLE_SYSTEM)
         self.assertIn("observable behavior", adversarial_core.LLM_SEMANTIC_ORACLE_SYSTEM)
@@ -1609,7 +1609,7 @@ class AdversarialRefinementTest(unittest.TestCase):
         self.assertIn("Do not infer relations from id, title, or wording overlap", adversarial_core.LLM_COMPOSITION_RELATION_SYSTEM)
 
     def test_structured_refiner_agent_parses_update_schema(self):
-        insight = InsightRecord(
+        rule = RuleRecord(
             id="fixed-c-string",
             title="Fixed C String",
             trigger="fixed char array",
@@ -1617,14 +1617,14 @@ class AdversarialRefinementTest(unittest.TestCase):
             constraint="Trim at NUL",
             risk="padding may leak",
         )
-        challenge = SyntheticChallengeGenerator().generate(insight)
+        challenge = SyntheticChallengeGenerator().generate(rule)
 
         def fake_agent(payload):
-            self.assertEqual(payload["insight"]["id"], "fixed-c-string")
+            self.assertEqual(payload["rule"]["id"], "fixed-c-string")
             self.assertIn("challenge", payload)
             self.assertIn("schema", payload)
             return {
-                "insight_id": "fixed-c-string",
+                "rule_id": "fixed-c-string",
                 "field": "constraint",
                 "new_text": "Trim at NUL; preserve only bytes before the first NUL in public views",
                 "rationale": "failure shows public NUL padding leakage",
@@ -1633,18 +1633,18 @@ class AdversarialRefinementTest(unittest.TestCase):
             }
 
         proposal = StructuredRefinerAgent(fake_agent).propose_update(
-            insight,
+            rule,
             challenge,
             ExecutionEvidence(compiles=True, tests_pass=False, output="assertion failed: NUL padding"),
         )
 
-        self.assertEqual(proposal.insight_id, "fixed-c-string")
+        self.assertEqual(proposal.rule_id, "fixed-c-string")
         self.assertEqual(proposal.field, "constraint")
         self.assertIn("first NUL", proposal.new_text)
         self.assertIn("constraint_violation", proposal.rationale)
 
     def test_structured_refiner_payload_includes_trace_bundle(self):
-        insight = InsightRecord(
+        rule = RuleRecord(
             id="fixed-c-string",
             title="Fixed C String",
             trigger="fixed char array",
@@ -1653,7 +1653,7 @@ class AdversarialRefinementTest(unittest.TestCase):
             risk="padding may leak",
         )
         challenge = ChallengeRecord(
-            insight_id="fixed-c-string",
+            rule_id="fixed-c-string",
             c_program="const char *challenge(void) { return \"abc\"; }",
             rust_interface="pub fn translate_challenge() -> String;",
             harness="#[test]\nfn generated() { assert_eq!(translate_challenge(), \"abc\"); }",
@@ -1670,7 +1670,7 @@ class AdversarialRefinementTest(unittest.TestCase):
             self.assertEqual(payload["trace_bundle"]["compiler_errors"], ["error[E0308]"])
             self.assertIn("generated_rust", payload["trace_bundle"])
             return {
-                "insight_id": "fixed-c-string",
+                "rule_id": "fixed-c-string",
                 "field": "risk",
                 "new_text": "padding may leak; assertion failed in generated harness",
                 "rationale": "trace bundle points to a missing risk",
@@ -1678,7 +1678,7 @@ class AdversarialRefinementTest(unittest.TestCase):
             }
 
         proposal = StructuredRefinerAgent(fake_agent).propose_update(
-            insight,
+            rule,
             challenge,
             challenge.evidence,
         )
@@ -1686,7 +1686,7 @@ class AdversarialRefinementTest(unittest.TestCase):
         self.assertEqual(proposal.field, "risk")
 
     def test_llm_structured_refiner_agent_uses_translation_agent(self):
-        insight = InsightRecord(
+        rule = RuleRecord(
             id="fixed-c-string",
             title="Fixed C String",
             trigger="fixed char array",
@@ -1694,7 +1694,7 @@ class AdversarialRefinementTest(unittest.TestCase):
             constraint="Trim at NUL",
             risk="padding may leak",
         )
-        challenge = SyntheticChallengeGenerator().generate(insight)
+        challenge = SyntheticChallengeGenerator().generate(rule)
 
         class FakeLiveAgent:
             def __init__(self):
@@ -1705,7 +1705,7 @@ class AdversarialRefinementTest(unittest.TestCase):
                 return SimpleNamespace(
                     raw_text=json.dumps(
                         {
-                            "insight_id": "fixed-c-string",
+                            "rule_id": "fixed-c-string",
                             "field": "constraint",
                             "new_text": "Trim at NUL and keep only visible bytes before it",
                             "rationale": "generated Rust leaked padded bytes",
@@ -1718,7 +1718,7 @@ class AdversarialRefinementTest(unittest.TestCase):
 
         agent = FakeLiveAgent()
         proposal = LLMStructuredRefinerAgent(agent).propose_update(
-            insight,
+            rule,
             challenge,
             ExecutionEvidence(compiles=True, tests_pass=False, output="assertion failed"),
         )
@@ -1730,7 +1730,7 @@ class AdversarialRefinementTest(unittest.TestCase):
         self.assertIn('"trace_bundle"', agent.calls[0]["prompt"])
 
     def test_structured_oracle_validator_parses_schema(self):
-        insight = InsightRecord(
+        rule = RuleRecord(
             id="fixed-c-string",
             title="Fixed C String",
             trigger="fixed char array",
@@ -1738,22 +1738,22 @@ class AdversarialRefinementTest(unittest.TestCase):
             constraint="Trim at NUL",
             risk="padding may leak",
         )
-        challenge = SyntheticChallengeGenerator().generate(insight)
+        challenge = SyntheticChallengeGenerator().generate(rule)
         payloads = []
 
         def fake_validator(payload):
             payloads.append(payload)
             return {"valid": True, "reason": "oracle covers the challenge assertion"}
 
-        result = StructuredOracleValidator(fake_validator).validate(challenge, insight)
+        result = StructuredOracleValidator(fake_validator).validate(challenge, rule)
 
         self.assertTrue(result.valid)
         self.assertEqual(result.reason, "oracle covers the challenge assertion")
-        self.assertEqual(payloads[0]["insight"]["id"], "fixed-c-string")
+        self.assertEqual(payloads[0]["rule"]["id"], "fixed-c-string")
         self.assertIn("schema", payloads[0])
 
     def test_structured_refiner_agent_rejects_non_actionable_updates(self):
-        insight = InsightRecord(
+        rule = RuleRecord(
             id="fixed-c-string",
             title="Fixed C String",
             trigger="fixed char array",
@@ -1761,17 +1761,17 @@ class AdversarialRefinementTest(unittest.TestCase):
             constraint="Trim at NUL",
             risk="padding may leak",
         )
-        challenge = SyntheticChallengeGenerator().generate(insight)
+        challenge = SyntheticChallengeGenerator().generate(rule)
 
         with self.assertRaises(ValueError):
             StructuredRefinerAgent(lambda _payload: {"actionable": False}).propose_update(
-                insight,
+                rule,
                 challenge,
                 ExecutionEvidence(compiles=True, tests_pass=False, output="invalid challenge"),
             )
 
     def test_failure_attributor_maps_nul_failure_to_risk_update(self):
-        insight = InsightRecord(
+        rule = RuleRecord(
             id="fixed-c-string",
             title="Fixed C String",
             trigger="fixed char array",
@@ -1783,7 +1783,7 @@ class AdversarialRefinementTest(unittest.TestCase):
         )
 
         proposal = FailureAttributor().propose_update(
-            insight,
+            rule,
             ExecutionEvidence(compiles=True, tests_pass=False, output="assertion failed: zero padding after NUL"),
         )
 
@@ -1792,7 +1792,7 @@ class AdversarialRefinementTest(unittest.TestCase):
         self.assertIn("missing_risk", proposal.rationale)
 
     def test_failure_attributor_classifies_common_failure_kinds(self):
-        insight = InsightRecord(
+        rule = RuleRecord(
             id="capacity-contract",
             title="Capacity Contract",
             trigger="count and capacity",
@@ -1802,15 +1802,15 @@ class AdversarialRefinementTest(unittest.TestCase):
         )
 
         constraint = FailureAttributor().propose_update(
-            insight,
+            rule,
             ExecutionEvidence(compiles=True, tests_pass=False, output="bounds check changed capacity"),
         )
         goal = FailureAttributor().propose_update(
-            insight,
+            rule,
             ExecutionEvidence(compiles=True, tests_pass=False, output="public API signature mismatch"),
         )
         trigger = FailureAttributor().propose_update(
-            insight,
+            rule,
             ExecutionEvidence(compiles=True, tests_pass=False, output="unexpected branch for empty input"),
         )
 
@@ -1822,7 +1822,7 @@ class AdversarialRefinementTest(unittest.TestCase):
         self.assertIn("trigger_gap", trigger.rationale)
 
     def test_evidence_gate_accepts_only_improving_replay(self):
-        insight = InsightRecord(
+        rule = RuleRecord(
             id="fixed-c-string",
             title="Fixed C String",
             trigger="fixed char array",
@@ -1830,8 +1830,8 @@ class AdversarialRefinementTest(unittest.TestCase):
             constraint="Trim at NUL",
             risk="padding may leak",
         )
-        proposal = InsightUpdateProposal(
-            insight_id="fixed-c-string",
+        proposal = RuleUpdateProposal(
+            rule_id="fixed-c-string",
             field="risk",
             old_text="padding may leak",
             new_text="padding may leak; zero padding after NUL",
@@ -1840,24 +1840,24 @@ class AdversarialRefinementTest(unittest.TestCase):
         gate = EvidenceGate()
 
         accepted = gate.evaluate(
-            insight,
+            rule,
             proposal,
             before=ExecutionEvidence(compiles=True, tests_pass=False, output="failed"),
             after=ExecutionEvidence(compiles=True, tests_pass=True, output="ok"),
         )
         rejected = gate.evaluate(
-            insight,
+            rule,
             proposal,
             before=ExecutionEvidence(compiles=True, tests_pass=False, output="failed"),
             after=ExecutionEvidence(compiles=True, tests_pass=False, output="failed"),
         )
 
         self.assertTrue(accepted.accepted)
-        self.assertEqual(accepted.updated_insight.version, 2)
+        self.assertEqual(accepted.updated_rule.version, 2)
         self.assertFalse(rejected.accepted)
 
-    def test_insight_constrained_replay_runner_compares_before_and_after_updates(self):
-        insight = InsightRecord(
+    def test_rule_constrained_replay_runner_compares_before_and_after_updates(self):
+        rule = RuleRecord(
             id="capacity-contract",
             title="Capacity Contract",
             trigger="count and capacity",
@@ -1866,15 +1866,15 @@ class AdversarialRefinementTest(unittest.TestCase):
             risk="capacity drift",
         )
         challenge = ChallengeRecord(
-            insight_id="capacity-contract",
+            rule_id="capacity-contract",
             c_program="int challenge_value(void) { return 7; }",
             rust_interface="pub fn translate_challenge() -> i32;",
             harness="#[test]\nfn challenge_contract() { assert_eq!(translate_challenge(), 7); }",
             oracle="Preserve value",
             evidence=ExecutionEvidence(compiles=False, tests_pass=False),
         )
-        proposal = InsightUpdateProposal(
-            insight_id="capacity-contract",
+        proposal = RuleUpdateProposal(
+            rule_id="capacity-contract",
             field="risk",
             old_text="capacity drift",
             new_text="capacity drift; replay fixed",
@@ -1882,10 +1882,10 @@ class AdversarialRefinementTest(unittest.TestCase):
         )
         translated_risks = []
 
-        def fake_translate(input_challenge, input_insight):
-            self.assertEqual(input_challenge.insight_id, "capacity-contract")
-            translated_risks.append(input_insight.risk)
-            if "replay fixed" in input_insight.risk:
+        def fake_translate(input_challenge, input_rule):
+            self.assertEqual(input_challenge.rule_id, "capacity-contract")
+            translated_risks.append(input_rule.risk)
+            if "replay fixed" in input_rule.risk:
                 return "pub fn translate_challenge() -> i32 { 7 }"
             return "pub fn translate_challenge() -> i32 { 0 }"
 
@@ -1900,17 +1900,17 @@ class AdversarialRefinementTest(unittest.TestCase):
                     ),
                 )
 
-        result = InsightConstrainedReplayRunner(
+        result = RuleConstrainedReplayRunner(
             fake_translate,
             tool_checker=FakeChecker(),
-        ).evaluate_update(insight, challenge, proposal)
+        ).evaluate_update(rule, challenge, proposal)
 
         self.assertTrue(result.accepted)
         self.assertEqual(translated_risks, ["capacity drift", "capacity drift; replay fixed"])
-        self.assertEqual(result.updated_insight.version, 2)
+        self.assertEqual(result.updated_rule.version, 2)
 
     def test_translator_challenge_replay_adapter_uses_injected_translator_factory(self):
-        insight = InsightRecord(
+        rule = RuleRecord(
             id="capacity-contract",
             title="Capacity Contract",
             trigger="count and capacity",
@@ -1919,7 +1919,7 @@ class AdversarialRefinementTest(unittest.TestCase):
             risk="capacity drift",
         )
         challenge = ChallengeRecord(
-            insight_id="capacity-contract",
+            rule_id="capacity-contract",
             c_program="int challenge_value(void) { return 7; }",
             rust_interface="pub fn translate_challenge() -> i32;",
             harness="#[test]\nfn challenge_contract() { assert_eq!(translate_challenge(), 7); }",
@@ -1933,9 +1933,9 @@ class AdversarialRefinementTest(unittest.TestCase):
             def __init__(self, config):
                 self.config = config
 
-            def translate_adversarial_challenge(self, input_challenge, input_insight):
+            def translate_adversarial_challenge(self, input_challenge, input_rule):
                 self.config["called"] = True
-                return f"pub fn translate_challenge() -> i32 {{ {len(input_insight.risk)} }}"
+                return f"pub fn translate_challenge() -> i32 {{ {len(input_rule.risk)} }}"
 
         def factory(config):
             created_configs.append(config)
@@ -1945,24 +1945,24 @@ class AdversarialRefinementTest(unittest.TestCase):
             factory,
             base_config={"model_display_name": "unit-model"},
         )
-        rust_source = adapter(challenge, insight)
+        rust_source = adapter(challenge, rule)
 
         self.assertIn("pub fn translate_challenge", rust_source)
         self.assertEqual(len(created_configs), 1)
         config = created_configs[0]
         self.assertEqual(config["model_display_name"], "unit-model")
         self.assertTrue(config["called"])
-        self.assertEqual(config["adversarial_replay_challenge"]["insight_id"], "capacity-contract")
+        self.assertEqual(config["adversarial_replay_challenge"]["rule_id"], "capacity-contract")
         self.assertEqual(
             config["adversarial_replay_challenge"]["activation_predicate"],
             "count <= capacity",
         )
-        self.assertEqual(config["adversarial_replay_insight"]["id"], "capacity-contract")
-        self.assertEqual(config["adversarial_replay_insight"]["risk"], "capacity drift")
+        self.assertEqual(config["adversarial_replay_rule"]["id"], "capacity-contract")
+        self.assertEqual(config["adversarial_replay_rule"]["risk"], "capacity drift")
 
 
 class AdversarialTraceReflectionTest(unittest.TestCase):
-    def test_trace_miner_extracts_candidate_insight_from_failed_trace(self):
+    def test_trace_miner_extracts_candidate_rule_from_failed_trace(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             project = Path(tmpdir) / "run" / "demo"
             project.mkdir(parents=True)
@@ -1976,7 +1976,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                 }
             ]), encoding="utf-8")
 
-            candidates = TraceInsightMiner(InsightBank()).mine(Path(tmpdir) / "run")
+            candidates = TraceRuleMiner(RuleBank()).mine(Path(tmpdir) / "run")
 
             self.assertEqual(len(candidates), 1)
             self.assertTrue(candidates[0].id.startswith("trace-demo-parse-config-"))
@@ -2027,7 +2027,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                 }
             }), encoding="utf-8")
 
-            candidates = TraceInsightMiner(InsightBank()).mine(Path(tmpdir) / "run")
+            candidates = TraceRuleMiner(RuleBank()).mine(Path(tmpdir) / "run")
 
             self.assertEqual(len(candidates), 1)
             candidate = candidates[0]
@@ -2073,8 +2073,8 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                     "keywords": ["capacity", "count"],
                 }
 
-            candidates = TraceInsightMiner(
-                InsightBank(),
+            candidates = TraceRuleMiner(
+                RuleBank(),
                 synthesizer=StructuredTraceSynthesizer(fake_synthesizer),
             ).mine(Path(tmpdir) / "run")
 
@@ -2097,8 +2097,8 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                     "test_stats": {"failed": 1, "passed": 0},
                 }
             ]), encoding="utf-8")
-            bank = InsightBank([
-                InsightRecord(
+            bank = RuleBank([
+                RuleRecord(
                     id="capacity-contract",
                     title="Capacity Contract",
                     trigger="C parser exposes allocation reservation separately from count",
@@ -2114,14 +2114,14 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             def fake_reviewer(payload):
                 payloads.append(payload)
                 self.assertEqual(payload["candidate"]["source"], "trace")
-                self.assertEqual(payload["existing_insights"][0]["id"], "capacity-contract")
+                self.assertEqual(payload["existing_rules"][0]["id"], "capacity-contract")
                 return {
                     "contradicts": True,
                     "reason": "The candidate would reverse the existing reservation contract.",
-                    "conflicting_insight_id": "capacity-contract",
+                    "conflicting_rule_id": "capacity-contract",
                 }
 
-            candidates = TraceInsightMiner(
+            candidates = TraceRuleMiner(
                 bank,
                 contradiction_reviewer=StructuredTraceContradictionReviewer(fake_reviewer),
             ).mine(Path(tmpdir) / "run")
@@ -2142,8 +2142,8 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                     "test_stats": {"failed": 1, "passed": 0},
                 }
             ]), encoding="utf-8")
-            bank = InsightBank([
-                InsightRecord(
+            bank = RuleBank([
+                RuleRecord(
                     id="unrelated",
                     title="Unrelated String Contract",
                     trigger="C fixed char array contains a NUL terminator",
@@ -2155,7 +2155,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                 )
             ])
 
-            candidates = TraceInsightMiner(
+            candidates = TraceRuleMiner(
                 bank,
                 contradiction_reviewer=StructuredTraceContradictionReviewer(
                     lambda _payload: {"contradicts": False, "reason": "No semantic conflict."}
@@ -2183,8 +2183,8 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                     "test_stats": {"failed": 1, "passed": 0},
                 },
             ]), encoding="utf-8")
-            bank = InsightBank([
-                InsightRecord(
+            bank = RuleBank([
+                RuleRecord(
                     id="capacity-existing",
                     title="Capacity Existing",
                     trigger="C parser keeps caller-visible capacity",
@@ -2196,7 +2196,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                 )
             ])
 
-            candidates = TraceInsightMiner(bank).mine(Path(tmpdir) / "run")
+            candidates = TraceRuleMiner(bank).mine(Path(tmpdir) / "run")
 
             self.assertEqual(candidates, [])
 
@@ -2215,11 +2215,11 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                 }
             ]), encoding="utf-8")
 
-            candidates = TraceInsightMiner(InsightBank()).mine(Path(tmpdir) / "run")
+            candidates = TraceRuleMiner(RuleBank()).mine(Path(tmpdir) / "run")
 
             self.assertEqual(candidates, [])
 
-    def test_trace_miner_screens_candidates_that_contradict_existing_insights(self):
+    def test_trace_miner_screens_candidates_that_contradict_existing_rules(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             project = Path(tmpdir) / "run" / "demo"
             project.mkdir(parents=True)
@@ -2238,8 +2238,8 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                     "test_stats": {"failed": 1, "passed": 0},
                 }
             ]), encoding="utf-8")
-            bank = InsightBank([
-                InsightRecord(
+            bank = RuleBank([
+                RuleRecord(
                     id="capacity-contract",
                     title="Capacity Contract",
                     trigger="C parser stores count and capacity separately",
@@ -2251,7 +2251,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                 )
             ])
 
-            candidates = TraceInsightMiner(bank).mine(Path(tmpdir) / "run")
+            candidates = TraceRuleMiner(bank).mine(Path(tmpdir) / "run")
 
             self.assertEqual(candidates, [])
 
@@ -2262,7 +2262,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             (project / "translation_report.json").write_text(json.dumps({"success": False}), encoding="utf-8")
             (project / "translation_history.json").write_text(json.dumps({
                 "src::fn::name": {
-                    "selected_insights": [{"id": "fixed-c-string"}],
+                    "selected_rules": [{"id": "fixed-c-string"}],
                     "compilation_attempts": [
                         {"compilation_success": True, "compilation_output": "ok"}
                     ],
@@ -2272,14 +2272,14 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             }), encoding="utf-8")
             (project / "test_fix_history.json").write_text(json.dumps([
                 {
-                    "selected_insights": [{"id": "fixed-c-string"}],
+                    "selected_rules": [{"id": "fixed-c-string"}],
                     "test_output": "assertion failed: zero padding after NUL",
                     "test_stats": {"failed": 1, "passed": 0},
                 }
             ]), encoding="utf-8")
 
-            bank = InsightBank([
-                InsightRecord(
+            bank = RuleBank([
+                RuleRecord(
                     id="fixed-c-string",
                     title="Fixed C String",
                     trigger="fixed char array",
@@ -2294,7 +2294,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             challenges = TraceReflector(bank).reflect(Path(tmpdir) / "run")
 
             self.assertEqual(len(challenges), 1)
-            self.assertEqual(challenges[0].insight_id, "fixed-c-string")
+            self.assertEqual(challenges[0].rule_id, "fixed-c-string")
             self.assertIn("zero padding", challenges[0].evidence.output)
             self.assertEqual(challenges[0].trace_bundle["test_stats"], {"failed": 1, "passed": 0})
             self.assertIn("zero padding", challenges[0].trace_bundle["test_output"])
@@ -2316,7 +2316,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                             }
                         ]
                     },
-                    "selected_insights": [{"id": "capacity-contract"}],
+                    "selected_rules": [{"id": "capacity-contract"}],
                     "compilation_attempts": [
                         {
                             "attempt": 1,
@@ -2329,7 +2329,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                                     "excerpt": "expected usize, found i32",
                                 }
                             ],
-                            "selected_insights": [{"id": "capacity-contract"}],
+                            "selected_rules": [{"id": "capacity-contract"}],
                         }
                     ],
                     "final_code": "pub fn parse_config() -> usize { entries.len() }",
@@ -2337,8 +2337,8 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                 }
             }), encoding="utf-8")
 
-            bank = InsightBank([
-                InsightRecord(
+            bank = RuleBank([
+                RuleRecord(
                     id="capacity-contract",
                     title="Capacity Contract",
                     trigger="C parser stores capacity separately from count",
@@ -2354,7 +2354,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
 
             self.assertEqual(len(challenges), 1)
             challenge = challenges[0]
-            self.assertEqual(challenge.insight_id, "capacity-contract")
+            self.assertEqual(challenge.rule_id, "capacity-contract")
             self.assertFalse(challenge.evidence.compiles)
             self.assertFalse(challenge.evidence.tests_pass)
             self.assertIn("mismatched types", challenge.evidence.output)
@@ -2382,21 +2382,21 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                             }
                         ]
                     },
-                    "selected_insights": [{"id": "capacity-contract"}],
+                    "selected_rules": [{"id": "capacity-contract"}],
                     "compilation_attempts": [
                         {
                             "attempt": 1,
                             "code": "pub fn parse_config() -> usize { entries.len() }",
                             "compilation_success": False,
                             "compilation_output": "error[E0308]: mismatched capacity types",
-                            "selected_insights": [{"id": "capacity-contract"}],
+                            "selected_rules": [{"id": "capacity-contract"}],
                         }
                     ],
                     "success": False,
                 }
             }), encoding="utf-8")
-            bank = InsightBank([
-                InsightRecord(
+            bank = RuleBank([
+                RuleRecord(
                     id="capacity-contract",
                     title="Capacity Contract",
                     trigger="C parser stores capacity separately from count",
@@ -2411,7 +2411,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             challenges = TraceReflector(bank).reflect(Path(tmpdir) / "run")
 
             self.assertEqual(len(challenges), 1)
-            self.assertEqual(challenges[0].insight_id, "capacity-contract")
+            self.assertEqual(challenges[0].rule_id, "capacity-contract")
             self.assertEqual(challenges[0].trace_bundle["project"], "demo")
 
     def test_reflector_attaches_later_successful_compile_replay_evidence(self):
@@ -2431,14 +2431,14 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                             }
                         ]
                     },
-                    "selected_insights": [{"id": "capacity-contract"}],
+                    "selected_rules": [{"id": "capacity-contract"}],
                     "compilation_attempts": [
                         {
                             "attempt": 1,
                             "code": "pub fn parse_config() -> usize { entries.len() }",
                             "compilation_success": False,
                             "compilation_output": "error[E0308]: mismatched capacity types",
-                            "selected_insights": [{"id": "capacity-contract"}],
+                            "selected_rules": [{"id": "capacity-contract"}],
                         },
                         {
                             "attempt": 2,
@@ -2450,8 +2450,8 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                     "success": True,
                 }
             }), encoding="utf-8")
-            bank = InsightBank([
-                InsightRecord(
+            bank = RuleBank([
+                RuleRecord(
                     id="capacity-contract",
                     title="Capacity Contract",
                     trigger="C parser stores capacity separately from count",
@@ -2486,14 +2486,14 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                 "prompt": "Translate parse_config while preserving capacity metadata",
                 "raw_text": "fn parse_config( {",
                 "extracted_code": "",
-                "insights": [{"id": "capacity-contract"}],
+                "rules": [{"id": "capacity-contract"}],
             }
             (project / "llm_calls.jsonl").write_text(
                 json.dumps(llm_call, ensure_ascii=False) + "\n",
                 encoding="utf-8",
             )
-            bank = InsightBank([
-                InsightRecord(
+            bank = RuleBank([
+                RuleRecord(
                     id="capacity-contract",
                     title="Capacity Contract",
                     trigger="C parser stores capacity separately from count",
@@ -2509,7 +2509,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
 
             self.assertEqual(len(challenges), 1)
             challenge = challenges[0]
-            self.assertEqual(challenge.insight_id, "capacity-contract")
+            self.assertEqual(challenge.rule_id, "capacity-contract")
             self.assertFalse(challenge.evidence.compiles)
             self.assertFalse(challenge.evidence.tests_pass)
             self.assertIsNone(challenge.replay_evidence)
@@ -2527,7 +2527,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             (project / "translation_report.json").write_text(json.dumps({"success": False}), encoding="utf-8")
             (project / "test_fix_history.json").write_text(json.dumps([
                 {
-                    "selected_insights": [{"id": "fixed-c-string"}],
+                    "selected_rules": [{"id": "fixed-c-string"}],
                     "test_output": "assertion failed: zero padding after NUL",
                     "post_patch_test_output": "ok",
                     "post_patch_test_stats": {"failed": 0, "passed": 1},
@@ -2538,8 +2538,8 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             bank_path = Path(tmpdir) / "bank.json"
             out_bank = Path(tmpdir) / "updated.json"
             report_path = Path(tmpdir) / "report.json"
-            InsightBank([
-                InsightRecord(
+            RuleBank([
+                RuleRecord(
                     id="fixed-c-string",
                     title="Fixed C String",
                     trigger="fixed char array",
@@ -2556,7 +2556,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             self.assertEqual(result["accepted_updates"], 1)
             self.assertTrue(out_bank.exists())
             self.assertTrue(report_path.exists())
-            updated = InsightBank.load(out_bank)
+            updated = RuleBank.load(out_bank)
             self.assertEqual(updated.records[0].version, 2)
 
     def test_offline_runner_can_use_fresh_replay_translation_for_trace_updates(self):
@@ -2578,7 +2578,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             (project / "translation_report.json").write_text(json.dumps({"success": False}), encoding="utf-8")
             (project / "test_fix_history.json").write_text(json.dumps([
                 {
-                    "selected_insights": [{"id": "fixed-c-string"}],
+                    "selected_rules": [{"id": "fixed-c-string"}],
                     "test_output": "assertion failed: zero padding after NUL",
                     "test_stats": {"failed": 1, "passed": 0},
                 }
@@ -2586,8 +2586,8 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             bank_path = Path(tmpdir) / "bank.json"
             out_bank = Path(tmpdir) / "updated.json"
             report_path = Path(tmpdir) / "report.json"
-            InsightBank([
-                InsightRecord(
+            RuleBank([
+                RuleRecord(
                     id="fixed-c-string",
                     title="Fixed C String",
                     trigger="fixed char array",
@@ -2600,10 +2600,10 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             ]).save(bank_path)
             translated_risks = []
 
-            def fake_translate(input_challenge, input_insight):
-                self.assertEqual(input_challenge.insight_id, "fixed-c-string")
-                translated_risks.append(input_insight.risk)
-                if "observed:" in input_insight.risk:
+            def fake_translate(input_challenge, input_rule):
+                self.assertEqual(input_challenge.rule_id, "fixed-c-string")
+                translated_risks.append(input_rule.risk)
+                if "observed:" in input_rule.risk:
                     return "PASS"
                 return "FAIL"
 
@@ -2620,7 +2620,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             self.assertEqual(len(translated_risks), 2)
             self.assertEqual(translated_risks[0], "padding may leak")
             self.assertIn("observed:", translated_risks[1])
-            updated = InsightBank.load(out_bank)
+            updated = RuleBank.load(out_bank)
             self.assertEqual(updated.records[0].version, 2)
             report = json.loads(report_path.read_text(encoding="utf-8"))
             self.assertTrue(report["events"][0]["fresh_replay"])
@@ -2634,7 +2634,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             (project / "translation_report.json").write_text(json.dumps({"success": False}), encoding="utf-8")
             (project / "test_fix_history.json").write_text(json.dumps([
                 {
-                    "selected_insights": [{"id": "fixed-c-string"}],
+                    "selected_rules": [{"id": "fixed-c-string"}],
                     "test_output": "assertion failed: zero padding after NUL",
                     "post_patch_test_output": "ok",
                     "post_patch_test_stats": {"failed": 0, "passed": 1},
@@ -2645,8 +2645,8 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             bank_path = Path(tmpdir) / "bank.json"
             out_bank = Path(tmpdir) / "updated.json"
             report_path = Path(tmpdir) / "report.json"
-            InsightBank([
-                InsightRecord(
+            RuleBank([
+                RuleRecord(
                     id="fixed-c-string",
                     title="Fixed C String",
                     trigger="fixed char array",
@@ -2662,7 +2662,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             def fake_refiner(payload):
                 payloads.append(payload)
                 return {
-                    "insight_id": "fixed-c-string",
+                    "rule_id": "fixed-c-string",
                     "field": "risk",
                     "new_text": "padding may leak; zero padding after NUL must be handled",
                     "rationale": "trace replay improved after the risk update",
@@ -2679,9 +2679,9 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             )
 
             self.assertEqual(result["accepted_updates"], 1)
-            self.assertEqual(payloads[0]["insight"]["id"], "fixed-c-string")
+            self.assertEqual(payloads[0]["rule"]["id"], "fixed-c-string")
             self.assertIn("schema", payloads[0])
-            updated = InsightBank.load(out_bank)
+            updated = RuleBank.load(out_bank)
             self.assertIn("must be handled", updated.records[0].risk)
             report = json.loads(report_path.read_text(encoding="utf-8"))
             self.assertIn("missing_risk", report["events"][0]["proposal"]["rationale"])
@@ -2690,7 +2690,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
         class PassingToolChecker:
             def check(self, challenge, *, work_dir=None):
                 return ChallengeRecord(
-                    insight_id=challenge.insight_id,
+                    rule_id=challenge.rule_id,
                     c_program=challenge.c_program,
                     rust_interface=challenge.rust_interface,
                     harness=challenge.harness,
@@ -2718,7 +2718,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             bank_path = Path(tmpdir) / "bank.json"
             out_bank = Path(tmpdir) / "updated.json"
             report_path = Path(tmpdir) / "report.json"
-            InsightBank([]).save(bank_path)
+            RuleBank([]).save(bank_path)
 
             result = run_offline_adversarial_learning(
                 run_root,
@@ -2730,7 +2730,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             )
 
             self.assertEqual(result["admitted_candidates"], 1)
-            updated = InsightBank.load(out_bank)
+            updated = RuleBank.load(out_bank)
             self.assertEqual(len(updated.records), 1)
             self.assertEqual(updated.records[0].source, "trace")
             self.assertTrue(updated.records[0].id.startswith("trace-demo-parse-config-"))
@@ -2775,7 +2775,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             bank_path = Path(tmpdir) / "bank.json"
             out_bank = Path(tmpdir) / "updated.json"
             report_path = Path(tmpdir) / "report.json"
-            InsightBank([]).save(bank_path)
+            RuleBank([]).save(bank_path)
 
             result = run_offline_adversarial_learning(
                 run_root,
@@ -2788,7 +2788,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             )
 
             self.assertEqual(result["admitted_candidates"], 1)
-            updated = InsightBank.load(out_bank)
+            updated = RuleBank.load(out_bank)
             self.assertEqual(updated.records[0].source, "trace-llm")
             self.assertIn("allocation capacity", updated.records[0].goal)
 
@@ -2809,8 +2809,8 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             bank_path = Path(tmpdir) / "bank.json"
             out_bank = Path(tmpdir) / "updated.json"
             report_path = Path(tmpdir) / "report.json"
-            InsightBank([
-                InsightRecord(
+            RuleBank([
+                RuleRecord(
                     id="capacity-contract",
                     title="Capacity Contract",
                     trigger="C parser exposes allocation reservation separately from count",
@@ -2834,11 +2834,11 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             )
 
             self.assertEqual(result["admitted_candidates"], 0)
-            updated = InsightBank.load(out_bank)
+            updated = RuleBank.load(out_bank)
             self.assertEqual([record.id for record in updated.records], ["capacity-contract"])
 
     def test_cli_parser_accepts_trace_candidate_admission_flag(self):
-        from scripts.adversarial_insight_run import build_parser
+        from scripts.adversarial_rule_run import build_parser
 
         args = build_parser().parse_args([
             "output/runs/demo",
@@ -2859,7 +2859,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                 self.checked_ids = []
 
             def check(self, challenge, *, work_dir=None, rust_source=None):
-                self.checked_ids.append(challenge.insight_id)
+                self.checked_ids.append(challenge.rule_id)
                 if rust_source is not None:
                     tests_pass = "composition_mutant" not in rust_source
                     return replace(
@@ -2878,8 +2878,8 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             bank_path = root / "bank.json"
             out_bank = root / "updated.json"
             report_path = root / "report.json"
-            InsightBank([
-                InsightRecord(
+            RuleBank([
+                RuleRecord(
                     id="fixed-c-string",
                     title="Fixed C String",
                     trigger="fixed char array",
@@ -2889,7 +2889,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                     tags=("strings",),
                     keywords=("NUL",),
                 ),
-                InsightRecord(
+                RuleRecord(
                     id="capacity-contract",
                     title="Capacity Contract",
                     trigger="count and capacity",
@@ -2911,7 +2911,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                 run_compositional_challenges=True,
                 challenge_tool_checker=checker,
             )
-            relations = InsightBank.load(out_bank).relations
+            relations = RuleBank.load(out_bank).relations
 
         self.assertEqual(result["synthetic_challenges"], 2)
         self.assertEqual(result["compositional_challenges"], 1)
@@ -2946,11 +2946,11 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
 
         translated_pairs = []
 
-        def fake_translate(challenge, insight):
-            translated_pairs.append((challenge.insight_id, insight.id))
-            if insight.id.startswith("composition:"):
+        def fake_translate(challenge, rule):
+            translated_pairs.append((challenge.rule_id, rule.id))
+            if rule.id.startswith("composition:"):
                 return "translator-combined"
-            return f"translator-single {insight.id}"
+            return f"translator-single {rule.id}"
 
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -2959,8 +2959,8 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             bank_path = root / "bank.json"
             out_bank = root / "updated.json"
             report_path = root / "report.json"
-            InsightBank([
-                InsightRecord(
+            RuleBank([
+                RuleRecord(
                     id="fixed-c-string",
                     title="Fixed C String",
                     trigger="fixed char array",
@@ -2970,7 +2970,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                     tags=("strings",),
                     keywords=("NUL",),
                 ),
-                InsightRecord(
+                RuleRecord(
                     id="capacity-contract",
                     title="Capacity Contract",
                     trigger="count and capacity",
@@ -3009,8 +3009,8 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
         self.assertEqual(result["relation_updates"], 1)
 
     def test_composition_relation_requires_interaction_dependency_evidence(self):
-        insights = (
-            InsightRecord(
+        rules = (
+            RuleRecord(
                 id="fixed-c-string",
                 title="Fixed C String",
                 trigger="fixed char array",
@@ -3018,7 +3018,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                 constraint="Trim at NUL",
                 risk="zero padding leaks",
             ),
-            InsightRecord(
+            RuleRecord(
                 id="capacity-contract",
                 title="Capacity Contract",
                 trigger="count and capacity",
@@ -3034,13 +3034,13 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             "tool_evidence": {"compiles": True, "tests_pass": True, "output": "ok"},
         }
 
-        relation = adversarial_core._composition_relation_record(insights, event)
+        relation = adversarial_core._composition_relation_record(rules, event)
 
         self.assertIsNone(relation)
 
     def test_composition_relation_requires_translator_replay_dependency_when_present(self):
-        insights = (
-            InsightRecord(
+        rules = (
+            RuleRecord(
                 id="fixed-c-string",
                 title="Fixed C String",
                 trigger="fixed char array",
@@ -3048,7 +3048,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                 constraint="Trim at NUL",
                 risk="zero padding leaks",
             ),
-            InsightRecord(
+            RuleRecord(
                 id="capacity-contract",
                 title="Capacity Contract",
                 trigger="count and capacity",
@@ -3065,13 +3065,13 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             "tool_evidence": {"compiles": True, "tests_pass": True, "output": "ok"},
         }
 
-        relation = adversarial_core._composition_relation_record(insights, event)
+        relation = adversarial_core._composition_relation_record(rules, event)
 
         self.assertIsNone(relation)
 
     def test_composition_relation_infers_requires_from_local_relation_hint(self):
-        insights = (
-            InsightRecord(
+        rules = (
+            RuleRecord(
                 id="string-boundary",
                 title="String Boundary",
                 trigger="fixed char array",
@@ -3081,7 +3081,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                 tags=("strings",),
                 keywords=("string",),
             ),
-            InsightRecord(
+            RuleRecord(
                 id="capacity-contract",
                 title="Capacity Contract",
                 trigger="count and capacity",
@@ -3099,7 +3099,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             "tool_evidence": {"compiles": True, "tests_pass": True, "output": "ok"},
         }
 
-        relation = adversarial_core._composition_relation_record(insights, event)
+        relation = adversarial_core._composition_relation_record(rules, event)
 
         self.assertIsNotNone(relation)
         self.assertEqual(relation.relation, "requires")
@@ -3108,8 +3108,8 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
         self.assertIn("requires", relation.rationale)
 
     def test_composition_relation_infers_precedes_from_local_relation_hint(self):
-        insights = (
-            InsightRecord(
+        rules = (
+            RuleRecord(
                 id="cursor-normalization",
                 title="Cursor Normalization",
                 trigger="scanner byte cursor",
@@ -3119,7 +3119,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                 tags=("scanner",),
                 keywords=("cursor",),
             ),
-            InsightRecord(
+            RuleRecord(
                 id="parser-state",
                 title="Parser State",
                 trigger="parser state sharing",
@@ -3137,7 +3137,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             "tool_evidence": {"compiles": True, "tests_pass": True, "output": "ok"},
         }
 
-        relation = adversarial_core._composition_relation_record(insights, event)
+        relation = adversarial_core._composition_relation_record(rules, event)
 
         self.assertIsNotNone(relation)
         self.assertEqual(relation.relation, "precedes")
@@ -3145,9 +3145,9 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
         self.assertEqual(relation.second_id, "parser-state")
         self.assertIn("before", relation.rationale)
 
-    def test_composition_dependency_ignores_bare_insight_id_mentions(self):
-        insights = (
-            InsightRecord(
+    def test_composition_dependency_ignores_bare_rule_id_mentions(self):
+        rules = (
+            RuleRecord(
                 id="alpha-contract",
                 title="Alpha Contract",
                 trigger="pointer length buffer",
@@ -3157,7 +3157,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                 tags=("pointer",),
                 keywords=("slice", "length"),
             ),
-            InsightRecord(
+            RuleRecord(
                 id="beta-contract",
                 title="Beta Contract",
                 trigger="capacity count layout",
@@ -3169,22 +3169,22 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             ),
         )
         challenge = ChallengeRecord(
-            insight_id="composition:alpha-contract+beta-contract",
+            rule_id="composition:alpha-contract+beta-contract",
             c_program="",
             rust_interface="",
             harness="",
-            oracle="The selected insights alpha-contract and beta-contract must both hold.",
+            oracle="The selected rules alpha-contract and beta-contract must both hold.",
             evidence=ExecutionEvidence(compiles=True, tests_pass=True),
         )
 
-        dependency = adversarial_core._composition_interaction_dependency(insights, challenge)
+        dependency = adversarial_core._composition_interaction_dependency(rules, challenge)
 
         self.assertFalse(dependency["valid"])
         self.assertEqual(dependency["matches"], {"alpha-contract": [], "beta-contract": []})
 
     def test_composition_dependency_replays_counterfactual_probes_when_available(self):
-        insights = (
-            InsightRecord(
+        rules = (
+            RuleRecord(
                 id="fixed-c-string",
                 title="Fixed C String",
                 trigger="fixed char array",
@@ -3194,7 +3194,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                 tags=("strings",),
                 keywords=("NUL",),
             ),
-            InsightRecord(
+            RuleRecord(
                 id="capacity-contract",
                 title="Capacity Contract",
                 trigger="count and capacity",
@@ -3205,7 +3205,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                 keywords=("capacity",),
             ),
         )
-        challenge = CompositionalChallengeGenerator().generate(insights)
+        challenge = CompositionalChallengeGenerator().generate(rules)
 
         class FakeChecker:
             def __init__(self):
@@ -3222,7 +3222,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
         checker = FakeChecker()
 
         dependency = adversarial_core._composition_interaction_dependency(
-            insights,
+            rules,
             challenge,
             tool_checker=checker,
         )
@@ -3254,8 +3254,8 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             bank_path = root / "bank.json"
             out_bank = root / "updated.json"
             report_path = root / "report.json"
-            InsightBank([
-                InsightRecord(
+            RuleBank([
+                RuleRecord(
                     id="fixed-c-string",
                     title="Fixed C String",
                     trigger="fixed char array",
@@ -3265,7 +3265,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                     tags=("strings",),
                     keywords=("NUL",),
                 ),
-                InsightRecord(
+                RuleRecord(
                     id="capacity-contract",
                     title="Capacity Contract",
                     trigger="count and capacity",
@@ -3293,7 +3293,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                     }
                 ),
             )
-            relations = InsightBank.load(out_bank).relations
+            relations = RuleBank.load(out_bank).relations
 
         self.assertEqual(result["relation_updates"], 1)
         self.assertEqual(result["composition_events"][0]["relation_update"]["relation"], "requires")
@@ -3310,7 +3310,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                 )
 
         class RejectingOracleValidator:
-            def validate(self, challenge, insight):
+            def validate(self, challenge, rule):
                 return SemanticOracleValidationResult(False, "semantic oracle rejected")
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -3320,8 +3320,8 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             bank_path = root / "bank.json"
             out_bank = root / "updated.json"
             report_path = root / "report.json"
-            InsightBank([
-                InsightRecord(
+            RuleBank([
+                RuleRecord(
                     id="fixed-c-string",
                     title="Fixed C String",
                     trigger="fixed char array",
@@ -3354,7 +3354,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                         challenge,
                         evidence=ExecutionEvidence(compiles=True, tests_pass=tests_pass, output="probe"),
                     )
-                if challenge.insight_id.startswith("composition:"):
+                if challenge.rule_id.startswith("composition:"):
                     return replace(
                         challenge,
                         evidence=ExecutionEvidence(
@@ -3379,8 +3379,8 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             bank_path = root / "bank.json"
             out_bank = root / "updated.json"
             report_path = root / "report.json"
-            InsightBank([
-                InsightRecord(
+            RuleBank([
+                RuleRecord(
                     id="fixed-c-string",
                     title="Fixed C String",
                     trigger="fixed char array",
@@ -3390,7 +3390,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                     tags=("strings",),
                     keywords=("NUL",),
                 ),
-                InsightRecord(
+                RuleRecord(
                     id="capacity-contract",
                     title="Capacity Contract",
                     trigger="count and capacity",
@@ -3411,7 +3411,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                 challenge_tool_checker=FakeChecker(),
                 admit_composition_failure_candidates=True,
             )
-            updated = InsightBank.load(out_bank)
+            updated = RuleBank.load(out_bank)
 
         self.assertEqual(result["admitted_candidates"], 1)
         self.assertEqual(result["candidate_events"][0]["source"], "composition")
@@ -3433,8 +3433,8 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             bank_path = root / "bank.json"
             out_bank = root / "updated.json"
             report_path = root / "report.json"
-            InsightBank([
-                InsightRecord(
+            RuleBank([
+                RuleRecord(
                     id="fixed-c-string",
                     title="Fixed C String",
                     trigger="fixed char array",
@@ -3450,7 +3450,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             def fake_challenger(payload):
                 payloads.append(payload)
                 return {
-                    "insight_id": "fixed-c-string",
+                    "rule_id": "fixed-c-string",
                     "c_program": "const char *challenge(void) { return \"abc\\0pad\"; }",
                     "rust_interface": "pub fn translate_challenge() -> String;",
                     "harness": (
@@ -3472,12 +3472,12 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             )
 
         self.assertEqual(result["synthetic_challenges"], 1)
-        self.assertEqual(payloads[0]["insight"]["id"], "fixed-c-string")
+        self.assertEqual(payloads[0]["rule"]["id"], "fixed-c-string")
         self.assertIn("schema", payloads[0])
         self.assertTrue(result["synthetic_events"][0]["sanity_valid"])
 
     def test_cli_parser_accepts_synthetic_and_compositional_execution_flags(self):
-        from scripts.adversarial_insight_run import build_parser
+        from scripts.adversarial_rule_run import build_parser
 
         args = build_parser().parse_args([
             "output/runs/demo",
@@ -3495,7 +3495,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
         self.assertTrue(args.run_compositional_challenges)
 
     def test_cli_full_profile_defaults_live_adversarial_flags(self):
-        from scripts import adversarial_insight_run as cli
+        from scripts import adversarial_rule_run as cli
 
         args = cli.build_parser().parse_args([
             "output/runs/demo",
@@ -3524,7 +3524,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
         self.assertTrue(flags["live_translator_replay"])
 
     def test_cli_no_compositional_profile_gates_compositional_flags(self):
-        from scripts import adversarial_insight_run as cli
+        from scripts import adversarial_rule_run as cli
 
         args = cli.build_parser().parse_args([
             "output/runs/demo",
@@ -3552,7 +3552,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
         self.assertFalse(flags["live_composition_relation_review"])
 
     def test_cli_no_single_profile_gates_explicit_adversarial_flags(self):
-        from scripts import adversarial_insight_run as cli
+        from scripts import adversarial_rule_run as cli
 
         args = cli.build_parser().parse_args([
             "output/runs/demo",
@@ -3574,7 +3574,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
         self.assertFalse(any(flags.values()))
 
     def test_cli_parser_accepts_composition_failure_candidate_flag(self):
-        from scripts.adversarial_insight_run import build_parser
+        from scripts.adversarial_rule_run import build_parser
 
         args = build_parser().parse_args([
             "output/runs/demo",
@@ -3591,7 +3591,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
         self.assertTrue(args.admit_composition_failure_candidates)
 
     def test_cli_parser_accepts_live_composition_relation_review(self):
-        from scripts.adversarial_insight_run import build_parser
+        from scripts.adversarial_rule_run import build_parser
 
         args = build_parser().parse_args([
             "output/runs/demo",
@@ -3612,7 +3612,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
         self.assertTrue(args.live_composition_relation_review)
 
     def test_cli_parser_accepts_structured_agent_response_files(self):
-        from scripts.adversarial_insight_run import build_parser
+        from scripts.adversarial_rule_run import build_parser
 
         args = build_parser().parse_args([
             "output/runs/demo",
@@ -3632,7 +3632,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
         self.assertEqual(args.structured_refiner_responses, "refiner.json")
 
     def test_cli_parser_accepts_live_structured_agents(self):
-        from scripts.adversarial_insight_run import build_parser
+        from scripts.adversarial_rule_run import build_parser
 
         args = build_parser().parse_args([
             "output/runs/demo",
@@ -3656,7 +3656,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
         self.assertEqual(args.model, "model-x")
 
     def test_cli_builds_live_structured_agents_from_configured_llm(self):
-        from scripts import adversarial_insight_run as cli
+        from scripts import adversarial_rule_run as cli
 
         args = cli.build_parser().parse_args([
             "output/runs/demo",
@@ -3690,7 +3690,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
         self.assertEqual(config["protocol"], "openai-responses")
 
     def test_cli_builds_live_composition_relation_reviewer_from_configured_llm(self):
-        from scripts import adversarial_insight_run as cli
+        from scripts import adversarial_rule_run as cli
 
         args = cli.build_parser().parse_args([
             "output/runs/demo",
@@ -3717,7 +3717,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
         self.assertEqual(create.call_args.args[0]["model_name"], "model-x")
 
     def test_cli_parser_accepts_live_semantic_oracle_validation(self):
-        from scripts.adversarial_insight_run import build_parser
+        from scripts.adversarial_rule_run import build_parser
 
         args = build_parser().parse_args([
             "output/runs/demo",
@@ -3737,7 +3737,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
         self.assertTrue(args.live_semantic_oracle_validation)
 
     def test_cli_builds_live_semantic_oracle_validator_from_configured_llm(self):
-        from scripts import adversarial_insight_run as cli
+        from scripts import adversarial_rule_run as cli
 
         args = cli.build_parser().parse_args([
             "output/runs/demo",
@@ -3764,7 +3764,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
         self.assertEqual(create.call_args.args[0]["model_name"], "model-x")
 
     def test_cli_parser_accepts_live_activation_validation(self):
-        from scripts.adversarial_insight_run import build_parser
+        from scripts.adversarial_rule_run import build_parser
 
         args = build_parser().parse_args([
             "output/runs/demo",
@@ -3784,7 +3784,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
         self.assertTrue(args.live_activation_validation)
 
     def test_cli_parser_accepts_live_translator_replay(self):
-        from scripts.adversarial_insight_run import build_parser
+        from scripts.adversarial_rule_run import build_parser
 
         args = build_parser().parse_args([
             "output/runs/demo",
@@ -3804,7 +3804,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
         self.assertTrue(args.live_translator_replay)
 
     def test_cli_builds_live_translator_replay_from_configured_llm(self):
-        from scripts import adversarial_insight_run as cli
+        from scripts import adversarial_rule_run as cli
 
         args = cli.build_parser().parse_args([
             "output/runs/demo",
@@ -3838,7 +3838,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
         with mock.patch.object(cli, "create_agent", return_value=fake_agent) as create:
             replay_translate = cli._replay_translate_fn_from_args(args)
 
-        insight = InsightRecord(
+        rule = RuleRecord(
             id="capacity-contract",
             title="Capacity Contract",
             trigger="count and capacity",
@@ -3847,7 +3847,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             risk="capacity drift",
         )
         challenge = ChallengeRecord(
-            insight_id="capacity-contract",
+            rule_id="capacity-contract",
             c_program="int challenge_value(void) { return 7; }",
             rust_interface="pub fn translate_challenge() -> i32;",
             harness="#[test]\nfn challenge_contract() { assert_eq!(translate_challenge(), 7); }",
@@ -3857,7 +3857,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
 
         self.assertIsNotNone(replay_translate)
         self.assertEqual(
-            replay_translate(challenge, insight),
+            replay_translate(challenge, rule),
             "pub fn translate_challenge() -> i32 { 7 }",
         )
         create.assert_called_once()
@@ -3865,7 +3865,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
         self.assertIn("Preserve value", fake_agent.calls[0]["prompt"])
 
     def test_cli_builds_live_activation_validator_from_configured_llm(self):
-        from scripts import adversarial_insight_run as cli
+        from scripts import adversarial_rule_run as cli
 
         args = cli.build_parser().parse_args([
             "output/runs/demo",
@@ -3892,7 +3892,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
         self.assertEqual(create.call_args.args[0]["model_name"], "model-x")
 
     def test_cli_parser_accepts_live_trace_synthesis(self):
-        from scripts.adversarial_insight_run import build_parser
+        from scripts.adversarial_rule_run import build_parser
 
         args = build_parser().parse_args([
             "output/runs/demo",
@@ -3912,7 +3912,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
         self.assertTrue(args.live_trace_synthesis)
 
     def test_cli_parser_accepts_live_trace_contradiction_review(self):
-        from scripts.adversarial_insight_run import build_parser
+        from scripts.adversarial_rule_run import build_parser
 
         args = build_parser().parse_args([
             "output/runs/demo",
@@ -3932,7 +3932,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
         self.assertTrue(args.live_trace_contradiction_review)
 
     def test_cli_builds_live_trace_synthesizer_from_configured_llm(self):
-        from scripts import adversarial_insight_run as cli
+        from scripts import adversarial_rule_run as cli
 
         args = cli.build_parser().parse_args([
             "output/runs/demo",
@@ -3953,13 +3953,13 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
         with mock.patch.object(cli, "create_agent", return_value=fake_agent) as create:
             synthesizer = cli._trace_synthesizer_from_args(args)
 
-        self.assertIsInstance(synthesizer, LLMTraceInsightSynthesizer)
+        self.assertIsInstance(synthesizer, LLMTraceRuleSynthesizer)
         self.assertIs(synthesizer.agent, fake_agent)
         create.assert_called_once()
         self.assertEqual(create.call_args.args[0]["model_name"], "model-x")
 
     def test_cli_builds_live_trace_contradiction_reviewer_from_configured_llm(self):
-        from scripts import adversarial_insight_run as cli
+        from scripts import adversarial_rule_run as cli
 
         args = cli.build_parser().parse_args([
             "output/runs/demo",
@@ -3993,7 +3993,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             (project / "translation_report.json").write_text(json.dumps({"success": False}), encoding="utf-8")
             (project / "test_fix_history.json").write_text(json.dumps([
                 {
-                    "selected_insights": [{"id": "fixed-c-string"}],
+                    "selected_rules": [{"id": "fixed-c-string"}],
                     "test_output": "assertion failed: zero padding after NUL",
                     "post_patch_test_output": "ok",
                     "post_patch_test_stats": {"failed": 0, "passed": 1},
@@ -4005,8 +4005,8 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             out_bank = Path(tmpdir) / "updated.json"
             report_path = Path(tmpdir) / "report.json"
             refiner_responses = Path(tmpdir) / "refiner.json"
-            InsightBank([
-                InsightRecord(
+            RuleBank([
+                RuleRecord(
                     id="fixed-c-string",
                     title="Fixed C String",
                     trigger="fixed char array",
@@ -4019,7 +4019,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             ]).save(bank_path)
             refiner_responses.write_text(json.dumps([
                 {
-                    "insight_id": "fixed-c-string",
+                    "rule_id": "fixed-c-string",
                     "field": "risk",
                     "new_text": "padding may leak; zero padding after NUL must be handled",
                     "rationale": "trace replay improved after the risk update",
@@ -4028,10 +4028,10 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
                 }
             ]), encoding="utf-8")
 
-            from scripts.adversarial_insight_run import main
+            from scripts.adversarial_rule_run import main
 
             with mock.patch.object(sys, "argv", [
-                "adversarial_insight_run.py",
+                "adversarial_rule_run.py",
                 str(run_root),
                 "--bank",
                 str(bank_path),
@@ -4044,7 +4044,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             ]):
                 main()
 
-            updated = InsightBank.load(out_bank)
+            updated = RuleBank.load(out_bank)
             self.assertIn("must be handled", updated.records[0].risk)
 
     def test_cli_writes_updated_bank_and_report(self):
@@ -4055,7 +4055,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             (project / "translation_report.json").write_text(json.dumps({"success": False}), encoding="utf-8")
             (project / "test_fix_history.json").write_text(json.dumps([
                 {
-                    "selected_insights": [{"id": "fixed-c-string"}],
+                    "selected_rules": [{"id": "fixed-c-string"}],
                     "test_output": "assertion failed: zero padding after NUL",
                     "post_patch_test_output": "ok",
                     "post_patch_test_stats": {"failed": 0, "passed": 1},
@@ -4066,8 +4066,8 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             bank_path = Path(tmpdir) / "bank.json"
             out_bank = Path(tmpdir) / "updated.json"
             report_path = Path(tmpdir) / "report.json"
-            InsightBank([
-                InsightRecord(
+            RuleBank([
+                RuleRecord(
                     id="fixed-c-string",
                     title="Fixed C String",
                     trigger="fixed char array",
@@ -4082,7 +4082,7 @@ class AdversarialTraceReflectionTest(unittest.TestCase):
             result = subprocess.run(
                 [
                     sys.executable,
-                    "scripts/adversarial_insight_run.py",
+                    "scripts/adversarial_rule_run.py",
                     str(run_root),
                     "--bank",
                     str(bank_path),

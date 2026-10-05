@@ -51,7 +51,7 @@ class FullDatasetProjectOrderingTest(unittest.TestCase):
                 "full",
                 "--jobs",
                 "15",
-                "--insights-json-bank",
+                "--rules-json-bank",
                 "banks/shared.json",
             ]
         )
@@ -80,12 +80,12 @@ class FullDatasetProjectOrderingTest(unittest.TestCase):
     def test_full_profile_parser_namespace_enables_online_updates_for_sequential_runs(self):
         args = full_dataset_run.build_parser().parse_args(["--experiment-profile", "full", "--jobs", "1"])
 
-        self.assertTrue(translation_runner.online_adversarial_insights_enabled(args))
+        self.assertTrue(translation_runner.online_adversarial_rules_enabled(args))
 
     def test_full_profile_parser_namespace_enables_online_updates_for_parallel_project_local_bank(self):
         args = full_dataset_run.build_parser().parse_args(["--experiment-profile", "full", "--jobs", "15"])
 
-        self.assertTrue(translation_runner.online_adversarial_insights_enabled(args))
+        self.assertTrue(translation_runner.online_adversarial_rules_enabled(args))
 
     def test_full_profile_parser_namespace_enables_online_updates_for_parallel_shared_bank(self):
         args = full_dataset_run.build_parser().parse_args(
@@ -94,12 +94,12 @@ class FullDatasetProjectOrderingTest(unittest.TestCase):
                 "full",
                 "--jobs",
                 "15",
-                "--insights-json-bank",
+                "--rules-json-bank",
                 "banks/shared.json",
             ]
         )
 
-        self.assertTrue(translation_runner.online_adversarial_insights_enabled(args))
+        self.assertTrue(translation_runner.online_adversarial_rules_enabled(args))
         self.assertTrue(translation_runner.parallel_online_adversarial_updates_supported(args))
 
     def test_custom_parser_namespace_defaults_online_updates_for_parallel_shared_bank(self):
@@ -107,24 +107,24 @@ class FullDatasetProjectOrderingTest(unittest.TestCase):
             [
                 "--jobs",
                 "15",
-                "--insights-json-bank",
+                "--rules-json-bank",
                 "banks/shared.json",
             ]
         )
 
-        self.assertTrue(translation_runner.online_adversarial_insights_enabled(args))
+        self.assertTrue(translation_runner.online_adversarial_rules_enabled(args))
         self.assertTrue(translation_runner.parallel_online_adversarial_updates_supported(args))
 
-    def test_parser_accepts_adversarial_insight_update_options(self):
+    def test_parser_accepts_adversarial_rule_update_options(self):
         args = full_dataset_run.build_parser().parse_args(
             [
-                "--adversarial-insight-bank",
+                "--adversarial-rule-bank",
                 "banks/input.json",
-                "--adversarial-insight-output-bank",
+                "--adversarial-rule-output-bank",
                 "banks/output.json",
-                "--adversarial-insight-report",
+                "--adversarial-rule-report",
                 "reports/learning.json",
-                "--online-adversarial-insights",
+                "--online-adversarial-rules",
                 "--adversarial-admit-trace-candidates",
                 "--adversarial-run-synthetic-challenges",
                 "--adversarial-run-compositional-challenges",
@@ -142,10 +142,10 @@ class FullDatasetProjectOrderingTest(unittest.TestCase):
             ]
         )
 
-        self.assertEqual(args.adversarial_insight_bank, "banks/input.json")
-        self.assertEqual(args.adversarial_insight_output_bank, "banks/output.json")
-        self.assertEqual(args.adversarial_insight_report, "reports/learning.json")
-        self.assertTrue(args.online_adversarial_insights)
+        self.assertEqual(args.adversarial_rule_bank, "banks/input.json")
+        self.assertEqual(args.adversarial_rule_output_bank, "banks/output.json")
+        self.assertEqual(args.adversarial_rule_report, "reports/learning.json")
+        self.assertTrue(args.online_adversarial_rules)
         self.assertTrue(args.adversarial_admit_trace_candidates)
         self.assertTrue(args.adversarial_run_synthetic_challenges)
         self.assertTrue(args.adversarial_run_compositional_challenges)
@@ -161,24 +161,24 @@ class FullDatasetProjectOrderingTest(unittest.TestCase):
         self.assertTrue(args.adversarial_pre_translation_refinement)
         self.assertTrue(args.adversarial_pre_translation_refinement_writeback)
 
-    def test_parser_accepts_json_insight_bank_for_prompt_retrieval(self):
+    def test_parser_accepts_json_rule_bank_for_prompt_retrieval(self):
         args = full_dataset_run.build_parser().parse_args(
             [
-                "--insights-json-bank",
+                "--rules-json-bank",
                 "banks/prompt_bank.json",
-                "--insight-retrieval-backend",
+                "--rule-retrieval-backend",
                 "auto",
-                "--insight-retrieval-index-cache",
+                "--rule-retrieval-index-cache",
                 "cache/prompt_bank.faiss",
-                "--insight-interaction-scorer",
+                "--rule-interaction-scorer",
                 "live",
             ]
         )
 
-        self.assertEqual(args.insights_json_bank, "banks/prompt_bank.json")
-        self.assertEqual(args.insight_retrieval_backend, "auto")
-        self.assertEqual(args.insight_retrieval_index_cache, "cache/prompt_bank.faiss")
-        self.assertEqual(args.insight_interaction_scorer, "live")
+        self.assertEqual(args.rules_json_bank, "banks/prompt_bank.json")
+        self.assertEqual(args.rule_retrieval_backend, "auto")
+        self.assertEqual(args.rule_retrieval_index_cache, "cache/prompt_bank.faiss")
+        self.assertEqual(args.rule_interaction_scorer, "live")
 
     def test_clear_runs_dir_preserves_legacy_output_directories(self):
         with tempfile.TemporaryDirectory() as tmpdir:
