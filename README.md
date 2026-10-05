@@ -5,7 +5,7 @@
 </div>
 
 TRAIL is an adversarial agentic learning framework for project-level C-to-Rust
-translation with single-insight and compositional insight adversarial learning.
+translation with single-rule and compositional rule adversarial learning.
 
 ## Project Directory Structure
 
@@ -15,8 +15,8 @@ translation with single-insight and compositional insight adversarial learning.
 │   ├── translator.py                   # Translation and repair orchestration
 │   ├── translation_runner.py           # Single-project and multi-project CLI
 │   ├── alignment_planner.py            # C/Rust callable binding planner
-│   ├── insights.py                     # Built-in structured translation insights
-│   ├── adversarial_insights.py         # JSON insight banks and adversarial updates
+│   ├── insights.py                     # Built-in structured translation rules
+│   ├── adversarial_insights.py         # JSON rule banks and adversarial updates
 │   ├── rbench_interface.py             # Rust interface scanning
 │   ├── rust_skeleton_generator.py      # Output crate generation
 │   ├── compilation_validator.py        # cargo check wrapper
@@ -26,15 +26,15 @@ translation with single-insight and compositional insight adversarial learning.
 ├── scripts/                            # Preprocessing, experiment, metrics, and repair tools
 ├── tests/                              # Unit and regression tests
 ├── data/                               # Benchmark inputs and extracted C metadata
-└── snapshots/insights/                 # Final JSON insight banks for GPT, DeepSeek, and Kimi
+└── snapshots/insights/                 # Final JSON rule banks for GPT, DeepSeek, and Kimi
 ```
 
 ## Introduction
 
 TRAIL translates C projects into Rust by pairing a translator agent with
-challenger-style adversarial learning over reusable single-insight and
-compositional insight records. Single insights capture focused translation
-rules or failure patterns, while compositional insights combine multiple
+challenger-style adversarial learning over reusable single-rule and
+compositional rule records. Individual rules capture focused translation
+patterns or failure modes, while rule compositions combine multiple
 records when a callable requires coordinated reasoning across C semantics, Rust
 interfaces, ownership, and validation feedback. The pipeline consists of four
 stages:
@@ -43,12 +43,12 @@ stages:
   functions, structs, enums, typedefs, globals, and build context.
 - It scans Rust interface crates, binds public Rust callables to relevant C
   functions or file context, and creates a Rust output skeleton.
-- It incrementally translates callables with single-insight retrieval and
-  compositional insight guidance, runs `cargo check` after each callable, and
+- It incrementally translates callables with single-rule retrieval and
+  compositional rule guidance, runs `cargo check` after each callable, and
   repairs compile failures.
 - It runs project-level tests, applies bounded test repair, records translation
-  traces, and updates JSON insight banks through adversarial challenge
-  workflows that mine stronger single and compositional insights.
+  traces, and updates JSON rule banks through adversarial challenge
+  workflows that mine stronger individual rules and rule compositions.
 
 ## Getting Started
 
@@ -116,20 +116,20 @@ uv run -m c2rust_translator.translation_runner --jobs 4 leftpad morton geofence
 Generated outputs are written under `output/runs/<run_id>/<project>/`. Pass
 `--run-id` to reuse an existing run directory.
 
-### 3. Adversarial Insight Update
+### 3. Adversarial Rule Update
 
-Run the adversarial insight update workflow over an existing output tree:
+Run the adversarial rule update workflow over an existing output tree:
 
 ```bash
 uv run python scripts/adversarial_insight_run.py output/runs/<run_id> \
-  --bank path/to/insight_bank.json \
-  --output-bank output/runs/<run_id>/adversarial_insights.updated.json \
-  --report output/runs/<run_id>/adversarial_insight_report.json
+  --bank path/to/rule_bank.json \
+  --output-bank output/runs/<run_id>/adversarial_rules.updated.json \
+  --report output/runs/<run_id>/adversarial_rule_report.json
 ```
 
-### 4. Insight Banks
+### 4. Rule Banks
 
-The repository publishes final insight banks in the JSON bank format used by
+The repository publishes final rule banks in the JSON bank format used by
 the experiment workflow:
 
 | Model | Bank |
