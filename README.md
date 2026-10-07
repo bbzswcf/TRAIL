@@ -1,6 +1,6 @@
 <div align="center">
 
-# Translator vs. Challenger: Adversarial Agentic Learning for C-to-Rust Translation
+# Translator vs. Challenger: Adversarial Agentic Self-Improvement for C-to-Rust Translation
 
 </div>
 
